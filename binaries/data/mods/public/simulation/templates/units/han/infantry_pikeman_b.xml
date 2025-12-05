@@ -30,7 +30,7 @@
   <Resistance>
     <Entity>
       <Damage>
-        <Hack op="add">-2</Hack>
+        <Hack op="add">-1</Hack>
         <Pierce op="add">-2</Pierce>
       </Damage>
     </Entity>
@@ -40,6 +40,9 @@
       special/formations/anti_cavalry
     </Formations>
   </UnitAI>
+  <UnitMotion>
+    <WalkSpeed op="add">0.5</WalkSpeed>
+  </UnitMotion>
   <VisualActor>
     <Actor>units/han/infantry_halberdman_b.xml</Actor>
   </VisualActor>
