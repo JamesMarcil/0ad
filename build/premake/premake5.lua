@@ -320,7 +320,7 @@ function project_set_build_flags()
 		usestandardpreprocessor "On"
 
 		-- use native wchar_t type (not typedef to unsigned short)
-		nativewchar "on"
+		nativewchar "On"
 
 		-- enable most of the standard warnings
 		warnings "Extra"
