@@ -298,7 +298,12 @@ function project_set_build_flags()
 	-- various platform-specific build flags
 	if os.istarget("windows") then
 
-		flags { "MultiProcessorCompile" }
+		if multiprocessorcompile ~= nil then
+			-- since 5.0.0-beta8
+			multiprocessorcompile("On")
+		else
+			flags { "MultiProcessorCompile" }
+		end
 
 		-- Since KB4088875 Windows 7 has a soft requirement for SSE2.
 		-- Windows 8+ and Firefox ESR52 make it hard requirement.
@@ -575,7 +580,12 @@ function project_add_contents(source_root, rel_source_dirs, rel_include_dirs, ex
 		files { pch_dir.."precompiled.h", pch_dir.."precompiled.cpp" }
 	else
 		defines { "CONFIG_ENABLE_PCH=0" }
-		flags { "NoPCH" }
+		if enablepch ~= nil then
+			-- since 5.0.0-beta8
+			enablepch("Off")
+		else
+			flags { "NoPCH" }
+		end
 	end
 
 	-- next is source root dir, for absolute (nonrelative) includes
