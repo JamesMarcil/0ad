@@ -8,13 +8,13 @@ set -e
 
 cd "$(dirname "$0")"
 
-PV=5.0.0-beta7
+PV=55fc4b2deac045ca06dc23d98426423356c507c1
 LIB_VERSION=${PV}+wfg0
 
 fetch()
 {
 	curl -fLo "premake-core-${PV}.tar.gz" \
-		"https://github.com/premake/premake-core/archive/refs/tags/v${PV}.tar.gz"
+		"https://github.com/premake/premake-core/archive/${PV}.tar.gz"
 }
 
 echo "Building Premake..."
@@ -54,18 +54,31 @@ patch -d "premake-core-${PV}" -p1 <patches/0001-Make-clang-default-toolset-for-B
 #build
 (
 	cd "premake-core-${PV}"
+
+	# Detection doesn't work on macOS, so specify manually.
+	if [ "$OS" = "Darwin" ]; then
+		arch=$(uname -m)
+		if [ "$arch" = "arm64" ]; then
+			platform="ARM64"
+		elif [ "$arch" = "x86_64" ]; then
+			platform="x64"
+		fi
+	fi
+
+	config="--zlib-src=none --curl-src=none"
+
 	case "${OS}" in
 		Windows)
-			${MAKE} "${JOBS}" -f Bootstrap.mak windows
+			${MAKE} "${JOBS}" -f Bootstrap.mak PREMAKE_OPTS="${config}" windows
 			;;
 		Darwin)
-			${MAKE} "${JOBS}" -f Bootstrap.mak PREMAKE_OPTS="--zlib-src=none --curl-src=none" osx
+			${MAKE} "${JOBS}" -f Bootstrap.mak PLATFORM="${platform}" PREMAKE_OPTS="${config}" osx
 			;;
 		*BSD)
-			${MAKE} "${JOBS}" -f Bootstrap.mak bsd
+			${MAKE} "${JOBS}" -f Bootstrap.mak PREMAKE_OPTS="${config}" bsd
 			;;
 		*)
-			${MAKE} "${JOBS}" -f Bootstrap.mak linux
+			${MAKE} "${JOBS}" -f Bootstrap.mak PREMAKE_OPTS="${config}" linux
 			;;
 	esac
 )
