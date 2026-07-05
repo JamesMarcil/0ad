@@ -34,6 +34,7 @@
 #include <wx/spinctrl.h>
 #include <wx/stattext.h>
 #include <wx/string.h>
+#include <wx/textctrl.h>
 #include <wx/toolbar.h>
 #include <wx/translation.h>
 
@@ -186,6 +187,11 @@ void Brush::CreateUI(wxWindow* parent, wxSizer* sizer)
 
 	sizer->AddSpacer(5);
 
+	// NOTE: on MSW pressing Enter with wxSpinCtrl is used to navigate, ie it
+	// triggers the default Window action which is ok / close. So we have to
+	// explicitly generate the wxCommandEvent wxEVT_TEXT_ENTER and capture it.
+	// https://gitea.wildfiregames.com/0ad/0ad/issues/9026
+
 	auto* brushSizeLabel = new wxStaticText(parent, wxID_ANY, _("Size"));
 	auto* brushSizeCtrl = new wxSpinCtrl(parent, wxID_ANY,
 		wxString::Format(_T("%d"), GetSize()),
@@ -194,6 +200,7 @@ void Brush::CreateUI(wxWindow* parent, wxSizer* sizer)
 		0, 100, GetSize());
 	auto burshSizeSetter = [this, brushSizeCtrl](auto&){ SetSize(brushSizeCtrl->GetValue()); };
 	brushSizeCtrl->Bind(wxEVT_SPINCTRL, burshSizeSetter);
+	brushSizeCtrl->Bind(wxEVT_TEXT_ENTER, burshSizeSetter);
 
 	auto* brushStrengthLabel =  new wxStaticText(parent, wxID_ANY, _("Strength"));
 	auto* brushStrengthCtrl = new wxSpinCtrl(parent, wxID_ANY,
@@ -203,6 +210,7 @@ void Brush::CreateUI(wxWindow* parent, wxSizer* sizer)
 		0, 100, static_cast<int>(10.f * GetStrength()));
 	auto burshStrenghtSetter = [this, brushStrengthCtrl](auto&){ SetStrength(brushStrengthCtrl->GetValue() / 10.f); };
 	brushStrengthCtrl->Bind(wxEVT_SPINCTRL, burshStrenghtSetter);
+	brushStrengthCtrl->Bind(wxEVT_TEXT_ENTER, burshStrenghtSetter);
 
 	wxFlexGridSizer* spinnerSizer = new wxFlexGridSizer(2, 5, 5);
 	spinnerSizer->AddGrowableCol(1);

@@ -192,35 +192,35 @@ public:
 			wxFlexGridSizer* gridSizer = new wxFlexGridSizer(3, 5, 5);
 			gridSizer->AddGrowableCol(2);
 
-			wxSpinCtrl* foodCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerFood, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, INT_MAX);
+			wxSpinCtrl* foodCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerFood, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER, 0, INT_MAX);
 			gridSizer->Add(new DefaultCheckbox(resourceSizer->GetStaticBox(), ID_DefaultFood, foodCtrl), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 			gridSizer->Add(new wxStaticText(resourceSizer->GetStaticBox(), wxID_ANY, _("Food")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
 			gridSizer->Add(Tooltipped(foodCtrl,
 				_("Initial value of food resource")), wxSizerFlags().Expand());
 			m_Controls.food = foodCtrl;
 
-			wxSpinCtrl* woodCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerWood, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, INT_MAX);
+			wxSpinCtrl* woodCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerWood, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER, 0, INT_MAX);
 			gridSizer->Add(new DefaultCheckbox(resourceSizer->GetStaticBox(), ID_DefaultWood, woodCtrl), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 			gridSizer->Add(new wxStaticText(resourceSizer->GetStaticBox(), wxID_ANY, _("Wood")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
 			gridSizer->Add(Tooltipped(woodCtrl,
 				_("Initial value of wood resource")), wxSizerFlags().Expand());
 			m_Controls.wood = woodCtrl;
 
-			wxSpinCtrl* metalCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerMetal, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, INT_MAX);
+			wxSpinCtrl* metalCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerMetal, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER, 0, INT_MAX);
 			gridSizer->Add(new DefaultCheckbox(resourceSizer->GetStaticBox(), ID_DefaultMetal, metalCtrl), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 			gridSizer->Add(new wxStaticText(resourceSizer->GetStaticBox(), wxID_ANY, _("Metal")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
 			gridSizer->Add(Tooltipped(metalCtrl,
 				_("Initial value of metal resource")), wxSizerFlags().Expand());
 			m_Controls.metal = metalCtrl;
 
-			wxSpinCtrl* stoneCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerStone, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, INT_MAX);
+			wxSpinCtrl* stoneCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerStone, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER, 0, INT_MAX);
 			gridSizer->Add(new DefaultCheckbox(resourceSizer->GetStaticBox(), ID_DefaultStone, stoneCtrl), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 			gridSizer->Add(new wxStaticText(resourceSizer->GetStaticBox(), wxID_ANY, _("Stone")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
 			gridSizer->Add(Tooltipped(stoneCtrl,
 				_("Initial value of stone resource")), wxSizerFlags().Expand());
 			m_Controls.stone = stoneCtrl;
 
-			wxSpinCtrl* popCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerPop, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, INT_MAX);
+			wxSpinCtrl* popCtrl = new wxSpinCtrl(resourceSizer->GetStaticBox(), ID_PlayerPop, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER, 0, INT_MAX);
 			gridSizer->Add(new DefaultCheckbox(resourceSizer->GetStaticBox(), ID_DefaultPop, popCtrl), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
 			gridSizer->Add(new wxStaticText(resourceSizer->GetStaticBox(), wxID_ANY, _("Pop limit")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
 			gridSizer->Add(Tooltipped(popCtrl,
@@ -477,6 +477,14 @@ private:
 		}
 	}
 
+	void OnEditSpin(wxCommandEvent&)
+	{
+		if (!m_InGUIUpdate)
+		{
+			SendToEngine();
+		}
+	}
+
 	void OnPlayerColor(wxCommandEvent& WXUNUSED(evt))
 	{
 		if (!m_InGUIUpdate)
@@ -493,22 +501,22 @@ private:
 		//	and we don't want to handle the same event twice
 	}
 
-	void OnNumPlayersSpin(wxSpinEvent& evt)
+	void SetNumPlayers(int newNumPlayers)
 	{
 		if (!m_InGUIUpdate)
 		{
-			wxASSERT(evt.GetInt() > 0);
+			wxASSERT(newNumPlayers > 0);
 
 			// When wxMessageBox pops up, wxSpinCtrl loses focus, which
 			//	forces another EVT_SPINCTRL event, which we don't want
 			//	to handle, so we check here for a change
-			if (evt.GetInt() == (int)m_NumPlayers)
+			if (newNumPlayers == (int)m_NumPlayers)
 			{
 				return;	// No change
 			}
 
 			size_t oldNumPlayers = m_NumPlayers;
-			m_NumPlayers = evt.GetInt();
+			m_NumPlayers = newNumPlayers;
 
 			if (m_NumPlayers < oldNumPlayers)
 			{
@@ -574,14 +582,17 @@ BEGIN_EVENT_TABLE(PlayerSettingsControl, wxPanel)
 	EVT_BUTTON(ID_CameraClear, PlayerSettingsControl::OnEdit)
 	EVT_CHECKBOX(wxID_ANY, PlayerSettingsControl::OnEdit)
 	EVT_CHOICE(wxID_ANY, PlayerSettingsControl::OnEdit)
-	EVT_TEXT(ID_NumPlayers, PlayerSettingsControl::OnNumPlayersText)
 	EVT_TEXT(wxID_ANY, PlayerSettingsControl::OnEdit)
-	EVT_SPINCTRL(ID_NumPlayers, PlayerSettingsControl::OnNumPlayersSpin)
 	EVT_SPINCTRL(ID_PlayerFood, PlayerSettingsControl::OnEditSpin)
 	EVT_SPINCTRL(ID_PlayerWood, PlayerSettingsControl::OnEditSpin)
 	EVT_SPINCTRL(ID_PlayerMetal, PlayerSettingsControl::OnEditSpin)
 	EVT_SPINCTRL(ID_PlayerStone, PlayerSettingsControl::OnEditSpin)
 	EVT_SPINCTRL(ID_PlayerPop, PlayerSettingsControl::OnEditSpin)
+	EVT_TEXT_ENTER(ID_PlayerFood, PlayerSettingsControl::OnEditSpin)
+	EVT_TEXT_ENTER(ID_PlayerWood, PlayerSettingsControl::OnEditSpin)
+	EVT_TEXT_ENTER(ID_PlayerMetal, PlayerSettingsControl::OnEditSpin)
+	EVT_TEXT_ENTER(ID_PlayerStone, PlayerSettingsControl::OnEditSpin)
+	EVT_TEXT_ENTER(ID_PlayerPop, PlayerSettingsControl::OnEditSpin)
 END_EVENT_TABLE();
 
 PlayerSettingsControl::PlayerSettingsControl(wxWindow* parent, ScenarioEditor& scenarioEditor)
@@ -604,9 +615,19 @@ PlayerSettingsControl::PlayerSettingsControl(wxWindow* parent, ScenarioEditor& s
 
     	boxSizer->AddSpacer(10);
 
-		wxSpinCtrl* numPlayersSpin = new wxSpinCtrl(topBox, ID_NumPlayers, wxEmptyString, wxDefaultPosition, wxSize(40, -1));
-		numPlayersSpin->SetValue(MAX_NUM_PLAYERS);
-		numPlayersSpin->SetRange(1, MAX_NUM_PLAYERS);
+		// NOTE: on MSW pressing Enter with wxSpinCtrl is used to navigate, ie
+		// it triggers the default Window action which is ok / close. So we
+		// have to explicitly generate the wxCommandEvent wxEVT_TEXT_ENTER and
+		// capture it.
+		// https://gitea.wildfiregames.com/0ad/0ad/issues/9026
+
+		wxSpinCtrl* numPlayersSpin = new wxSpinCtrl(topBox, ID_NumPlayers,
+			wxEmptyString, wxDefaultPosition, wxDefaultSize,
+			wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER,
+			1, MAX_NUM_PLAYERS, MAX_NUM_PLAYERS);
+		auto numPlayerSetter = [this, numPlayersSpin](auto&){ SetNumPlayers(numPlayersSpin->GetValue()); };
+		numPlayersSpin->Bind(wxEVT_SPINCTRL, numPlayerSetter);
+		numPlayersSpin->Bind(wxEVT_TEXT_ENTER, numPlayerSetter);
 		boxSizer->Add(numPlayersSpin);
 
 		gridSizer->Add(boxSizer);
