@@ -45,46 +45,11 @@
  **/
 extern bool ogl_Init(void* (load)(const char*));
 
-//-----------------------------------------------------------------------------
-// extensions
-
-/**
- * Check whether the given OpenGL extension is supported.
- * NOTE: this does not check whether the extensions is *loaded*.
- * for that, check whether GLAD_<extension name> is not null.
- *
- * @param ext extension string; exact case.
- * @return bool.
- **/
-extern bool ogl_HaveExtension(const char* ext);
-
 /**
  * make sure the OpenGL implementation version matches or is newer than
  * the given version.
  */
 extern bool ogl_HaveVersion(int major, int minor);
-/**
- * check if a list of extensions are all supported (as determined by
- * ogl_HaveExtension).
- *
- * @param dummy value ignored; varargs requires a placeholder.
- * follow it by a list of const char* extension string parameters,
- * terminated by a 0 pointer.
- * @return 0 if all are present; otherwise, the first extension in the
- * list that's not supported (useful for reporting errors).
- **/
-extern const char* ogl_HaveExtensions(int dummy, ...) SENTINEL_ARG;
-
-/**
- * get a list of all supported extensions.
- *
- * useful for crash logs / system information.
- *
- * @return read-only C string of unspecified length containing all
- * advertised extension names, separated by space.
- **/
-extern const char* ogl_ExtensionString();
-
 
 //-----------------------------------------------------------------------------
 // errors

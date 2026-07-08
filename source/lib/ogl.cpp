@@ -31,143 +31,12 @@
 #include <cstdarg>
 #include <cstring>
 
-//----------------------------------------------------------------------------
-// extensions
-//----------------------------------------------------------------------------
-
-static const char* exts = nullptr;
-
-static bool have_30 = false;
-
-
-// return a C string of unspecified length containing a space-separated
-// list of all extensions the OpenGL implementation advertises.
-// (useful for crash logs).
-const char* ogl_ExtensionString()
-{
-	ENSURE(exts && "call ogl_Init before using this function");
-	return exts;
-}
-
-
-// paranoia: newer drivers may forget to advertise an extension
-// indicating support for something that has been folded into the core.
-// we therefore check for all extensions known to be offered by the
-// GL implementation present on the user's system; ogl_HaveExtension will
-// take this into account.
-// the app can therefore just ask for extensions and not worry about this.
-static bool isImplementedInCore(const char* ext)
-{
-#define MATCH(known_ext)\
-	if(!strcmp(ext, #known_ext))\
-		return true;
-
-	if(have_30)
-	{
-		MATCH(GL_EXT_gpu_shader4);
-		MATCH(GL_NV_conditional_render);
-		MATCH(GL_ARB_color_buffer_float);
-		MATCH(GL_ARB_depth_buffer_float);
-		MATCH(GL_ARB_texture_float);
-		MATCH(GL_EXT_packed_float);
-		MATCH(GL_EXT_texture_shared_exponent);
-		MATCH(GL_EXT_framebuffer_object);
-		MATCH(GL_NV_half_float);
-		MATCH(GL_ARB_half_float_pixel);
-		MATCH(GL_EXT_framebuffer_multisample);
-		MATCH(GL_EXT_framebuffer_blit);
-		MATCH(GL_EXT_texture_integer);
-		MATCH(GL_EXT_texture_array);
-		MATCH(GL_EXT_packed_depth_stencil);
-		MATCH(GL_EXT_draw_buffers2);
-		MATCH(GL_EXT_texture_compression_rgtc);
-		MATCH(GL_EXT_transform_feedback);
-		MATCH(GL_APPLE_vertex_array_object);
-		MATCH(GL_EXT_framebuffer_sRGB);
-	}
-
-#undef MATCH
-	return false;
-}
-
-
-// check if the extension <ext> is supported by the OpenGL implementation.
-// takes subsequently added core support for some extensions into account.
-bool ogl_HaveExtension(const char* ext)
-{
-	ENSURE(exts && "call ogl_Init before using this function");
-
-	if(isImplementedInCore(ext))
-		return true;
-
-	const char *p = exts, *end;
-
-	// make sure ext is valid & doesn't contain spaces
-	if(!ext || ext[0] == '\0' || strchr(ext, ' '))
-		return false;
-
-	for(;;)
-	{
-		p = strstr(p, ext);
-		if(!p)
-			return false; // <ext> string not found - extension not supported
-		end = p + strlen(ext); // end of current substring
-
-		// make sure the substring found is an entire extension string,
-		// i.e. it starts and ends with ' '
-		if((p == exts || p[-1] == ' ') &&	// valid start AND
-		   (*end == ' ' || *end == '\0'))	// valid end
-			return true;
-		p = end;
-	}
-}
 
 static int GLVersion;
 
 bool ogl_HaveVersion(int major, int minor)
 {
 	return GLAD_MAKE_VERSION(major, minor) <= GLVersion;
-}
-
-
-// check if all given extension strings (passed as const char* parameters,
-// terminated by a 0 pointer) are supported by the OpenGL implementation,
-// as determined by ogl_HaveExtension.
-// returns 0 if all are present; otherwise, the first extension in the
-// list that's not supported (useful for reporting errors).
-//
-// note: dummy parameter is necessary to access parameter va_list.
-//
-//
-// rationale: this interface is more convenient than individual
-// ogl_HaveExtension calls and allows reporting which extension is missing.
-//
-// one disadvantage is that there is no way to indicate that either one
-// of 2 extensions would be acceptable, e.g. (ARB|EXT)_texture_env_dot3.
-// this is isn't so bad, since they wouldn't be named differently
-// if there weren't non-trivial changes between them. for that reason,
-// we refrain from equivalence checks (which would boil down to
-// string-matching known extensions to their equivalents).
-const char* ogl_HaveExtensions(int dummy, ...)
-{
-	const char* ext;
-
-	va_list args;
-	va_start(args, dummy);
-	for(;;)
-	{
-		ext = va_arg(args, const char*);
-		// end of list reached; all were present => return 0.
-		if(!ext)
-			break;
-
-		// not found => return name of missing extension.
-		if(!ogl_HaveExtension(ext))
-			break;
-	}
-	va_end(args);
-
-	return ext;
 }
 
 const char* ogl_GetErrorName(GLenum err)
@@ -250,13 +119,6 @@ bool ogl_Init(void* (load)(const char*))
 	}
 #endif
 #undef LOAD_ERROR
-
-	// cache extension list and versions for oglHave*.
-	// note: this is less about performance (since the above are not
-	// time-critical) than centralizing the 'OpenGL is ready' check.
-	exts = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
-	ENSURE(exts);	// else: called before OpenGL is ready for use
-	have_30 = ogl_HaveVersion(3, 0);
 
 	return true;
 }
