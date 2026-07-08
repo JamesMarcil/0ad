@@ -110,7 +110,7 @@ std::string GetDriverInformationImpl()
 std::vector<std::string> GetExtensionsImpl()
 {
 	std::vector<std::string> extensions;
-	const std::string exts = ogl_ExtensionString();
+	const std::string exts{reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS))};
 	boost::split(extensions, exts, boost::algorithm::is_space(), boost::token_compress_on);
 	std::sort(extensions.begin(), extensions.end());
 	return extensions;
@@ -293,14 +293,21 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 
 	ogl_Init(SDL_GL_GetProcAddress);
 
+	device->m_Name = GetNameImpl();
+	device->m_Version = GetVersionImpl();
+	device->m_DriverInformation = GetDriverInformationImpl();
+	device->m_Extensions = GetExtensionsImpl();
+
+	LOGMESSAGE("GL device name: %s", device->m_Name.c_str());
+	LOGMESSAGE("GL version: %s", device->m_Version.c_str());
+
 #if CONFIG2_GLES
 	const bool minimumRequiredGLVersionSupported{ogl_HaveVersion(2, 1)};
 #else
 	const bool minimumRequiredGLVersionSupported{ogl_HaveVersion(2, 0)};
 #endif
 
-	if (!minimumRequiredGLVersionSupported
-		|| (!ogl_HaveExtension("GL_EXT_framebuffer_object") && !ogl_HaveExtension("GL_ARB_framebuffer_object")))
+	if (!minimumRequiredGLVersionSupported || !GLAD_GL_EXT_framebuffer_object)
 	{
 		// It doesn't make sense to continue working here, because we're not
 		// able to display anything.
@@ -312,11 +319,6 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 		);
 	}
 
-	device->m_Name = GetNameImpl();
-	device->m_Version = GetVersionImpl();
-	device->m_DriverInformation = GetDriverInformationImpl();
-	device->m_Extensions = GetExtensionsImpl();
-
 	// Set packing parameters for uploading and downloading data.
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -325,9 +327,9 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 	if (g_ConfigDB.Get("renderer.backend.gl.enableframebufferinvalidating", false))
 	{
 #if CONFIG2_GLES
-		device->m_UseFramebufferInvalidating = ogl_HaveExtension("GL_EXT_discard_framebuffer");
+		device->m_UseFramebufferInvalidating = GLAD_GL_EXT_discard_framebuffer;
 #else
-		device->m_UseFramebufferInvalidating = ogl_HaveExtension("GL_ARB_invalidate_subdata");
+		device->m_UseFramebufferInvalidating = GLAD_GL_ARB_invalidate_subdata;
 #endif
 	}
 
@@ -336,19 +338,18 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 #if CONFIG2_GLES
 	// Some GLES implementations have GL_EXT_texture_compression_dxt1
 	// but that only supports DXT1 so we can't use it.
-	capabilities.S3TC = ogl_HaveExtension("GL_EXT_texture_compression_s3tc");
+	capabilities.S3TC = GLAD_GL_EXT_texture_compression_s3tc;
 #else
 	// Note: we don't bother checking for GL_S3_s3tc - it is incompatible
 	// and irrelevant (was never widespread).
-	capabilities.S3TC = ogl_HaveExtension("GL_EXT_texture_compression_s3tc");
+	capabilities.S3TC = GLAD_GL_EXT_texture_compression_s3tc;
 #endif
 #if CONFIG2_GLES
 	capabilities.multisampling = false;
 	capabilities.maxSampleCount = 1;
 #else
 	capabilities.multisampling =
-		ogl_HaveVersion(3, 3) &&
-		ogl_HaveExtension("GL_ARB_texture_multisample");
+		ogl_HaveVersion(3, 3) && GLAD_GL_ARB_texture_multisample;
 	if (capabilities.multisampling)
 	{
 		// By default GL_MULTISAMPLE should be enabled, but enable it for buggy drivers.
@@ -358,7 +359,7 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 		capabilities.maxSampleCount = maxSamples;
 	}
 #endif
-	capabilities.anisotropicFiltering = ogl_HaveExtension("GL_EXT_texture_filter_anisotropic");
+	capabilities.anisotropicFiltering = GLAD_GL_EXT_texture_filter_anisotropic;
 	if (capabilities.anisotropicFiltering)
 	{
 		GLfloat maxAnisotropy = 1.0f;
@@ -370,11 +371,10 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 	capabilities.maxTextureSize = maxTextureSize;
 
 #if CONFIG2_GLES
-	const bool isDebugInCore = ogl_HaveVersion(3, 2);
+	const bool hasDebug = GLAD_GL_KHR_debug;
 #else
-	const bool isDebugInCore = ogl_HaveVersion(4, 3);
+	const bool hasDebug = GLAD_GL_KHR_debug;
 #endif
-	const bool hasDebug = isDebugInCore || ogl_HaveExtension("GL_KHR_debug");
 	if (hasDebug)
 	{
 #ifdef NDEBUG
@@ -412,10 +412,9 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 #else
 	capabilities.instancing =
 		(ogl_HaveVersion(3, 3) ||
-		(ogl_HaveExtension("GL_ARB_draw_instanced") &&
-		ogl_HaveExtension("GL_ARB_instanced_arrays")));
+		(GLAD_GL_ARB_draw_instanced && GLAD_GL_ARB_instanced_arrays));
 	GLint maxStorageBufferSize{0};
-	if (ogl_HaveExtension("GL_ARB_shader_storage_buffer_object"))
+	if (GLAD_GL_ARB_shader_storage_buffer_object)
 		glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &maxStorageBufferSize);
 	// Storage buffers might not work correctly on some Mesa drivers or might have
 	// decreased performance. We need to investigate it further but for now we
@@ -427,11 +426,11 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 		capabilities.computeShaders && maxStorageBufferSize > 0
 		&& static_cast<size_t>(maxStorageBufferSize) >= 128 * MiB
 		&& !disableStorageForMesa
-		&& ogl_HaveExtension("GL_ARB_uniform_buffer_object")
-		&& ogl_HaveExtension("GL_ARB_shader_storage_buffer_object")
-		&& ogl_HaveExtension("GL_ARB_half_float_vertex")
-		&& ogl_HaveExtension("GL_ARB_program_interface_query");
-	capabilities.timestamps = ogl_HaveExtension("GL_ARB_timer_query");
+		&& GLAD_GL_ARB_uniform_buffer_object
+		&& GLAD_GL_ARB_shader_storage_buffer_object
+		&& GLAD_GL_ARB_half_float_vertex
+		&& GLAD_GL_ARB_program_interface_query;
+	capabilities.timestamps = GLAD_GL_ARB_timer_query;
 	if (capabilities.timestamps)
 		capabilities.timestampMultiplier = 1.0 / 1e9;
 #endif
@@ -549,51 +548,48 @@ void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 
 	// Core OpenGL 3.0:
 
-	if (ogl_HaveExtension("GL_EXT_gpu_shader4"))
+	if (GLAD_GL_EXT_gpu_shader4)
 	{
 		INTEGER(MIN_PROGRAM_TEXEL_OFFSET_EXT); // no _EXT version of these in glext.h
 		INTEGER(MAX_PROGRAM_TEXEL_OFFSET_EXT);
 	}
 
-	if (ogl_HaveExtension("GL_EXT_framebuffer_object"))
-	{
-		INTEGER(MAX_COLOR_ATTACHMENTS_EXT);
-		INTEGER(MAX_RENDERBUFFER_SIZE_EXT);
-	}
+	INTEGER(MAX_COLOR_ATTACHMENTS_EXT);
+	INTEGER(MAX_RENDERBUFFER_SIZE_EXT);
 
-	if (ogl_HaveExtension("GL_EXT_framebuffer_multisample"))
+	if (GLAD_GL_EXT_framebuffer_multisample)
 	{
 		INTEGER(MAX_SAMPLES_EXT);
 	}
 
-	if (ogl_HaveExtension("GL_EXT_texture_array"))
+	if (GLAD_GL_EXT_texture_array)
 	{
 		INTEGER(MAX_ARRAY_TEXTURE_LAYERS_EXT);
 	}
 
 	// Other interesting extensions:
 
-	if (ogl_HaveExtension("GL_EXT_timer_query") || ogl_HaveExtension("GL_ARB_timer_query"))
+	if (GLAD_GL_ARB_timer_query)
 	{
 		QUERY_COUNTER_BITS(TIME_ELAPSED);
 	}
 
-	if (ogl_HaveExtension("GL_ARB_timer_query"))
+	if (GLAD_GL_ARB_timer_query)
 	{
 		QUERY_COUNTER_BITS(TIMESTAMP);
 	}
 
-	if (ogl_HaveExtension("GL_EXT_texture_filter_anisotropic"))
+	if (GLAD_GL_EXT_texture_filter_anisotropic)
 	{
 		FLOAT(MAX_TEXTURE_MAX_ANISOTROPY_EXT);
 	}
 
-	if (ogl_HaveExtension("GL_ARB_texture_rectangle"))
+	if (GLAD_GL_ARB_texture_rectangle)
 	{
 		INTEGER(MAX_RECTANGLE_TEXTURE_SIZE_ARB);
 	}
 
-	if (ogl_HaveExtension("GL_ARB_geometry_shader4"))
+	if (GLAD_GL_ARB_geometry_shader4)
 	{
 		INTEGER(MAX_GEOMETRY_TEXTURE_IMAGE_UNITS_ARB);
 		INTEGER(MAX_GEOMETRY_OUTPUT_VERTICES_ARB);
@@ -603,13 +599,13 @@ void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 		INTEGER(MAX_VERTEX_VARYING_COMPONENTS_ARB);
 	}
 
-	if (ogl_HaveExtension("GL_ARB_uniform_buffer_object"))
+	if (GLAD_GL_ARB_uniform_buffer_object)
 	{
 		INTEGER(MAX_UNIFORM_BLOCK_SIZE);
 		INTEGER(MAX_UNIFORM_BUFFER_BINDINGS);
 	}
 
-	if (ogl_HaveExtension("GL_ARB_shader_storage_buffer_object"))
+	if (GLAD_GL_ARB_shader_storage_buffer_object)
 	{
 		INTEGER(MAX_SHADER_STORAGE_BLOCK_SIZE);
 		INTEGER(MAX_SHADER_STORAGE_BUFFER_BINDINGS);
