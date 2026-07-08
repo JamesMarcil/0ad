@@ -32,13 +32,6 @@
 #include <cstring>
 
 
-static int GLVersion;
-
-bool ogl_HaveVersion(int major, int minor)
-{
-	return GLAD_MAKE_VERSION(major, minor) <= GLVersion;
-}
-
 const char* ogl_GetErrorName(GLenum err)
 {
 #define E(e) case e: return #e;
@@ -85,40 +78,4 @@ void ogl_WarnIfErrorLoc(const char *file, int line)
 
 	if(error_enountered)
 		debug_printf("%s:%d: OpenGL error(s) occurred: %s (%04x)\n", file, line, ogl_GetErrorName(first_error), (unsigned int)first_error);
-}
-
-//----------------------------------------------------------------------------
-// feature and limit detect
-//----------------------------------------------------------------------------
-
-bool ogl_Init(void* (load)(const char*))
-{
-	GLADloadfunc loadFunc = reinterpret_cast<GLADloadfunc>(load);
-	if (!loadFunc)
-		return false;
-
-#define LOAD_ERROR(ERROR_STRING) \
-	if (g_Logger) \
-		LOGERROR(ERROR_STRING); \
-	else \
-		debug_printf(ERROR_STRING); \
-
-#if !CONFIG2_GLES
-	GLVersion = gladLoadGL(loadFunc);
-	if (!GLVersion)
-	{
-		LOAD_ERROR("Failed to load OpenGL functions.");
-		return false;
-	}
-#else
-	GLVersion = gladLoadGLES2(loadFunc);
-	if (!GLVersion)
-	{
-		LOAD_ERROR("Failed to load GLES2 functions.");
-		return false;
-	}
-#endif
-#undef LOAD_ERROR
-
-	return true;
 }

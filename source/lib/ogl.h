@@ -37,20 +37,6 @@
 # include <glad/gl.h>
 #endif
 
-/**
- * initialization: import extension function pointers and do feature detect.
- * call before using any other function.
- * fails if OpenGL not ready for use.
- * TODO: move loading functionality to GL backend.
- **/
-extern bool ogl_Init(void* (load)(const char*));
-
-/**
- * make sure the OpenGL implementation version matches or is newer than
- * the given version.
- */
-extern bool ogl_HaveVersion(int major, int minor);
-
 //-----------------------------------------------------------------------------
 // errors
 
