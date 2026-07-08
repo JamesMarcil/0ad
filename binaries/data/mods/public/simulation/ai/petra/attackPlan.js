@@ -2284,7 +2284,7 @@ AttackPlan.prototype.Serialize = function()
 		"isBlocked": this.isBlocked,
 		"targetPlayer": this.targetPlayer,
 		"target": this.target !== undefined ? this.target.id() : undefined,
-		"targetPos": clone(this.targetPos),
+		"targetPos": this.targetPos !== undefined ? clone(this.targetPos) : undefined,
 		"uniqueTargetId": this.uniqueTargetId,
 		"path": this.path,
 		"unitCollUpdateArray": this.unitCollUpdateArray
