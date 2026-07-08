@@ -160,6 +160,8 @@ private:
 	std::vector<Query> m_Queries;
 
 	Capabilities m_Capabilities{};
+
+	bool m_R8Supported{false};
 };
 
 } // namespace GL

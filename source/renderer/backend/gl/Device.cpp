@@ -291,7 +291,16 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 		}
 	}
 
-	ogl_Init(SDL_GL_GetProcAddress);
+#if CONFIG2_GLES
+	const int version{gladLoadGLES2(reinterpret_cast<GLADloadfunc>(SDL_GL_GetProcAddress))};
+#else
+	const int version{gladLoadGL(reinterpret_cast<GLADloadfunc>(SDL_GL_GetProcAddress))};
+#endif
+	if (!version)
+	{
+		DEBUG_DISPLAY_FATAL_ERROR(L"GLAD failed to load GL");
+		return nullptr;
+	}
 
 	device->m_Name = GetNameImpl();
 	device->m_Version = GetVersionImpl();
@@ -302,9 +311,9 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 	LOGMESSAGE("GL version: %s", device->m_Version.c_str());
 
 #if CONFIG2_GLES
-	const bool minimumRequiredGLVersionSupported{ogl_HaveVersion(2, 1)};
+	const bool minimumRequiredGLVersionSupported{version >= GLAD_MAKE_VERSION(2, 1)};
 #else
-	const bool minimumRequiredGLVersionSupported{ogl_HaveVersion(2, 0)};
+	const bool minimumRequiredGLVersionSupported{version >= GLAD_MAKE_VERSION(2, 0)};
 #endif
 
 	if (!minimumRequiredGLVersionSupported || !GLAD_GL_EXT_framebuffer_object)
@@ -334,7 +343,7 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 	}
 
 	Capabilities& capabilities = device->m_Capabilities;
-	capabilities.computeShaders = ogl_HaveVersion(4, 3);
+	capabilities.computeShaders = version >= GLAD_MAKE_VERSION(4, 3);
 #if CONFIG2_GLES
 	// Some GLES implementations have GL_EXT_texture_compression_dxt1
 	// but that only supports DXT1 so we can't use it.
@@ -349,7 +358,7 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 	capabilities.maxSampleCount = 1;
 #else
 	capabilities.multisampling =
-		ogl_HaveVersion(3, 3) && GLAD_GL_ARB_texture_multisample;
+		version >= GLAD_MAKE_VERSION(3, 3) && GLAD_GL_ARB_texture_multisample;
 	if (capabilities.multisampling)
 	{
 		// By default GL_MULTISAMPLE should be enabled, but enable it for buggy drivers.
@@ -411,7 +420,7 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 	capabilities.timestamps = false;
 #else
 	capabilities.instancing =
-		(ogl_HaveVersion(3, 3) ||
+		(version >= GLAD_MAKE_VERSION(3, 3) ||
 		(GLAD_GL_ARB_draw_instanced && GLAD_GL_ARB_instanced_arrays));
 	GLint maxStorageBufferSize{0};
 	if (GLAD_GL_ARB_shader_storage_buffer_object)
@@ -434,6 +443,8 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 	if (capabilities.timestamps)
 		capabilities.timestampMultiplier = 1.0 / 1e9;
 #endif
+
+	device->m_R8Supported = version >= GLAD_MAKE_VERSION(3, 0);
 
 	return device;
 }
@@ -778,7 +789,7 @@ bool CDevice::IsFramebufferFormatSupported(const Format format) const
 		break;
 #if !CONFIG2_GLES
 	case Format::R8_UNORM:
-		supported = ogl_HaveVersion(3, 0);
+		supported = m_R8Supported;
 		break;
 	case Format::R16G16B16A16_SFLOAT:
 	case Format::R32G32B32A32_SFLOAT:
