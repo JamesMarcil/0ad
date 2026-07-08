@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,6 +29,8 @@ class Brush
 	friend class BrushSizeCtrl;
 	friend class BrushStrengthCtrl;
 public:
+	enum class Shape { CIRCLE = 0, SQUARE};
+
 	Brush();
 	~Brush();
 
@@ -38,8 +40,10 @@ public:
 	int GetHeight() const;
 	std::vector<float> GetData() const;
 
-	void SetCircle(int size);
-	void SetSquare(int size);
+	void SetShape(Shape shape);
+
+	int GetSize() const;
+	void SetSize(int size);
 
 	float GetStrength() const;
 	void SetStrength(float strength);
@@ -54,8 +58,7 @@ private:
 	// If active, send SetBrush message to the game
 	void Send();
 
-	enum BrushShape { CIRCLE = 0, SQUARE};
-	BrushShape m_Shape;
+	Shape m_Shape;
 	int m_Size;
 	float m_Strength;
 	bool m_IsActive;

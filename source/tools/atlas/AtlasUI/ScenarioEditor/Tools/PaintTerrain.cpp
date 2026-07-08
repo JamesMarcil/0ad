@@ -53,7 +53,8 @@ public:
 	{
 		SetState(&Waiting);
 
-		m_EyedropperBrush.SetSquare(2);
+		m_EyedropperBrush.SetShape(Brush::Shape::SQUARE);
+		m_EyedropperBrush.SetSize(2);
 	}
 
 
