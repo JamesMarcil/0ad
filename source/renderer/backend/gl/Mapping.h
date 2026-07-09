@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,7 +18,13 @@
 #ifndef INCLUDED_RENDERER_BACKEND_GL_MAPPING
 #define INCLUDED_RENDERER_BACKEND_GL_MAPPING
 
-#include "lib/ogl.h"
+#include "lib/config2.h"
+
+#if CONFIG2_GLES
+#include "external_libraries/opengles2_wrapper.h"
+#else
+#include <glad/gl.h>
+#endif
 
 namespace Renderer::Backend { enum class BlendFactor; }
 namespace Renderer::Backend { enum class BlendOp; }

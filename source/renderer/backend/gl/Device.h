@@ -18,7 +18,7 @@
 #ifndef INCLUDED_RENDERER_BACKEND_GL_DEVICE
 #define INCLUDED_RENDERER_BACKEND_GL_DEVICE
 
-#include "lib/ogl.h"
+#include "lib/config2.h"
 #include "ps/CStr.h"
 #include "renderer/backend/Backend.h"
 #include "renderer/backend/IBuffer.h"
@@ -26,6 +26,12 @@
 #include "renderer/backend/IFramebuffer.h"
 #include "renderer/backend/ITexture.h"
 #include "renderer/backend/gl/DeviceForward.h"
+
+#if CONFIG2_GLES
+#include "external_libraries/opengles2_wrapper.h"
+#else
+#include <glad/gl.h>
+#endif
 
 #include <cstddef>
 #include <cstdint>

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,8 +18,14 @@
 #ifndef INCLUDED_RENDERER_BACKEND_GL_BUFFER
 #define INCLUDED_RENDERER_BACKEND_GL_BUFFER
 
-#include "lib/ogl.h"
+#include "lib/config2.h"
 #include "renderer/backend/IBuffer.h"
+
+#if CONFIG2_GLES
+#include "external_libraries/opengles2_wrapper.h"
+#else
+#include <glad/gl.h>
+#endif
 
 #include <cstdint>
 #include <memory>

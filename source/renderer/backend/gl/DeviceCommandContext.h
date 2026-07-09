@@ -19,12 +19,18 @@
 #define INCLUDED_RENDERER_BACKEND_GL_DEVICECOMMANDCONTEXT
 
 #include "graphics/Color.h"
-#include "lib/ogl.h"
+#include "lib/config2.h"
 #include "lib/types.h"
 #include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IShaderProgram.h"
 #include "renderer/backend/PipelineState.h"
+
+#if CONFIG2_GLES
+#include "external_libraries/opengles2_wrapper.h"
+#else
+#include <glad/gl.h>
+#endif
 
 #include <array>
 #include <cstddef>

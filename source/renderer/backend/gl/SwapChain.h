@@ -18,9 +18,15 @@
 #ifndef INCLUDED_RENDERER_BACKEND_GL_SWAPCHAIN
 #define INCLUDED_RENDERER_BACKEND_GL_SWAPCHAIN
 
-#include "lib/ogl.h"
+#include "lib/config2.h"
 #include "renderer/backend/gl/Framebuffer.h"
 #include "renderer/backend/ISwapChain.h"
+
+#if CONFIG2_GLES
+#include "external_libraries/opengles2_wrapper.h"
+#else
+#include <glad/gl.h>
+#endif
 
 #include <cstdint>
 #include <memory>

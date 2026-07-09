@@ -20,7 +20,6 @@
 
 #include "lib/code_annotation.h"
 #include "lib/debug.h"
-#include "lib/ogl.h"
 #include "ps/containers/StaticVector.h"
 #include "ps/CStr.h"
 #include "ps/CStrIntern.h"
@@ -28,6 +27,12 @@
 #include "renderer/backend/gl/Device.h"
 #include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IShaderProgram.h"
+
+#if CONFIG2_GLES
+#include "external_libraries/opengles2_wrapper.h"
+#else
+#include <glad/gl.h>
+#endif
 
 #include <cstdint>
 #include <map>

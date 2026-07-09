@@ -24,7 +24,6 @@
 #include "lib/config2.h"
 #include "lib/debug.h"
 #include "lib/external_libraries/libsdl.h"
-#include "lib/ogl.h"
 #include "lib/secure_crt.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
@@ -40,6 +39,12 @@
 #include "renderer/backend/gl/SwapChain.h"
 #include "renderer/backend/gl/Texture.h"
 #include "scriptinterface/Object.h"
+
+#if CONFIG2_GLES
+#include "external_libraries/opengles2_wrapper.h"
+#else
+#include <glad/gl.h>
+#endif
 
 #include <SDL_config.h>
 #include <SDL_error.h>

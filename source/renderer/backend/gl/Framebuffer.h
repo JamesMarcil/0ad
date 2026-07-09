@@ -19,8 +19,14 @@
 #define INCLUDED_RENDERER_BACKEND_GL_FRAMEBUFFER
 
 #include "graphics/Color.h"
-#include "lib/ogl.h"
+#include "lib/config2.h"
 #include "renderer/backend/IFramebuffer.h"
+
+#if CONFIG2_GLES
+#include "external_libraries/opengles2_wrapper.h"
+#else
+#include <glad/gl.h>
+#endif
 
 #include <cstdint>
 #include <memory>
