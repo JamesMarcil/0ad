@@ -135,7 +135,6 @@ void UploadDynamicBufferRegionImpl(
 	ENSURE(dataOffset < dataSize);
 	// Tell the driver that it can reallocate the whole VBO
 	glBufferData(target, bufferSize, nullptr, GL_DYNAMIC_DRAW);
-	ogl_WarnIfError();
 
 	while (true)
 	{
@@ -217,7 +216,6 @@ void InvalidateFramebuffer(
 #else
 		glInvalidateFramebuffer(GL_FRAMEBUFFER_EXT, numberOfAttachments, attachments);
 #endif
-		ogl_WarnIfError();
 	}
 }
 
@@ -380,7 +378,6 @@ void CDeviceCommandContext::UploadTextureRegion(
 			glTexSubImage2D(GL_TEXTURE_2D, level,
 				xOffset, yOffset, width, height,
 				pixelFormat, GL_UNSIGNED_BYTE, data);
-			ogl_WarnIfError();
 		}
 		else if (
 			texture->GetFormat() == Format::BC1_RGB_UNORM ||
@@ -410,7 +407,6 @@ void CDeviceCommandContext::UploadTextureRegion(
 
 			ScopedBind scopedBind(this, GL_TEXTURE_2D, texture->GetHandle());
 			glCompressedTexImage2D(GL_TEXTURE_2D, level, internalFormat, width, height, 0, dataSize, data);
-			ogl_WarnIfError();
 		}
 		else
 			debug_warn("Unsupported format");
@@ -439,7 +435,6 @@ void CDeviceCommandContext::UploadTextureRegion(
 
 			ScopedBind scopedBind(this, GL_TEXTURE_CUBE_MAP, texture->GetHandle());
 			glTexImage2D(targets[layer], level, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-			ogl_WarnIfError();
 		}
 		else
 			debug_warn("Unsupported format");
@@ -481,7 +476,6 @@ void CDeviceCommandContext::UploadBufferRegion(
 	else
 	{
 		glBufferSubData(target, dataOffset, dataSize, data);
-		ogl_WarnIfError();
 	}
 }
 
@@ -543,7 +537,6 @@ void CDeviceCommandContext::BindTexture(
 		glBindTexture(m_BoundTextures[unit].target, 0);
 	if (m_BoundTextures[unit].handle != handle)
 		glBindTexture(target, handle);
-	ogl_WarnIfError();
 	m_BoundTextures[unit] = {target, handle};
 }
 
@@ -565,7 +558,6 @@ void CDeviceCommandContext::BindBuffer(const IBuffer::Type type, CBuffer* buffer
 	const GLenum target = BufferTypeToGLTarget(type);
 	const GLuint handle = buffer ? buffer->GetHandle() : 0;
 	glBindBuffer(target, handle);
-	ogl_WarnIfError();
 	const size_t cacheIndex = static_cast<size_t>(type);
 	ENSURE(cacheIndex < m_BoundBuffers.size());
 	m_BoundBuffers[cacheIndex].second = handle;
@@ -607,7 +599,6 @@ void CDeviceCommandContext::ResetStates()
 	SetScissors(0, nullptr);
 	m_Framebuffer = nullptr;
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-	ogl_WarnIfError();
 }
 
 void CDeviceCommandContext::SetGraphicsPipelineStateImpl(
@@ -851,8 +842,6 @@ void CDeviceCommandContext::SetGraphicsPipelineStateImpl(
 	}
 #endif
 
-	ogl_WarnIfError();
-
 	m_GraphicsPipelineStateDesc = pipelineStateDesc;
 }
 
@@ -878,7 +867,6 @@ void CDeviceCommandContext::BlitFramebuffer(
 		destinationRegion.x, destinationRegion.y, destinationRegion.width, destinationRegion.height,
 		(sourceFramebuffer->GetAttachmentMask() & destinationFramebuffer->GetAttachmentMask()),
 		filter == Sampler::Filter::LINEAR ? GL_LINEAR : GL_NEAREST);
-	ogl_WarnIfError();
 #endif
 }
 
@@ -903,7 +891,6 @@ void CDeviceCommandContext::ResolveFramebuffer(
 		0, 0, sourceFramebuffer->GetWidth(), sourceFramebuffer->GetHeight(),
 		(sourceFramebuffer->GetAttachmentMask() & destinationFramebuffer->GetAttachmentMask()),
 		GL_NEAREST);
-	ogl_WarnIfError();
 #endif
 }
 
@@ -935,7 +922,6 @@ void CDeviceCommandContext::ClearFramebuffer(const bool color, const bool depth,
 		mask |= GL_STENCIL_BUFFER_BIT;
 	}
 	glClear(mask);
-	ogl_WarnIfError();
 	if (needsColor)
 		ApplyColorMask(m_GraphicsPipelineStateDesc.blendState.colorWriteMask);
 	if (needsDepth)
@@ -955,7 +941,6 @@ void CDeviceCommandContext::BeginFramebufferPass(IFramebuffer* framebuffer)
 	m_Framebuffer = framebuffer->As<CFramebuffer>();
 	ENSURE(m_Framebuffer->GetHandle() == 0 || (m_Framebuffer->GetWidth() > 0 && m_Framebuffer->GetHeight() > 0));
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_Framebuffer->GetHandle());
-	ogl_WarnIfError();
 	if (m_Device->UseFramebufferInvalidating())
 	{
 		InvalidateFramebuffer(
@@ -988,7 +973,6 @@ void CDeviceCommandContext::EndFramebufferPass()
 	if (m_Framebuffer->GetHandle() != 0)
 	{
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-		ogl_WarnIfError();
 	}
 	m_Framebuffer = nullptr;
 
@@ -1001,7 +985,6 @@ void CDeviceCommandContext::ReadbackFramebufferSync(
 	void* data)
 {
 	glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
-	ogl_WarnIfError();
 }
 
 void CDeviceCommandContext::SetScissors(const uint32_t scissorCount, const Rect* scissors)
@@ -1023,7 +1006,6 @@ void CDeviceCommandContext::SetScissors(const uint32_t scissorCount, const Rect*
 			glScissor(m_Scissors[0].x, m_Scissors[0].y, m_Scissors[0].width, m_Scissors[0].height);
 		}
 	}
-	ogl_WarnIfError();
 	m_ScissorCount = scissorCount;
 }
 
@@ -1032,7 +1014,6 @@ void CDeviceCommandContext::SetViewports(const uint32_t viewportCount, const Rec
 	ENSURE(m_InsideFramebufferPass);
 	ENSURE(viewportCount == 1);
 	glViewport(viewports[0].x, viewports[0].y, viewports[0].width, viewports[0].height);
-	ogl_WarnIfError();
 }
 
 void CDeviceCommandContext::SetVertexInputLayout(
@@ -1146,7 +1127,6 @@ void CDeviceCommandContext::Draw(
 		return;
 	m_ShaderProgram->AssertPointersBound();
 	glDrawArrays(GL_TRIANGLES, firstVertex, vertexCount);
-	ogl_WarnIfError();
 }
 
 void CDeviceCommandContext::DrawIndexed(
@@ -1168,7 +1148,6 @@ void CDeviceCommandContext::DrawIndexed(
 	// in Mesa 7.10 swrast with index VBOs).
 	glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_SHORT,
 		static_cast<const void*>((static_cast<const uint8_t*>(m_IndexBufferData) + sizeof(uint16_t) * firstIndex)));
-	ogl_WarnIfError();
 }
 
 void CDeviceCommandContext::DrawInstanced(
@@ -1187,7 +1166,6 @@ void CDeviceCommandContext::DrawInstanced(
 #else
 	glDrawArraysInstancedARB(GL_TRIANGLES, firstVertex, vertexCount, instanceCount);
 #endif
-	ogl_WarnIfError();
 }
 
 void CDeviceCommandContext::DrawIndexedInstanced(
@@ -1217,7 +1195,6 @@ void CDeviceCommandContext::DrawIndexedInstanced(
 		static_cast<const void*>((static_cast<const uint8_t*>(m_IndexBufferData) + sizeof(uint16_t) * firstIndex)),
 		instanceCount);
 #endif
-	ogl_WarnIfError();
 }
 
 void CDeviceCommandContext::DrawIndexedInRange(
@@ -1239,7 +1216,6 @@ void CDeviceCommandContext::DrawIndexedInRange(
 #else
 	glDrawRangeElements(GL_TRIANGLES, start, end, indexCount, GL_UNSIGNED_SHORT, indices);
 #endif
-	ogl_WarnIfError();
 }
 
 void CDeviceCommandContext::BeginComputePass()

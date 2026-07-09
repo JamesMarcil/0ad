@@ -124,8 +124,6 @@ std::unique_ptr<CFramebuffer> CFramebuffer::Create(
 		framebuffer->m_Height = colorAttachment->texture->GetHeight();
 	}
 
-	ogl_WarnIfError();
-
 #if !CONFIG2_GLES
 	if (!colorAttachment)
 	{
@@ -135,8 +133,6 @@ std::unique_ptr<CFramebuffer> CFramebuffer::Create(
 	else
 		glDrawBuffer(GL_COLOR_ATTACHMENT0);
 #endif
-
-	ogl_WarnIfError();
 
 #if !CONFIG2_GLES
 	if (framebuffer->m_Device->GetCapabilities().debugLabels)
@@ -152,8 +148,6 @@ std::unique_ptr<CFramebuffer> CFramebuffer::Create(
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		return nullptr;
 	}
-
-	ogl_WarnIfError();
 
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 

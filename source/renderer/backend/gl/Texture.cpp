@@ -110,8 +110,6 @@ std::unique_ptr<CTexture> CTexture::Create(
 
 	glGenTextures(1, &texture->m_Handle);
 
-	ogl_WarnIfError();
-
 	const GLenum target = TypeToGLEnum(type);
 
 	CDeviceCommandContext::ScopedBind scopedBind(
@@ -123,8 +121,6 @@ std::unique_ptr<CTexture> CTexture::Create(
 		glTexParameteri(target, GL_TEXTURE_MIN_FILTER, CalculateMinFilter(defaultSamplerDesc, MIPLevelCount));
 		glTexParameteri(target, GL_TEXTURE_MAG_FILTER, defaultSamplerDesc.magFilter == Sampler::Filter::LINEAR ? GL_LINEAR : GL_NEAREST);
 
-		ogl_WarnIfError();
-
 		glTexParameteri(target, GL_TEXTURE_WRAP_S, AddressModeToGLEnum(defaultSamplerDesc.addressModeU));
 		glTexParameteri(target, GL_TEXTURE_WRAP_T, AddressModeToGLEnum(defaultSamplerDesc.addressModeV));
 	}
@@ -133,8 +129,6 @@ std::unique_ptr<CTexture> CTexture::Create(
 	if (type == Type::TEXTURE_CUBE)
 		glTexParameteri(target, GL_TEXTURE_WRAP_R, AddressModeToGLEnum(defaultSamplerDesc.addressModeW));
 #endif
-
-	ogl_WarnIfError();
 
 #if !CONFIG2_GLES
 	glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
@@ -170,8 +164,6 @@ std::unique_ptr<CTexture> CTexture::Create(
 		}
 		glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, borderColor.AsFloatArray().data());
 	}
-
-	ogl_WarnIfError();
 
 	if (type == CTexture::Type::TEXTURE_2D)
 	{
@@ -317,8 +309,6 @@ std::unique_ptr<CTexture> CTexture::Create(
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 	}
 #endif
-
-	ogl_WarnIfError();
 
 	if (texture->m_Device->GetCapabilities().debugLabels)
 	{

@@ -238,8 +238,6 @@ bool CompileGLSL(GLuint shader, const VfsPath& file, const CStr& code)
 	GLint codeLength = code.length();
 	glShaderSource(shader, 1, &codeString, &codeLength);
 
-	ogl_WarnIfError();
-
 	glCompileShader(shader);
 
 	GLint ok = 0;
@@ -263,8 +261,6 @@ bool CompileGLSL(GLuint shader, const VfsPath& file, const CStr& code)
 		else
 			LOGERROR("Failed to compile shader '%s':\n%s", file.string8(), infolog.get());
 	}
-
-	ogl_WarnIfError();
 
 	return ok;
 }
@@ -376,7 +372,6 @@ bool CShaderProgram::Link(const VfsPath& path)
 	for (ShaderStage& stage : m_ShaderStages)
 	{
 		glAttachShader(m_Program, stage.shader);
-		ogl_WarnIfError();
 	}
 
 	// Set up the attribute bindings explicitly, since apparently drivers
@@ -409,14 +404,10 @@ bool CShaderProgram::Link(const VfsPath& path)
 		delete[] infolog;
 	}
 
-	ogl_WarnIfError();
-
 	if (!ok)
 		return false;
 
 	Bind(nullptr);
-
-	ogl_WarnIfError();
 
 	// Reorder sampler units to decrease redundant texture unit changes when
 	// samplers bound in a different order.
@@ -441,11 +432,9 @@ bool CShaderProgram::Link(const VfsPath& path)
 
 		GLint maxUniformBlockNameLength{0};
 		glGetProgramInterfaceiv(m_Program, GL_UNIFORM_BLOCK, GL_MAX_NAME_LENGTH, &maxUniformBlockNameLength);
-		ogl_WarnIfError();
 
 		GLint numberOfActiveUniformBlocks{0};
 		glGetProgramInterfaceiv(m_Program, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &numberOfActiveUniformBlocks);
-		ogl_WarnIfError();
 		// Currently we support the only one uniform buffer per shader.
 		if (numberOfActiveUniformBlocks == 1)
 		{
@@ -460,11 +449,9 @@ bool CShaderProgram::Link(const VfsPath& path)
 
 		GLint maxStorageNameLength{0};
 		glGetProgramInterfaceiv(m_Program, GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &maxStorageNameLength);
-		ogl_WarnIfError();
 		ENSURE(maxStorageNameLength <= maxBlockNameLength);
 		GLint numberOfActiveStorages{0};
 		glGetProgramInterfaceiv(m_Program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &numberOfActiveStorages);
-		ogl_WarnIfError();
 		for (GLint index{0}; index < numberOfActiveStorages; ++index)
 		{
 			GLsizei length{0};
@@ -487,7 +474,6 @@ bool CShaderProgram::Link(const VfsPath& path)
 
 	GLint numUniforms = 0;
 	glGetProgramiv(m_Program, GL_ACTIVE_UNIFORMS, &numUniforms);
-	ogl_WarnIfError();
 	for (GLint i = 0; i < numUniforms; ++i)
 	{
 		// TODO: use GL_ACTIVE_UNIFORM_MAX_LENGTH for the size.
@@ -496,7 +482,6 @@ bool CShaderProgram::Link(const VfsPath& path)
 		GLint size = 0;
 		GLenum type = 0;
 		glGetActiveUniform(m_Program, i, ARRAY_SIZE(name), &nameLength, &size, &type, name);
-		ogl_WarnIfError();
 
 		const GLint location = glGetUniformLocation(m_Program, name);
 
@@ -599,11 +584,9 @@ bool CShaderProgram::Link(const VfsPath& path)
 			GLuint uniformIndex{0};
 			const GLchar* nameToQuery{name};
 			glGetUniformIndices(m_Program, 1, &nameToQuery, &uniformIndex);
-			ogl_WarnIfError();
 
 			GLint uniformOffset{0};
 			glGetActiveUniformsiv(m_Program, 1, &uniformIndex, GL_UNIFORM_OFFSET, &uniformOffset);
-			ogl_WarnIfError();
 
 			// According to the OpenGL spec:
 			//  https://registry.khronos.org/OpenGL-Refpages/es3/html/glGetActiveUniformsiv.xhtml
@@ -638,7 +621,6 @@ bool CShaderProgram::Link(const VfsPath& path)
 		}
 		// Link uniform to unit.
 		glUniform1i(bindingSlot.location, bindingSlot.elementCount);
-		ogl_WarnIfError();
 	}
 
 	if (m_UniformBufferSize > 0 && m_UniformBufferLocation != -1)
@@ -758,7 +740,6 @@ void CShaderProgram::SetUniform(const int32_t bindingSlot, const float value)
 		return;
 	}
 	glUniform1f(m_BindingSlots[bindingSlot].location, value);
-	ogl_WarnIfError();
 }
 
 void CShaderProgram::SetUniform(
@@ -774,7 +755,6 @@ void CShaderProgram::SetUniform(
 		return;
 	}
 	glUniform2f(m_BindingSlots[bindingSlot].location, valueX, valueY);
-	ogl_WarnIfError();
 }
 
 void CShaderProgram::SetUniform(
@@ -790,7 +770,6 @@ void CShaderProgram::SetUniform(
 		return;
 	}
 	glUniform3f(m_BindingSlots[bindingSlot].location, valueX, valueY, valueZ);
-	ogl_WarnIfError();
 }
 
 void CShaderProgram::SetUniform(
@@ -807,7 +786,6 @@ void CShaderProgram::SetUniform(
 		return;
 	}
 	glUniform4f(m_BindingSlots[bindingSlot].location, valueX, valueY, valueZ, valueW);
-	ogl_WarnIfError();
 }
 
 void CShaderProgram::SetUniform(
@@ -858,7 +836,6 @@ void CShaderProgram::SetUniform(
 	}
 	else
 		LOGERROR("CShaderProgram::SetUniform(): Invalid uniform type (expected float, vec2, vec3, vec4, mat4) '%s'", m_BindingSlots[bindingSlot].name.c_str());
-	ogl_WarnIfError();
 }
 
 void CShaderProgram::VertexAttribPointer(

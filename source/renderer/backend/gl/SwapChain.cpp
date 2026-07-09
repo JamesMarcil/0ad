@@ -115,7 +115,6 @@ void CSwapChain::Present()
 	{
 		PROFILE3("swap buffers");
 		SDL_GL_SwapWindow(m_Window);
-		ogl_WarnIfError();
 	}
 
 #if defined(NDEBUG)
@@ -126,7 +125,7 @@ void CSwapChain::Present()
 	// We have to check GL errors after SwapBuffer to avoid possible
 	// synchronizations during rendering.
 	if (GLenum err = glGetError())
-		ONCE(LOGERROR("GL error %s (0x%04x) occurred", ogl_GetErrorName(err), err));
+		ONCE(LOGERROR("GL error 0x%04x occurred", err));
 }
 
 } // namespace GL

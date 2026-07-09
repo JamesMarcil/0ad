@@ -459,7 +459,6 @@ CDevice::~CDevice()
 		ENSURE(!query.occupied);
 		glDeleteQueries(1, &query.query);
 	}
-	ogl_WarnIfError();
 #endif
 
 	if (m_Context)
@@ -485,8 +484,6 @@ void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 #define STRING(NAME) ReportParameter<const char*, 1>(rq, settings, GL_##NAME, "GL_" #NAME)
 
 #define QUERY_COUNTER_BITS(NAME) ReportParameter<GLint, 1, true>(rq, settings, GL_##NAME, "GL_" #NAME ".GL_QUERY_COUNTER_BITS")
-
-	ogl_WarnIfError();
 
 	// Core OpenGL 1.3:
 	// (We don't bother checking extension strings for anything older than 1.3;
@@ -831,7 +828,6 @@ uint32_t CDevice::AllocateQuery()
 		m_Queries.emplace_back();
 #if !CONFIG2_GLES
 		glGenQueries(1, &m_Queries.back().query);
-		ogl_WarnIfError();
 #endif
 		it = prev(m_Queries.end());
 	}
@@ -853,7 +849,6 @@ bool CDevice::IsQueryResultAvailable(const uint32_t handle) const
 	GLint available{};
 #if !CONFIG2_GLES
 	glGetQueryObjectiv(m_Queries[handle].query, GL_QUERY_RESULT_AVAILABLE, &available);
-	ogl_WarnIfError();
 #endif
 	return available;
 }
@@ -868,7 +863,6 @@ uint64_t CDevice::GetQueryResult(const uint32_t handle)
 #if !CONFIG2_GLES
 	// Use the non-suffixed function here, as defined by GL_ARB_timer_query.
 	glGetQueryObjectui64v(m_Queries[handle].query, GL_QUERY_RESULT, &queryTimestamp);
-	ogl_WarnIfError();
 #endif
 	return queryTimestamp;
 }
@@ -878,7 +872,6 @@ void CDevice::InsertTimestampQuery(const uint32_t handle)
 	ENSURE(handle < m_Queries.size());
 #if !CONFIG2_GLES
 	glQueryCounter(m_Queries[handle].query, GL_TIMESTAMP);
-	ogl_WarnIfError();
 #endif
 }
 
