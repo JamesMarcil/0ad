@@ -173,9 +173,6 @@ private:
 	int m_WindowedX;
 	int m_WindowedY;
 
-	// Whether we're currently being displayed fullscreen
-	bool m_IsFullscreen = false;
-
 	// The last mode selected
 	int m_CurrentW;
 	int m_CurrentH;

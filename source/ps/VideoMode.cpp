@@ -293,7 +293,7 @@ Input::Reaction CVideoMode::InputHandler::operator()(const SDL_Event& ev)
 			return Input::Reaction::HANDLED;
 		}
 	}
-	if (ev.type == SDL_WINDOWEVENT && !videoMode.m_IsFullscreen)
+	if (ev.type == SDL_WINDOWEVENT && !videoMode.IsInFullscreen())
 	{
 		switch (ev.window.event)
 		{
@@ -509,7 +509,7 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 	}
 	else
 	{
-		if (m_IsFullscreen != fullscreen)
+		if (IsInFullscreen() != fullscreen)
 		{
 			if (!fullscreen)
 			{
@@ -547,8 +547,6 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 	}
 	else
 		SDL_SetWindowGrab(m_Window, SDL_FALSE);
-
-	m_IsFullscreen = fullscreen;
 
 	return true;
 }
@@ -647,7 +645,6 @@ void CVideoMode::Shutdown()
 
 	m_Cursor.reset();
 
-	m_IsFullscreen = false;
 	m_IsInitialised = false;
 
 	if (m_BackendDevice)
@@ -805,10 +802,10 @@ bool CVideoMode::SetFullscreen(bool fullscreen)
 		return false;
 
 	// Check whether this is actually a change
-	if (fullscreen == m_IsFullscreen)
+	if (fullscreen == IsInFullscreen())
 		return true;
 
-	if (!m_IsFullscreen)
+	if (!IsInFullscreen())
 	{
 		// Windowed -> fullscreen:
 
@@ -860,12 +857,12 @@ bool CVideoMode::SetFullscreen(bool fullscreen)
 
 bool CVideoMode::ToggleFullscreen()
 {
-	return SetFullscreen(!m_IsFullscreen);
+	return SetFullscreen(!IsInFullscreen());
 }
 
 bool CVideoMode::IsInFullscreen() const
 {
-	return m_IsFullscreen;
+	return SDL_GetWindowFlags(m_Window) & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP);
 }
 
 void CVideoMode::UpdateRenderer(int w, int h)
