@@ -60,12 +60,14 @@ public:
     void OnPaste(wxCommandEvent& event);
 
 	void OnWireframe(wxCommandEvent& event);
+	void OnSmoothFramerate(wxCommandEvent& event);
+	void OnBirdsEyeView(wxCommandEvent& event);
+	void OnCameraReset(wxCommandEvent& event);
+
 	void OnMessageTrace(wxCommandEvent& event);
 	void OnScreenshot(wxCommandEvent& event);
 	void OnMediaPlayer(wxCommandEvent& event);
 	void OnJavaScript(wxCommandEvent& event);
-	void OnCameraReset(wxCommandEvent& event);
-	void OnSmoothFramerate(wxCommandEvent& event);
 	void OnDumpState(wxCommandEvent& event);
 	void OnSelectedObjectsChange(const std::vector<AtlasMessage::ObjectID>& selectedObjects);
 

@@ -473,7 +473,9 @@ MESSAGE(SetView,
 		((sCameraInfo, info))
 		);
 
-MESSAGE(ToggleBirdsEyeView, );
+MESSAGE(SetBirdsEyeView,
+		((bool, enabled))
+		);
 
 //////////////////////////////////////////////////////////////////////////
 

@@ -173,12 +173,6 @@ private:
 		if (KeyScroll(evt, true))
 			return;
 
-		if (evt.GetKeyCode() == 'B')
-		{
-			POST_MESSAGE(ToggleBirdsEyeView, ());
-			return;
-		}
-
 		POST_MESSAGE(GuiKeyEvent, (GetSDLKeyFromWxKeyCode(evt.GetKeyCode()), evt.GetUnicodeKey(), true));
 
 		evt.Skip();
@@ -372,6 +366,7 @@ enum
 
 	ID_Wireframe,
 	ID_SmoothFramerate,
+	ID_BirdsEyeView,
 	ID_CameraReset,
 
 	ID_MessageTrace,
@@ -406,6 +401,7 @@ BEGIN_EVENT_TABLE(ScenarioEditor, wxFrame)
 
 	EVT_MENU(ID_Wireframe, ScenarioEditor::OnWireframe)
 	EVT_MENU(ID_SmoothFramerate, ScenarioEditor::OnSmoothFramerate)
+	EVT_MENU(ID_BirdsEyeView, ScenarioEditor::OnBirdsEyeView)
 	EVT_MENU(ID_CameraReset, ScenarioEditor::OnCameraReset)
 
 	EVT_MENU(ID_MessageTrace, ScenarioEditor::OnMessageTrace)
@@ -523,6 +519,7 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 	{
 		menuView->AppendCheckItem(ID_Wireframe, _("&Wireframe"));
 		menuView->AppendCheckItem(ID_SmoothFramerate, _("Smooth framerate"));
+		menuView->AppendCheckItem(ID_BirdsEyeView, _("&Birds Eye View\tCtrl+B"));
 		menuView->Append(ID_CameraReset, _("&Reset camera"));
 	}
 
@@ -999,6 +996,11 @@ void ScenarioEditor::OnCameraReset(wxCommandEvent& WXUNUSED(event))
 void ScenarioEditor::OnSmoothFramerate(wxCommandEvent& event)
 {
 	POST_MESSAGE(SetSmoothFramerate, (event.IsChecked()));
+}
+
+void ScenarioEditor::OnBirdsEyeView(wxCommandEvent& event)
+{
+	POST_MESSAGE(SetBirdsEyeView, (event.IsChecked()));
 }
 
 void ScenarioEditor::OnDumpState(wxCommandEvent& event)

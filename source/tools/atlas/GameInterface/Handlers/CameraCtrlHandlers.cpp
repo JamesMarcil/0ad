@@ -39,7 +39,7 @@
 
 namespace
 {
-bool g_BirdEyeView{false};
+bool g_BirdsEyeView{false};
 } // namespace
 
 namespace AtlasMessage {
@@ -66,7 +66,7 @@ MESSAGEHANDLER(CameraReset)
 
 	g_Game->GetView()->ResetCameraTarget(target);
 
-	g_BirdEyeView = false;
+	g_BirdsEyeView = false;
 }
 
 MESSAGEHANDLER(ScrollConstant)
@@ -147,7 +147,7 @@ MESSAGEHANDLER(SmoothZoom)
 
 MESSAGEHANDLER(RotateAround)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying() || g_BirdEyeView)
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying() || g_BirdsEyeView)
 		return;
 
 	static CVector3D focusPos;
@@ -269,8 +269,11 @@ MESSAGEHANDLER(SetView)
 	// TODO: Rotation
 }
 
-MESSAGEHANDLER(ToggleBirdsEyeView)
+MESSAGEHANDLER(SetBirdsEyeView)
 {
+	if (g_BirdsEyeView == msg->enabled)
+		return;
+
 	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
@@ -280,7 +283,7 @@ MESSAGEHANDLER(ToggleBirdsEyeView)
 	CMatrix3D& orientation{camera.GetOrientation()};
 	const CVector3D focus{camera.GetFocus()};
 
-	if (!g_BirdEyeView)
+	if (!g_BirdsEyeView)
 	{
 		CVector3D in = orientation.GetIn();
 		declination = atan2(sqrt(in.X*in.X + in.Z*in.Z), in.Y) - std::numbers::pi_v<float> / 2.f;
@@ -289,7 +292,7 @@ MESSAGEHANDLER(ToggleBirdsEyeView)
 	CQuaternion q;
 	// If really 90° then the camera movement bugs out as it has no clear
 	// forward anymore, so stick with 89°.
-	q.FromAxisAngle(orientation.GetLeft(), g_BirdEyeView ?
+	q.FromAxisAngle(orientation.GetLeft(), g_BirdsEyeView ?
 		DEGTORAD(89.f) - declination : DEGTORAD(-89.f) + declination);
 
 	CVector3D origin = orientation.GetTranslation();
@@ -304,7 +307,7 @@ MESSAGEHANDLER(ToggleBirdsEyeView)
 	camera.UpdateFrustum();
 	g_Game->GetView()->SetCamera(camera);
 
-	g_BirdEyeView = !g_BirdEyeView;
+	g_BirdsEyeView = msg->enabled;
 }
 
 }
