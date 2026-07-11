@@ -699,6 +699,9 @@ void ScenarioEditor::OnClose(wxCloseEvent& event)
 		}
 	}
 
+	m_Timer.Stop();
+	m_RenderTimer.Stop();
+
 	m_ToolManager.SetCurrentTool(_T(""));
 
 	m_FileHistory.SaveToSubDir(*wxConfigBase::Get());
