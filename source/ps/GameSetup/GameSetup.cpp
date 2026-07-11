@@ -533,9 +533,16 @@ bool Init(const CmdLineArgs& args, int flags)
 			}
 		}
 	}
-	// If there are incompatible mods, switch to the mod selector so players can resolve the problem.
+	// If there are incompatible mods, switch to the mod selector if available
+	// so players can resolve the problem, otherwise just complain and load
+	// default mods.
 	if (g_Mods.GetIncompatibleMods().empty())
 		MountMods(Paths(args), g_Mods.GetEnabledMods());
+	else if (flags & INIT_NO_GUI)
+	{
+		LOGERROR("Trying to start with incompatible mods: %s.", boost::algorithm::join(g_Mods.GetIncompatibleMods(), ", "));
+		MountMods(Paths(args), { "mod", "public" });
+	}
 	else
 		MountMods(Paths(args), { "mod" });
 
