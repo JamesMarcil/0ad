@@ -62,6 +62,7 @@ public:
 	void OnWireframe(wxCommandEvent& event);
 	void OnSmoothFramerate(wxCommandEvent& event);
 	void OnBirdsEyeView(wxCommandEvent& event);
+	void SetFullscreen(const bool enabled);
 	void OnCameraReset(wxCommandEvent& event);
 
 	void OnMessageTrace(wxCommandEvent& event);

@@ -202,16 +202,6 @@ private:
 			return;
 		}
 
-		// Alt+enter toggles fullscreen
-		if (evt.GetKeyCode() == WXK_RETURN && wxGetKeyState(WXK_ALT))
-		{
-			if (m_ScenarioEditor.IsFullScreen())
-				m_ScenarioEditor.ShowFullScreen(false);
-			else
-				m_ScenarioEditor.ShowFullScreen(true, wxFULLSCREEN_NOBORDER | wxFULLSCREEN_NOCAPTION);
-			return;
-		}
-
 		if (evt.GetKeyCode() == 'c')
 		{
 			POST_MESSAGE(CameraReset, ());
@@ -520,6 +510,8 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 		menuView->AppendCheckItem(ID_Wireframe, _("&Wireframe"));
 		menuView->AppendCheckItem(ID_SmoothFramerate, _("Smooth framerate"));
 		menuView->AppendCheckItem(ID_BirdsEyeView, _("&Birds Eye View\tCtrl+B"));
+		auto* fullscreenItem = menuView->AppendCheckItem(wxID_ANY, _("&Fullscreen\tAlt+Enter"));
+		this->Bind(wxEVT_MENU, [this, fullscreenItem](auto&){ SetFullscreen(fullscreenItem->IsChecked()); });
 		menuView->Append(ID_CameraReset, _("&Reset camera"));
 	}
 
@@ -1004,6 +996,11 @@ void ScenarioEditor::OnSmoothFramerate(wxCommandEvent& event)
 void ScenarioEditor::OnBirdsEyeView(wxCommandEvent& event)
 {
 	POST_MESSAGE(SetBirdsEyeView, (event.IsChecked()));
+}
+
+void ScenarioEditor::SetFullscreen(const bool enabled)
+{
+	ShowFullScreen(enabled, wxFULLSCREEN_NOBORDER | wxFULLSCREEN_NOCAPTION);
 }
 
 void ScenarioEditor::OnDumpState(wxCommandEvent& event)
