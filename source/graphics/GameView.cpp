@@ -254,18 +254,6 @@ void CGameView::Prepare(
 	g_Renderer.GetSceneRenderer().PrepareScene(deviceCommandContext, *this);
 }
 
-void CGameView::Render(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
-{
-	g_Renderer.GetSceneRenderer().RenderScene(deviceCommandContext);
-}
-
-void CGameView::RenderOverlays(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
-{
-	g_Renderer.GetSceneRenderer().RenderSceneOverlays(deviceCommandContext);
-}
-
 ///////////////////////////////////////////////////////////
 // This callback is part of the Scene interface
 // Submit all objects visible in the given frustum

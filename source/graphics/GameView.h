@@ -54,8 +54,6 @@ public:
 
 	void BeginFrame();
 	void Prepare(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
-	void Render(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
-	void RenderOverlays(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	CVector3D GetCameraPivot() const;
 	CVector3D GetCameraPosition() const;

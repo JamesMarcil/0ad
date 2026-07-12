@@ -632,7 +632,7 @@ void CRenderer::RenderGameAndGUI(
 	m->deviceCommandContext->BeginFramebufferPass(framebuffer);
 	m->deviceCommandContext->SetViewports(1, &viewportRect);
 
-	gameView.Render(m->deviceCommandContext.get());
+	m->sceneRenderer.RenderScene(m->deviceCommandContext.get());
 	RenderGameOverlays(gameView);
 	Render2D(renderGUI, renderLogger);
 
@@ -662,7 +662,7 @@ void CRenderer::RenderGameWithPostProcessingAndGUI(
 	m->deviceCommandContext->BeginFramebufferPass(framebuffer);
 	m->deviceCommandContext->SetViewports(1, &viewportRect);
 
-	gameView.Render(m->deviceCommandContext.get());
+	m->sceneRenderer.RenderScene(m->deviceCommandContext.get());
 
 	m->deviceCommandContext->EndFramebufferPass();
 
@@ -729,7 +729,7 @@ void CRenderer::RenderGUIOnly(
 
 void CRenderer::RenderGameOverlays(CGameView& gameView)
 {
-	gameView.RenderOverlays(m->deviceCommandContext.get());
+	m->sceneRenderer.RenderSceneOverlays(m->deviceCommandContext.get());
 
 	gameView.GetCinema()->Render(*m->deviceCommandContext);
 
