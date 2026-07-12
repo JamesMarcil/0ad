@@ -75,14 +75,14 @@ struct ParticleClosestInFrontCompare
 
 } // anonymous namespace
 
-CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
-	m_Type(type), m_LastUpdateTime(type->m_Manager.GetCurrentTime()),
+CParticleEmitter::CParticleEmitter(const CParticleEmitterType& type) :
+	m_Type(type), m_LastUpdateTime(type.m_Manager.GetCurrentTime()),
 	m_IndexArray(Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_VertexArray(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::DYNAMIC | Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_VertexUVArray(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
-	m_LastFrameNumber(-1), m_UseInstancing{type->m_Manager.ShouldUseInstancing()}
+	m_LastFrameNumber(-1), m_UseInstancing{type.m_Manager.ShouldUseInstancing()}
 {
 	// If we should start with particles fully emitted, pretend that we
 	// were created in the past so the first update will produce lots of
@@ -91,10 +91,10 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	// lifetime-length update of all emitters when the game first starts
 	// (so that e.g. buildings constructed later on won't have fully-started
 	// emitters, but those at the start will)?
-	if (m_Type->m_StartFull)
-		m_LastUpdateTime -= m_Type->m_MaxLifetime;
+	if (m_Type.m_StartFull)
+		m_LastUpdateTime -= m_Type.m_MaxLifetime;
 
-	m_Particles.reserve(m_Type->m_MaxParticles);
+	m_Particles.reserve(m_Type.m_MaxParticles);
 
 	m_AttributePos.format = Renderer::Backend::Format::R32G32B32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributePos);
@@ -108,17 +108,17 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_AttributeAxisY.format = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributeAxisY);
 
-	m_VertexArray.SetNumberOfVertices(m_UseInstancing ? m_Type->m_MaxParticles : m_Type->m_MaxParticles * 4);
+	m_VertexArray.SetNumberOfVertices(m_UseInstancing ? m_Type.m_MaxParticles : m_Type.m_MaxParticles * 4);
 	m_VertexArray.Layout();
 
 	m_AttributeUV.format = Renderer::Backend::Format::R32G32_SFLOAT;
 	m_VertexUVArray.AddAttribute(&m_AttributeUV);
 
-	m_VertexUVArray.SetNumberOfVertices(m_UseInstancing ? 4 : m_Type->m_MaxParticles * 4);
+	m_VertexUVArray.SetNumberOfVertices(m_UseInstancing ? 4 : m_Type.m_MaxParticles * 4);
 	m_VertexUVArray.Layout();
 
 	VertexArrayIterator<float[2]> attrUV = m_AttributeUV.GetIterator<float[2]>();
-	for (uint32_t index{0}; index < (m_UseInstancing ? 1u : m_Type->m_MaxParticles); ++index)
+	for (uint32_t index{0}; index < (m_UseInstancing ? 1u : m_Type.m_MaxParticles); ++index)
 	{
 		(*attrUV)[0] = 1;
 		(*attrUV)[1] = 0;
@@ -137,10 +137,10 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_VertexUVArray.Upload();
 	m_VertexUVArray.FreeBackingStore();
 
-	m_IndexArray.SetNumberOfVertices(m_UseInstancing ? 6 : m_Type->m_MaxParticles * 6);
+	m_IndexArray.SetNumberOfVertices(m_UseInstancing ? 6 : m_Type.m_MaxParticles * 6);
 	m_IndexArray.Layout();
 	VertexArrayIterator<u16> index = m_IndexArray.GetIterator();
-	for (u16 i = 0; i < (m_UseInstancing ? 1 : m_Type->m_MaxParticles); ++i)
+	for (u16 i = 0; i < (m_UseInstancing ? 1 : m_Type.m_MaxParticles); ++i)
 	{
 		*index++ = i*4 + 0;
 		*index++ = i*4 + 1;
@@ -190,8 +190,8 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 	m_LastFrameNumber = frameNumber;
 
 	// Update m_Particles
-	m_Type->UpdateEmitter(*this, m_Type->m_Manager.GetCurrentTime() - m_LastUpdateTime);
-	m_LastUpdateTime = m_Type->m_Manager.GetCurrentTime();
+	m_Type.UpdateEmitter(*this, m_Type.m_Manager.GetCurrentTime() - m_LastUpdateTime);
+	m_LastUpdateTime = m_Type.m_Manager.GetCurrentTime();
 
 	// Regenerate the vertex array data:
 
@@ -200,15 +200,15 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 	VertexArrayIterator<CVector4D> attrAxisX = m_AttributeAxisX.GetIterator<CVector4D>();
 	VertexArrayIterator<CVector4D> attrAxisY = m_AttributeAxisY.GetIterator<CVector4D>();
 
-	ENSURE(m_Particles.size() <= m_Type->m_MaxParticles);
+	ENSURE(m_Particles.size() <= m_Type.m_MaxParticles);
 
 	CBoundingBoxAligned bounds;
 
-	if (m_Type->m_SortMode != CParticleEmitterType::SortMode::UNSPECIFIED)
+	if (m_Type.m_SortMode != CParticleEmitterType::SortMode::UNSPECIFIED)
 	{
 		sortedParticles.insert(sortedParticles.end(), m_Particles.begin(), m_Particles.end());
 
-		switch (m_Type->m_SortMode)
+		switch (m_Type.m_SortMode)
 		{
 		case CParticleEmitterType::SortMode::YOUNGEST_IN_FRONT:
 			std::sort(sortedParticles.begin(), sortedParticles.end(), ParticleYoungestInFrontCompare{});
@@ -228,7 +228,7 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 	m_NumberOfVisibleParticles = 0;
 
 	const std::span<SParticle> particles{
-		m_Type->m_SortMode == CParticleEmitterType::SortMode::UNSPECIFIED ?
+		m_Type.m_SortMode == CParticleEmitterType::SortMode::UNSPECIFIED ?
 			std::span<SParticle>{m_Particles} : std::span<SParticle>{sortedParticles}};
 
 	if (m_UseInstancing)
@@ -248,8 +248,8 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 
 			// Special case: If the blending depends on the source color, not the source alpha,
 			// then pre-multiply by the alpha. (This is kind of a hack.)
-			if (m_Type->m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
-				m_Type->m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
+			if (m_Type.m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
+				m_Type.m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
 			{
 				color.R = (color.R * color.A) / 255;
 				color.G = (color.G * color.A) / 255;
@@ -287,8 +287,8 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 
 			// Special case: If the blending depends on the source color, not the source alpha,
 			// then pre-multiply by the alpha. (This is kind of a hack.)
-			if (m_Type->m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
-				m_Type->m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
+			if (m_Type.m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
+				m_Type.m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
 			{
 				color.R = (color.R * color.A) / 255;
 				color.G = (color.G * color.A) / 255;
@@ -339,7 +339,7 @@ void CParticleEmitter::Bind(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IShaderProgram* shader)
 {
-	m_Type->m_Texture->UploadBackendTextureIfNeeded(deviceCommandContext);
+	m_Type.m_Texture->UploadBackendTextureIfNeeded(deviceCommandContext);
 
 	CLOSTexture& los = g_Renderer.GetSceneRenderer().GetScene().GetLOSTexture();
 	deviceCommandContext->SetTexture(
@@ -351,7 +351,7 @@ void CParticleEmitter::Bind(
 	g_Renderer.GetSceneRenderer().GetLightEnv().Bind(deviceCommandContext, shader);
 
 	deviceCommandContext->SetTexture(
-		shader->GetBindingSlot(str_baseTex), m_Type->m_Texture->GetBackendTexture());
+		shader->GetBindingSlot(str_baseTex), m_Type.m_Texture->GetBackendTexture());
 }
 
 void CParticleEmitter::RenderArray(
@@ -388,7 +388,7 @@ void CParticleEmitter::AddParticle(const SParticle& particle)
 	else
 		m_Particles[m_NextParticleIdx] = particle;
 
-	m_NextParticleIdx = (m_NextParticleIdx + 1) % m_Type->m_MaxParticles;
+	m_NextParticleIdx = (m_NextParticleIdx + 1) % m_Type.m_MaxParticles;
 }
 
 void CParticleEmitter::SetEntityVariable(const std::string& name, float value)
@@ -396,15 +396,14 @@ void CParticleEmitter::SetEntityVariable(const std::string& name, float value)
 	m_EntityVariables[name] = value;
 }
 
-CModelParticleEmitter::CModelParticleEmitter(const CParticleEmitterTypePtr& type) :
-	m_Type(type)
+CModelParticleEmitter::CModelParticleEmitter(const CParticleEmitterType& type)
+	: m_Type{type}, m_Emitter{std::make_unique<CParticleEmitter>(m_Type)}
 {
-	m_Emitter = CParticleEmitterPtr(new CParticleEmitter(m_Type));
 }
 
 CModelParticleEmitter::~CModelParticleEmitter()
 {
-	m_Type->m_Manager.AddUnattachedEmitter(std::move(m_Emitter));
+	m_Type.m_Manager.AddUnattachedEmitter(std::move(m_Emitter));
 }
 
 void CModelParticleEmitter::SetEntityVariable(const std::string& name, float value)
@@ -423,7 +422,7 @@ void CModelParticleEmitter::CalcBounds()
 	// current computed particle positions plus the emitter type's largest
 	// potential bounding box at the current position
 
-	m_WorldBounds = m_Type->CalculateBounds(m_Emitter->GetPosition(), m_Emitter->GetParticleBounds());
+	m_WorldBounds = m_Type.CalculateBounds(m_Emitter->GetPosition(), m_Emitter->GetParticleBounds());
 }
 
 void CModelParticleEmitter::ValidatePosition()

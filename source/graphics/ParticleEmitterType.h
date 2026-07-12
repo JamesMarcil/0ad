@@ -49,7 +49,13 @@ class CParticleEmitterType
 {
 	NONCOPYABLE(CParticleEmitterType);	// reference member
 public:
-	CParticleEmitterType(const VfsPath& path, CParticleManager& manager);
+	CParticleEmitterType(CParticleManager& manager);
+	~CParticleEmitterType();
+
+	/**
+	 * @return True if the emitter type was successfuly loaded.
+	 */
+	bool Load(const VfsPath& path);
 
 private:
 	friend class CModelParticleEmitter;
@@ -130,15 +136,10 @@ private:
 	u16 m_MaxParticles;
 	CBoundingBoxAligned m_MaxBounds;
 
-	typedef std::shared_ptr<IParticleVar> IParticleVarPtr;
-	std::vector<IParticleVarPtr> m_Variables;
-
-	typedef std::shared_ptr<IParticleEffector> IParticleEffectorPtr;
-	std::vector<IParticleEffectorPtr> m_Effectors;
+	std::vector<std::unique_ptr<IParticleVar>> m_Variables;
+	std::vector<std::unique_ptr<IParticleEffector>> m_Effectors;
 
 	CParticleManager& m_Manager;
 };
-
-typedef std::shared_ptr<CParticleEmitterType> CParticleEmitterTypePtr;
 
 #endif // INCLUDED_PARTICLEEMITTERTYPE

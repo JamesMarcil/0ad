@@ -24,9 +24,9 @@
 #include "lib/path.h"
 #include "lib/status.h"
 
-#include <list>
 #include <random>
 #include <unordered_map>
+#include <vector>
 
 class CFrustum;
 class SceneCollector;
@@ -39,7 +39,7 @@ public:
 	CParticleManager(Renderer::Backend::IDevice& device);
 	~CParticleManager();
 
-	CParticleEmitterTypePtr LoadEmitterType(const VfsPath& path);
+	CParticleEmitterType* LoadEmitterType(const VfsPath& path);
 
 	/**
 	 * Tell the manager to handle rendering of an emitter that is no longer
@@ -49,7 +49,7 @@ public:
 	 * will carry on rendering (until all particles have dissipated)
 	 * even when it's no longer attached to a model.
 	 */
-	void AddUnattachedEmitter(const CParticleEmitterPtr& emitter);
+	void AddUnattachedEmitter(std::unique_ptr<CParticleEmitter> emitter);
 
 	/**
 	 * Delete unattached emitters if we don't wish to see them anymore (like in actor viewer)
@@ -72,9 +72,9 @@ public:
 private:
 	float m_CurrentTime{0.0f};
 
-	std::list<CParticleEmitterPtr> m_UnattachedEmitters;
+	std::vector<std::unique_ptr<CParticleEmitter>> m_UnattachedEmitters;
 
-	std::unordered_map<VfsPath, CParticleEmitterTypePtr> m_EmitterTypes;
+	std::unordered_map<VfsPath, std::unique_ptr<CParticleEmitterType>> m_EmitterTypes;
 
 	bool m_UseInstancing{false};
 };

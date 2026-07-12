@@ -112,7 +112,14 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 
 	if (!variation.particles.empty())
 	{
-		m_Model = std::make_unique<CModelParticleEmitter>(g_Renderer.GetSceneRenderer().GetParticleManager().LoadEmitterType(variation.particles));
+		CParticleEmitterType* particleEmitterType{
+			g_Renderer.GetSceneRenderer().GetParticleManager().LoadEmitterType(variation.particles)};
+		if (!particleEmitterType)
+		{
+			LOGERROR("CObjectEntry::BuildVariation(): Failed to load particles %s", variation.particles.string8());
+			return false;
+		}
+		m_Model = std::make_unique<CModelParticleEmitter>(*particleEmitterType);
 		return true;
 	}
 

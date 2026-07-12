@@ -58,7 +58,7 @@ public:
 	/// Computes and returns a new value.
 	float Evaluate(CParticleEmitter& emitter)
 	{
-		m_LastValue = Compute(*emitter.m_Type, emitter);
+		m_LastValue = Compute(emitter.m_Type, emitter);
 		return m_LastValue;
 	}
 
@@ -268,11 +268,15 @@ private:
 
 
 
-CParticleEmitterType::CParticleEmitterType(const VfsPath& path, CParticleManager& manager) :
+CParticleEmitterType::CParticleEmitterType(CParticleManager& manager) :
 	m_Manager(manager)
 {
-	LoadXML(path);
-	// TODO: handle load failure
+}
+
+bool CParticleEmitterType::Load(const VfsPath& path)
+{
+	if (!LoadXML(path))
+		return false;
 
 	// Upper bound on number of particles depends on maximum rate and lifetime
 	m_MaxLifetime = m_Variables[VAR_LIFETIME]->Max(*this);
@@ -336,7 +340,11 @@ CParticleEmitterType::CParticleEmitterType(const VfsPath& path, CParticleManager
 	// Offset by the initial positions
 	m_MaxBounds[0] += CVector3D(m_Variables[VAR_POSITION_X]->Min(*this), m_Variables[VAR_POSITION_Y]->Min(*this), m_Variables[VAR_POSITION_Z]->Min(*this));
 	m_MaxBounds[1] += CVector3D(m_Variables[VAR_POSITION_X]->Max(*this), m_Variables[VAR_POSITION_Y]->Max(*this), m_Variables[VAR_POSITION_Z]->Max(*this));
+
+	return true;
 }
+
+CParticleEmitterType::~CParticleEmitterType() = default;
 
 int CParticleEmitterType::GetVariableID(const std::string& name)
 {
@@ -364,21 +372,21 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	// Initialise with sane defaults
 	m_Variables.clear();
 	m_Variables.resize(VAR__MAX);
-	m_Variables[VAR_EMISSIONRATE] = IParticleVarPtr(new CParticleVarConstant(10.f));
-	m_Variables[VAR_LIFETIME] = IParticleVarPtr(new CParticleVarConstant(3.f));
-	m_Variables[VAR_POSITION_X] = IParticleVarPtr(new CParticleVarConstant(0.f));
-	m_Variables[VAR_POSITION_Y] = IParticleVarPtr(new CParticleVarConstant(0.f));
-	m_Variables[VAR_POSITION_Z] = IParticleVarPtr(new CParticleVarConstant(0.f));
-	m_Variables[VAR_ANGLE] = IParticleVarPtr(new CParticleVarConstant(0.f));
-	m_Variables[VAR_VELOCITY_X] = IParticleVarPtr(new CParticleVarConstant(0.f));
-	m_Variables[VAR_VELOCITY_Y] = IParticleVarPtr(new CParticleVarConstant(1.f));
-	m_Variables[VAR_VELOCITY_Z] = IParticleVarPtr(new CParticleVarConstant(0.f));
-	m_Variables[VAR_VELOCITY_ANGLE] = IParticleVarPtr(new CParticleVarConstant(0.f));
-	m_Variables[VAR_SIZE] = IParticleVarPtr(new CParticleVarConstant(1.f));
-	m_Variables[VAR_SIZE_GROWTHRATE] = IParticleVarPtr(new CParticleVarConstant(0.f));
-	m_Variables[VAR_COLOR_R] = IParticleVarPtr(new CParticleVarConstant(1.f));
-	m_Variables[VAR_COLOR_G] = IParticleVarPtr(new CParticleVarConstant(1.f));
-	m_Variables[VAR_COLOR_B] = IParticleVarPtr(new CParticleVarConstant(1.f));
+	m_Variables[VAR_EMISSIONRATE] = std::make_unique<CParticleVarConstant>(10.f);
+	m_Variables[VAR_LIFETIME] = std::make_unique<CParticleVarConstant>(3.f);
+	m_Variables[VAR_POSITION_X] = std::make_unique<CParticleVarConstant>(0.f);
+	m_Variables[VAR_POSITION_Y] = std::make_unique<CParticleVarConstant>(0.f);
+	m_Variables[VAR_POSITION_Z] = std::make_unique<CParticleVarConstant>(0.f);
+	m_Variables[VAR_ANGLE] = std::make_unique<CParticleVarConstant>(0.f);
+	m_Variables[VAR_VELOCITY_X] = std::make_unique<CParticleVarConstant>(0.f);
+	m_Variables[VAR_VELOCITY_Y] = std::make_unique<CParticleVarConstant>(1.f);
+	m_Variables[VAR_VELOCITY_Z] = std::make_unique<CParticleVarConstant>(0.f);
+	m_Variables[VAR_VELOCITY_ANGLE] = std::make_unique<CParticleVarConstant>(0.f);
+	m_Variables[VAR_SIZE] = std::make_unique<CParticleVarConstant>(1.f);
+	m_Variables[VAR_SIZE_GROWTHRATE] = std::make_unique<CParticleVarConstant>(0.f);
+	m_Variables[VAR_COLOR_R] = std::make_unique<CParticleVarConstant>(1.f);
+	m_Variables[VAR_COLOR_G] = std::make_unique<CParticleVarConstant>(1.f);
+	m_Variables[VAR_COLOR_B] = std::make_unique<CParticleVarConstant>(1.f);
 	m_BlendMode = BlendMode::ADD;
 	m_SortMode = SortMode::UNSPECIFIED;
 	m_StartFull = false;
@@ -390,7 +398,10 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	CXeromyces XeroFile;
 	PSRETURN ret = XeroFile.Load(g_VFS, path, "particle");
 	if (ret != PSRETURN_OK)
+	{
+		LOGERROR("Failed to load particle: '%s'", path.string8());
 		return false;
+	}
 
 	// Define all the elements and attributes used in the XML file
 #define EL(x) int el_##x = XeroFile.GetElementID(#x)
@@ -476,9 +487,9 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 			int id = GetVariableID(Child.GetAttributes().GetNamedItem(at_name));
 			if (id != -1)
 			{
-				m_Variables[id] = IParticleVarPtr(new CParticleVarConstant(
+				m_Variables[id] = std::make_unique<CParticleVarConstant>(
 					Child.GetAttributes().GetNamedItem(at_value).ToFloat()
-				));
+				);
 			}
 		}
 		else if (Child.GetNodeName() == el_uniform)
@@ -490,9 +501,9 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 				float max = Child.GetAttributes().GetNamedItem(at_max).ToFloat();
 				// To avoid hangs in the RNG, only use it if [min, max) is non-empty
 				if (min < max)
-					m_Variables[id] = IParticleVarPtr(new CParticleVarUniform(min, max));
+					m_Variables[id] = std::make_unique<CParticleVarUniform>(min, max);
 				else
-					m_Variables[id] = IParticleVarPtr(new CParticleVarConstant(min));
+					m_Variables[id] = std::make_unique<CParticleVarConstant>(min);
 			}
 		}
 		else if (Child.GetNodeName() == el_copy)
@@ -500,7 +511,7 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 			int id = GetVariableID(Child.GetAttributes().GetNamedItem(at_name));
 			int from = GetVariableID(Child.GetAttributes().GetNamedItem(at_from));
 			if (id != -1 && from != -1)
-				m_Variables[id] = IParticleVarPtr(new CParticleVarCopy(from));
+				m_Variables[id] = std::make_unique<CParticleVarCopy>(from);
 		}
 		else if (Child.GetNodeName() == el_expr)
 		{
@@ -509,14 +520,14 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 			float mul = Child.GetAttributes().GetNamedItem(at_mul).ToFloat();
 			float max = Child.GetAttributes().GetNamedItem(at_max).ToFloat();
 			if (id != -1)
-				m_Variables[id] = IParticleVarPtr(new CParticleVarExpr(from, mul, max));
+				m_Variables[id] = std::make_unique<CParticleVarExpr>(from, mul, max);
 		}
 		else if (Child.GetNodeName() == el_force)
 		{
 			float x = Child.GetAttributes().GetNamedItem(at_x).ToFloat();
 			float y = Child.GetAttributes().GetNamedItem(at_y).ToFloat();
 			float z = Child.GetAttributes().GetNamedItem(at_z).ToFloat();
-			m_Effectors.push_back(IParticleEffectorPtr(new CParticleEffectorForce(x, y, z)));
+			m_Effectors.push_back(std::make_unique<CParticleEffectorForce>(x, y, z));
 		}
 		else if (Child.GetNodeName() == el_particle)
 		{
@@ -576,7 +587,7 @@ void CParticleEmitterType::UpdateEmitter(CParticleEmitter& emitter, float dt) co
 
 void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt) const
 {
-	ENSURE(emitter.m_Type.get() == this);
+	ENSURE(&emitter.m_Type == this);
 
 	if (emitter.m_Active)
 	{

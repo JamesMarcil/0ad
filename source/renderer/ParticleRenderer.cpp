@@ -161,7 +161,7 @@ void ParticleRenderer::RenderParticles(
 		}
 		else
 		{
-			switch (emitter->m_Type->m_BlendMode)
+			switch (emitter->m_Type.m_BlendMode)
 			{
 			case CParticleEmitterType::BlendMode::ADD: currentTech = m->techAdd.get(); break;
 			case CParticleEmitterType::BlendMode::SUBTRACT: currentTech = m->techSubtract.get(); break;
@@ -195,7 +195,7 @@ void ParticleRenderer::RenderParticles(
 
 		const CMatrix3D rotationMatrix{emitter->GetRotation().ToMatrix()};
 		CMatrix3D spaceTransform;
-		if (emitter->m_Type->m_UseLocalSpace)
+		if (emitter->m_Type.m_UseLocalSpace)
 		{
 			spaceTransform = rotationMatrix;
 			spaceTransform.Translate(emitter->GetPosition());
@@ -219,7 +219,7 @@ void ParticleRenderer::RenderBounds(Renderer::Backend::IDeviceCommandContext& de
 	for (const CParticleEmitter* emitter : m->emitters[cullGroup])
 	{
 		const CBoundingBoxAligned bounds =
-			emitter->m_Type->CalculateBounds(emitter->GetPosition(), emitter->GetParticleBounds());
+			emitter->m_Type.CalculateBounds(emitter->GetPosition(), emitter->GetParticleBounds());
 
 		g_Renderer.GetDebugRenderer().DrawBoundingBox(deviceCommandContext, bounds, CColor(0.0f, 1.0f, 0.0f, 1.0f), true);
 	}

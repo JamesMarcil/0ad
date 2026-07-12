@@ -55,8 +55,6 @@ struct SParticle
 	CVector3D axisX, axisY;
 };
 
-typedef std::shared_ptr<CParticleEmitter> CParticleEmitterPtr;
-
 /**
  * Particle emitter.
  *
@@ -80,7 +78,7 @@ typedef std::shared_ptr<CParticleEmitter> CParticleEmitterPtr;
 class CParticleEmitter
 {
 public:
-	CParticleEmitter(const CParticleEmitterTypePtr& type);
+	CParticleEmitter(const CParticleEmitterType& type);
 
 	/**
 	 * Set the position to be used for emission of new particles.
@@ -152,7 +150,7 @@ public:
 
 	void SetEntityVariable(const std::string& name, float value);
 
-	CParticleEmitterTypePtr m_Type;
+	const CParticleEmitterType& m_Type;
 
 	/// Whether this emitter is still emitting new particles
 	bool m_Active{true};
@@ -194,7 +192,7 @@ private:
 class CModelParticleEmitter : public CModelAbstract
 {
 public:
-	CModelParticleEmitter(const CParticleEmitterTypePtr& type);
+	CModelParticleEmitter(const CParticleEmitterType& type);
 	~CModelParticleEmitter() override;
 
 	/// Dynamic cast
@@ -216,8 +214,8 @@ public:
 	void InvalidatePosition() override;
 	void SetTransform(const CMatrix3D& transform) override;
 
-	CParticleEmitterTypePtr m_Type;
-	CParticleEmitterPtr m_Emitter;
+	const CParticleEmitterType& m_Type;
+	std::unique_ptr<CParticleEmitter> m_Emitter;
 };
 
 #endif // INCLUDED_PARTICLEEMITTER

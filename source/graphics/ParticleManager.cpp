@@ -24,6 +24,7 @@
 #include "renderer/backend/IDevice.h"
 #include "renderer/Scene.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <unordered_map>
@@ -48,21 +49,23 @@ CParticleManager::~CParticleManager()
 	UnregisterFileReloadFunc(ReloadChangedFileCB, this);
 }
 
-CParticleEmitterTypePtr CParticleManager::LoadEmitterType(const VfsPath& path)
+CParticleEmitterType* CParticleManager::LoadEmitterType(const VfsPath& path)
 {
-	std::unordered_map<VfsPath, CParticleEmitterTypePtr>::iterator it = m_EmitterTypes.find(path);
-	if (it != m_EmitterTypes.end())
-		return it->second;
+	if (auto it{m_EmitterTypes.find(path)}; it != m_EmitterTypes.end())
+		return it->second.get();
 
-	CParticleEmitterTypePtr emitterType(new CParticleEmitterType(path, *this));
-	m_EmitterTypes[path] = emitterType;
-	return emitterType;
+	std::unique_ptr<CParticleEmitterType> emitterType{
+		std::make_unique<CParticleEmitterType>(*this)};
+	if (!emitterType->Load(path))
+		return nullptr;
+
+	return m_EmitterTypes.emplace(path, std::move(emitterType)).first->second.get();
 }
 
-void CParticleManager::AddUnattachedEmitter(const CParticleEmitterPtr& emitter)
+void CParticleManager::AddUnattachedEmitter(std::unique_ptr<CParticleEmitter> emitter)
 {
 	emitter->m_Active = false;
-	m_UnattachedEmitters.push_back(emitter);
+	m_UnattachedEmitters.emplace_back(std::move(emitter));
 }
 
 void CParticleManager::ClearUnattachedEmitters()
@@ -75,18 +78,19 @@ void CParticleManager::Interpolate(const float simFrameLength)
 	m_CurrentTime += simFrameLength;
 }
 
+struct ParticleAlive
+{
+	bool operator()(const SParticle& particle) const
+	{
+		return particle.age < particle.maxAge;
+	}
+};
+
 struct EmitterHasNoParticles
 {
-	bool operator()(const CParticleEmitterPtr& emitterPtr)
+	bool operator()(const std::unique_ptr<CParticleEmitter>& emitter) const
 	{
-		CParticleEmitter& emitter = *emitterPtr.get();
-		for (size_t i = 0; i < emitter.m_Particles.size(); ++i)
-		{
-			SParticle& p = emitter.m_Particles[i];
-			if (p.age < p.maxAge)
-				return false;
-		}
-		return true;
+		return std::none_of(emitter->m_Particles.begin(), emitter->m_Particles.end(), ParticleAlive{});
 	}
 };
 
@@ -95,16 +99,21 @@ void CParticleManager::RenderSubmit(SceneCollector& collector, const CFrustum&)
 	PROFILE("submit unattached particles");
 
 	// Delete any unattached emitters that have no particles left
-	m_UnattachedEmitters.remove_if(EmitterHasNoParticles());
+	std::erase_if(m_UnattachedEmitters, EmitterHasNoParticles());
 
 	// TODO: should do some frustum culling
 
-	for (std::list<CParticleEmitterPtr>::iterator it = m_UnattachedEmitters.begin(); it != m_UnattachedEmitters.end(); ++it)
-		collector.Submit(it->get());
+	for (std::unique_ptr<CParticleEmitter>& emitter : m_UnattachedEmitters)
+		collector.Submit(emitter.get());
 }
 
 Status CParticleManager::ReloadChangedFile(const VfsPath& path)
 {
-	m_EmitterTypes.erase(path);
+	if (auto it = m_EmitterTypes.find(path); it != m_EmitterTypes.end())
+	{
+		// We can't erase an emitter type because emitters might hold
+		// a reference to it.
+		it->second->Load(path);
+	}
 	return INFO::OK;
 }
