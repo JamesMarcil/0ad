@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -277,7 +277,7 @@ ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef)
 			m_Position.format, 0, OUTPUT_POSITION_STRIDE,
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
 		{Renderer::Backend::VertexAttributeStream::NORMAL,
-			Renderer::Backend::Format::R16G16B16_SFLOAT, OUTPUT_NORMAL_OFFSET, OUTPUT_NORMAL_TANGENT_STRIDE,
+			Renderer::Backend::Format::R16G16B16A16_SFLOAT, OUTPUT_NORMAL_OFFSET, OUTPUT_NORMAL_TANGENT_STRIDE,
 		Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
 		{Renderer::Backend::VertexAttributeStream::UV2,
 		Renderer::Backend::Format::R16G16B16A16_SFLOAT, OUTPUT_TANGENT_OFFSET, OUTPUT_NORMAL_TANGENT_STRIDE,
