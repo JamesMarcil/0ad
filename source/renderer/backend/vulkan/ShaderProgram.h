@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "renderer/backend/Format.h"
 #include "renderer/backend/IShaderProgram.h"
 #include "renderer/backend/vulkan/DescriptorManager.h"
+#include "renderer/backend/vulkan/Mapping.h"
 
 #include <array>
 #include <cstddef>
@@ -65,6 +66,11 @@ public:
 		{
 			ENSURE(attribute.format != Format::UNDEFINED);
 			ENSURE(attribute.stride > 0);
+
+			VkFormatProperties formatProperties{};
+			vkGetPhysicalDeviceFormatProperties(
+				m_Device->GetChoosenPhysicalDevice().device, Mapping::FromFormat(attribute.format), &formatProperties);
+			ENSURE(formatProperties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT);
 		}
 	}
 
