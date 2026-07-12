@@ -26,7 +26,6 @@ struct Vertex
 	vec4 tangent;
 	vec4 normal;
 	vec4 position;
-	vec4 padding;
 };
 
 STORAGE_BUFFER(0) restrict readonly buffer InputVertices

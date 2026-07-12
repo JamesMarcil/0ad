@@ -62,7 +62,7 @@ namespace
 //
 // Created on a model load and read by a compute shader for each frame where
 // the model is visible.
-//  InputVertex(size/stride=64):
+//  InputVertex(size/stride=48):
 //   vec4/CVector4D tangent (offset=0)
 //   vec3/CVector3D normal (offset=16)
 //   vec3/CVector3D position (offset=32)
@@ -251,7 +251,7 @@ ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef)
 		m_UVArray.FreeBackingStore();
 	}
 
-	ENSURE(m_Array.GetStride() == INPUT_VERTEX_ATTRIBUTE_ALIGNMENT * 4);
+	ENSURE(m_Array.GetStride() == INPUT_VERTEX_ATTRIBUTE_ALIGNMENT * 3);
 	ENSURE(m_Position.offset == INPUT_VERTEX_POSITION_OFFSET);
 	ENSURE(m_Normal.offset == INPUT_VERTEX_NORMAL_OFFSET);
 	ENSURE(m_Tangent.offset == INPUT_VERTEX_TANGENT_OFFSET);

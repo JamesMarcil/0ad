@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -231,10 +231,8 @@ static uint32_t RoundStride(uint32_t stride)
 		return 4;
 	if (stride <= 8)
 		return 8;
-	if (stride <= 16)
-		return 16;
 
-	return Align<32>(stride);
+	return Align<16>(stride);
 }
 
 // Re-layout by assigning offsets on a first-come first-serve basis,
