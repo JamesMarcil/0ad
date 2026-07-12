@@ -575,109 +575,26 @@ void CRenderer::RenderFrameImpl(
 
 	if (g_Game && g_Game->IsGameStarted())
 	{
-		g_Game->GetView()->Prepare(m->deviceCommandContext.get());
+		ENSURE(g_Game->GetView());
+		CGameView& gameView{*g_Game->GetView()};
+		gameView.Prepare(m->deviceCommandContext.get());
 
-		Renderer::Backend::IFramebuffer* framebuffer = nullptr;
-		Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};
-
-		CPostprocManager& postprocManager = GetPostprocManager();
+		CPostprocManager& postprocManager{GetPostprocManager()};
 		if (postprocManager.IsEnabled())
 		{
-			// We have to update the post process manager with real near/far planes
-			// that we use for the scene rendering.
-			postprocManager.SetDepthBufferClipPlanes(
-				m->sceneRenderer.GetViewCamera().GetNearPlane(),
-				m->sceneRenderer.GetViewCamera().GetFarPlane()
-			);
 			postprocManager.Initialize();
-			framebuffer = postprocManager.PrepareAndGetOutputFramebuffer();
-			viewportRect.width = framebuffer->GetWidth();
-			viewportRect.height = framebuffer->GetHeight();
+			RenderGameWithPostProcessingAndGUI(
+				swapChain, gameView, postprocManager, renderGUI, renderLogger);
 		}
 		else
 		{
-			// We don't need to clear the color attachment of the framebuffer as the sky
-			// is going to be rendered anyway.
-			framebuffer =
-				swapChain.GetCurrentBackbuffer(
-					Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-					Renderer::Backend::AttachmentStoreOp::STORE,
-					Renderer::Backend::AttachmentLoadOp::CLEAR,
-					Renderer::Backend::AttachmentStoreOp::DONT_CARE);
-
-			viewportRect.width = m_Width;
-			viewportRect.height = m_Height;
+			RenderGameAndGUI(swapChain, gameView, renderGUI, renderLogger);
 		}
-
-		m->deviceCommandContext->BeginFramebufferPass(framebuffer);
-		m->deviceCommandContext->SetViewports(1, &viewportRect);
-
-		g_Game->GetView()->Render(m->deviceCommandContext.get());
-
-		if (postprocManager.IsEnabled())
-		{
-			m->deviceCommandContext->EndFramebufferPass();
-
-			if (postprocManager.IsMultisampleEnabled())
-				postprocManager.ResolveMultisampleFramebuffer(m->deviceCommandContext.get());
-
-			postprocManager.ApplyPostproc(m->deviceCommandContext.get());
-
-			Renderer::Backend::IFramebuffer* backbuffer =
-				swapChain.GetCurrentBackbuffer(
-					Renderer::Backend::AttachmentLoadOp::LOAD,
-					Renderer::Backend::AttachmentStoreOp::STORE,
-					Renderer::Backend::AttachmentLoadOp::LOAD,
-					Renderer::Backend::AttachmentStoreOp::DONT_CARE);
-			postprocManager.BlitOutputFramebuffer(
-				m->deviceCommandContext.get(), backbuffer);
-
-			m->deviceCommandContext->BeginFramebufferPass(backbuffer);
-
-			Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};
-			viewportRect.width = m_Width;
-			viewportRect.height = m_Height;
-			m->deviceCommandContext->SetViewports(1, &viewportRect);
-		}
-
-		g_Game->GetView()->RenderOverlays(m->deviceCommandContext.get());
-
-		g_Game->GetView()->GetCinema()->Render(*m->deviceCommandContext);
 	}
 	else
 	{
-		// We have a fullscreen background in our UI so we don't need
-		// to clear the color attachment.
-		// We don't need a depth test to render so we don't care about the
-		// depth-stencil attachment content.
-		// In case of Atlas we don't have g_Game, so we still need to clear depth.
-		const Renderer::Backend::AttachmentLoadOp depthStencilLoadOp =
-			g_AtlasGameLoop && g_AtlasGameLoop->view
-				? Renderer::Backend::AttachmentLoadOp::CLEAR
-				: Renderer::Backend::AttachmentLoadOp::DONT_CARE;
-		Renderer::Backend::IFramebuffer* backbuffer =
-			swapChain.GetCurrentBackbuffer(
-				Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-				Renderer::Backend::AttachmentStoreOp::STORE,
-				depthStencilLoadOp,
-				Renderer::Backend::AttachmentStoreOp::DONT_CARE);
-		m->deviceCommandContext->BeginFramebufferPass(backbuffer);
-
-		Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};
-		viewportRect.width = m_Width;
-		viewportRect.height = m_Height;
-		m->deviceCommandContext->SetViewports(1, &viewportRect);
+		RenderGUIOnly(swapChain, renderGUI, renderLogger);
 	}
-
-	// If we're in Atlas game view, render special tools
-	if (g_AtlasGameLoop && g_AtlasGameLoop->view)
-	{
-		g_AtlasGameLoop->view->DrawCinemaPathTool(*m->deviceCommandContext);
-	}
-
-	RenderFrame2D(renderGUI, renderLogger);
-
-	m->deviceCommandContext->EndFramebufferPass();
 
 	EndFrame();
 
@@ -695,7 +612,135 @@ void CRenderer::RenderFrameImpl(
 	m->linearAllocator.Release();
 }
 
-void CRenderer::RenderFrame2D(const bool renderGUI, const bool renderLogger)
+void CRenderer::RenderGameAndGUI(
+	Renderer::Backend::ISwapChain& swapChain, CGameView& gameView,
+	const bool renderGUI, const bool renderLogger)
+{
+	// We don't need to clear the color attachment of the framebuffer as the sky
+	// is going to be rendered anyway.
+	Renderer::Backend::IFramebuffer* framebuffer{
+		swapChain.GetCurrentBackbuffer(
+			Renderer::Backend::AttachmentLoadOp::DONT_CARE,
+			Renderer::Backend::AttachmentStoreOp::STORE,
+			Renderer::Backend::AttachmentLoadOp::CLEAR,
+			Renderer::Backend::AttachmentStoreOp::DONT_CARE)};
+
+	Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};
+	viewportRect.width = m_Width;
+	viewportRect.height = m_Height;
+
+	m->deviceCommandContext->BeginFramebufferPass(framebuffer);
+	m->deviceCommandContext->SetViewports(1, &viewportRect);
+
+	gameView.Render(m->deviceCommandContext.get());
+	RenderGameOverlays(gameView);
+	Render2D(renderGUI, renderLogger);
+
+	m->deviceCommandContext->EndFramebufferPass();
+}
+
+void CRenderer::RenderGameWithPostProcessingAndGUI(
+	Renderer::Backend::ISwapChain& swapChain, CGameView& gameView,
+	CPostprocManager& postprocManager,
+	const bool renderGUI, const bool renderLogger)
+{
+	ENSURE(postprocManager.IsEnabled());
+	// We have to update the post process manager with real near/far planes
+	// that we use for the scene rendering.
+	postprocManager.SetDepthBufferClipPlanes(
+		m->sceneRenderer.GetViewCamera().GetNearPlane(),
+		m->sceneRenderer.GetViewCamera().GetFarPlane()
+	);
+
+	// In the first pass we render the game scene to a post processing texture
+	// instead of a backbuffer to be able to apply effects to it.
+	Renderer::Backend::IFramebuffer* framebuffer{postprocManager.PrepareAndGetOutputFramebuffer()};
+	Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};
+	viewportRect.width = framebuffer->GetWidth();
+	viewportRect.height = framebuffer->GetHeight();
+
+	m->deviceCommandContext->BeginFramebufferPass(framebuffer);
+	m->deviceCommandContext->SetViewports(1, &viewportRect);
+
+	gameView.Render(m->deviceCommandContext.get());
+
+	m->deviceCommandContext->EndFramebufferPass();
+
+	if (postprocManager.IsMultisampleEnabled())
+		postprocManager.ResolveMultisampleFramebuffer(m->deviceCommandContext.get());
+
+	// In the second pass we apply our post processing. There might multiple
+	// ping pong passes to apply different effects.
+	postprocManager.ApplyPostproc(m->deviceCommandContext.get());
+
+	// During the final pass we blit our post processing result to the
+	// backbuffer and then draw all 2D over it.
+	Renderer::Backend::IFramebuffer* backbuffer{
+		swapChain.GetCurrentBackbuffer(
+			Renderer::Backend::AttachmentLoadOp::LOAD,
+			Renderer::Backend::AttachmentStoreOp::STORE,
+			Renderer::Backend::AttachmentLoadOp::LOAD,
+			Renderer::Backend::AttachmentStoreOp::DONT_CARE)};
+	postprocManager.BlitOutputFramebuffer(
+		m->deviceCommandContext.get(), backbuffer);
+
+	m->deviceCommandContext->BeginFramebufferPass(backbuffer);
+
+	viewportRect.width = m_Width;
+	viewportRect.height = m_Height;
+	m->deviceCommandContext->SetViewports(1, &viewportRect);
+
+	RenderGameOverlays(gameView);
+	Render2D(renderGUI, renderLogger);
+
+	m->deviceCommandContext->EndFramebufferPass();
+}
+
+void CRenderer::RenderGUIOnly(
+	Renderer::Backend::ISwapChain& swapChain,
+	const bool renderGUI, const bool renderLogger)
+{
+	// We have a fullscreen background in our UI so we don't need
+	// to clear the color attachment.
+	// We don't need a depth test to render so we don't care about the
+	// depth-stencil attachment content.
+	// In case of Atlas we don't have g_Game, so we still need to clear depth.
+	const Renderer::Backend::AttachmentLoadOp depthStencilLoadOp =
+		g_AtlasGameLoop && g_AtlasGameLoop->view
+			? Renderer::Backend::AttachmentLoadOp::CLEAR
+			: Renderer::Backend::AttachmentLoadOp::DONT_CARE;
+	Renderer::Backend::IFramebuffer* backbuffer =
+		swapChain.GetCurrentBackbuffer(
+			Renderer::Backend::AttachmentLoadOp::DONT_CARE,
+			Renderer::Backend::AttachmentStoreOp::STORE,
+			depthStencilLoadOp,
+			Renderer::Backend::AttachmentStoreOp::DONT_CARE);
+	m->deviceCommandContext->BeginFramebufferPass(backbuffer);
+
+	Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};
+	viewportRect.width = m_Width;
+	viewportRect.height = m_Height;
+	m->deviceCommandContext->SetViewports(1, &viewportRect);
+
+	Render2D(renderGUI, renderLogger);
+
+	m->deviceCommandContext->EndFramebufferPass();
+}
+
+void CRenderer::RenderGameOverlays(CGameView& gameView)
+{
+	gameView.RenderOverlays(m->deviceCommandContext.get());
+
+	gameView.GetCinema()->Render(*m->deviceCommandContext);
+
+	// If we're in Atlas game view, render special tools
+	if (g_AtlasGameLoop && g_AtlasGameLoop->view)
+	{
+		g_AtlasGameLoop->view->DrawCinemaPathTool(*m->deviceCommandContext);
+	}
+}
+
+void CRenderer::Render2D(const bool renderGUI, const bool renderLogger)
 {
 	CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), m->deviceCommandContext.get());
 

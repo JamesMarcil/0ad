@@ -27,6 +27,7 @@
 
 class CDebugRenderer;
 class CFontManager;
+class CGameView;
 class CPostprocManager;
 class CSceneRenderer;
 class CShaderManager;
@@ -165,9 +166,22 @@ protected:
 	void RenderFrameImpl(
 		Renderer::Backend::ISwapChain& swapChain,
 		const bool renderGUI, const bool renderLogger);
-	void RenderFrame2D(const bool renderGUI, const bool renderLogger);
 	void RenderScreenShot(const bool needsPresent);
 	void RenderBigScreenShot(const bool needsPresent);
+
+	void RenderGameAndGUI(
+		Renderer::Backend::ISwapChain& swapChain, CGameView& gameView,
+		const bool renderGUI, const bool renderLogger);
+	void RenderGameWithPostProcessingAndGUI(
+		Renderer::Backend::ISwapChain& swapChain, CGameView& gameView,
+		CPostprocManager& postprocManager,
+		const bool renderGUI, const bool renderLogger);
+	void RenderGUIOnly(
+		Renderer::Backend::ISwapChain& swapChain,
+		const bool renderGUI, const bool renderLogger);
+
+	void RenderGameOverlays(CGameView& gameView);
+	void Render2D(const bool renderGUI, const bool renderLogger);
 
 	void ReloadShaders();
 
