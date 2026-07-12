@@ -557,7 +557,8 @@ void ActorViewer::Render()
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext =
 		g_Renderer.GetDeviceCommandContext();
 
-	sceneRenderer.PrepareScene(deviceCommandContext, m);
+	sceneRenderer.EnumerateSceneObjects(m);
+	sceneRenderer.PrepareSubmissions(deviceCommandContext);
 
 	Renderer::Backend::IFramebuffer* backbuffer =
 		swapChain->GetCurrentBackbuffer(
@@ -572,7 +573,7 @@ void ActorViewer::Render()
 	viewportRect.height = backbuffer->GetHeight();
 	deviceCommandContext->SetViewports(1, &viewportRect);
 
-	sceneRenderer.RenderScene(deviceCommandContext);
+	sceneRenderer.RenderSubmissions(deviceCommandContext);
 	sceneRenderer.RenderSceneOverlays(deviceCommandContext);
 
 	{

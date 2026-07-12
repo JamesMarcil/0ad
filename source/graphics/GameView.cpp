@@ -196,9 +196,16 @@ const CCamera& CGameView::GetCamera() const
 	return m->ViewCamera;
 }
 
+const CCamera& CGameView::GetCullCamera() const
+{
+	return m->CullCamera;
+}
+
 void CGameView::SetCamera(const CCamera& camera)
 {
 	m->ViewCamera = camera;
+
+	UpdateCullCamera();
 }
 
 CCinemaManager* CGameView::GetCinema()
@@ -236,22 +243,9 @@ void CGameView::RegisterInit()
 	}, L"TerrainTextures", 61);
 }
 
-void CGameView::BeginFrame()
+void CGameView::EnumerateSceneObjects()
 {
-	if (m->LockCullCamera == false)
-	{
-		// Set up cull camera
-		m->CullCamera = m->ViewCamera;
-	}
-	g_Renderer.GetSceneRenderer().SetSceneCamera(m->ViewCamera, m->CullCamera);
-
-	m->Game->CachePlayerColors();
-}
-
-void CGameView::Prepare(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
-{
-	g_Renderer.GetSceneRenderer().PrepareScene(deviceCommandContext, *this);
+	g_Renderer.GetSceneRenderer().EnumerateSceneObjects(*this);
 }
 
 ///////////////////////////////////////////////////////////
@@ -297,6 +291,12 @@ void CGameView::Update(const float deltaRealTime)
 {
 	m->MiniMapTexture.Update(deltaRealTime);
 
+	UpdateCamera(deltaRealTime);
+	UpdateCullCamera();
+}
+
+void CGameView::UpdateCamera(const float deltaRealTime)
+{
 	m->CinemaManager.Update(deltaRealTime, m->ViewCamera);
 	if (m->CinemaManager.IsPlaying())
 		return;
@@ -309,6 +309,12 @@ void CGameView::Update(const float deltaRealTime)
 		return;
 
 	m->CameraController->Update(deltaRealTime);
+}
+
+void CGameView::UpdateCullCamera()
+{
+	if (!m->LockCullCamera)
+		m->CullCamera = m->ViewCamera;
 }
 
 CVector3D CGameView::GetCameraPivot() const
@@ -334,6 +340,8 @@ float CGameView::GetCameraZoom() const
 void CGameView::SetCamera(const CVector3D& pos, float rotX, float rotY, float zoom)
 {
 	m->CameraController->SetCamera(pos, rotX, rotY, zoom);
+
+	UpdateCullCamera();
 }
 
 void CGameView::MoveCameraTarget(const CVector3D& target)

@@ -52,8 +52,7 @@ public:
 	 */
 	void Update(const float deltaRealTime);
 
-	void BeginFrame();
-	void Prepare(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+	void EnumerateSceneObjects();
 
 	CVector3D GetCameraPivot() const;
 	CVector3D GetCameraPosition() const;
@@ -79,6 +78,8 @@ public:
 	const CCamera& GetCamera() const;
 	void SetCamera(const CCamera& camera);
 
+	const CCamera& GetCullCamera() const;
+
 	CCinemaManager* GetCinema();
 	CObjectManager& GetObjectManager();
 
@@ -91,6 +92,8 @@ public:
 private:
 	// Unloads all graphics resources loaded by RegisterInit.
 	void UnloadResources();
+	void UpdateCamera(const float deltaRealTime);
+	void UpdateCullCamera();
 
 	CGameViewImpl* m;
 };

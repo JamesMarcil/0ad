@@ -92,15 +92,20 @@ public:
 
 	/**
 	 * Enumerate and submit all objects of the given scene which should be rendered.
-	 * Must be called before RenderScene.
+	 * Must be called before PrepareSubmissions and RenderScene.
 	 */
-	void PrepareScene(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext, Scene& scene);
+	void EnumerateSceneObjects(Scene& scene);
+
+	/**
+	 * Update and upload all needed data for submitted objects.
+	 */
+	void PrepareSubmissions(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	/**
 	 * Render submitted objects of the previously given scene.
 	 */
-	void RenderScene(
+	void RenderSubmissions(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	/**
@@ -203,18 +208,6 @@ protected:
 	void Submit(CParticleEmitter* emitter) override;
 	void Submit(SOverlaySphere* overlay) override;
 	void SubmitNonRecursive(CModel* model) override;
-
-	/**
-	 * Update and upload all needed data for submitted objects.
-	 */
-	void PrepareSubmissions(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CBoundingBoxAligned& waterScissor);
-
-	// render any batched objects
-	void RenderSubmissions(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CBoundingBoxAligned& waterScissor);
 
 	// patch rendering stuff
 	void RenderPatches(

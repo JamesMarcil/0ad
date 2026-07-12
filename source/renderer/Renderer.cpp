@@ -565,7 +565,12 @@ void CRenderer::RenderFrameImpl(
 
 	// prepare before starting the renderer frame
 	if (g_Game && g_Game->IsGameStarted())
-		g_Game->GetView()->BeginFrame();
+	{
+		const CGameView& gameView{*g_Game->GetView()};
+		m->sceneRenderer.SetSceneCamera(gameView.GetCamera(), gameView.GetCullCamera());
+
+		g_Game->CachePlayerColors();
+	}
 
 	if (g_Game)
 		m->sceneRenderer.SetSimulation(g_Game->GetSimulation2());
@@ -575,9 +580,10 @@ void CRenderer::RenderFrameImpl(
 
 	if (g_Game && g_Game->IsGameStarted())
 	{
-		ENSURE(g_Game->GetView());
 		CGameView& gameView{*g_Game->GetView()};
-		gameView.Prepare(m->deviceCommandContext.get());
+		gameView.EnumerateSceneObjects();
+
+		m->sceneRenderer.PrepareSubmissions(m->deviceCommandContext.get());
 
 		CPostprocManager& postprocManager{GetPostprocManager()};
 		if (postprocManager.IsEnabled())
@@ -632,7 +638,7 @@ void CRenderer::RenderGameAndGUI(
 	m->deviceCommandContext->BeginFramebufferPass(framebuffer);
 	m->deviceCommandContext->SetViewports(1, &viewportRect);
 
-	m->sceneRenderer.RenderScene(m->deviceCommandContext.get());
+	m->sceneRenderer.RenderSubmissions(m->deviceCommandContext.get());
 	RenderGameOverlays(gameView);
 	Render2D(renderGUI, renderLogger);
 
@@ -662,7 +668,7 @@ void CRenderer::RenderGameWithPostProcessingAndGUI(
 	m->deviceCommandContext->BeginFramebufferPass(framebuffer);
 	m->deviceCommandContext->SetViewports(1, &viewportRect);
 
-	m->sceneRenderer.RenderScene(m->deviceCommandContext.get());
+	m->sceneRenderer.RenderSubmissions(m->deviceCommandContext.get());
 
 	m->deviceCommandContext->EndFramebufferPass();
 

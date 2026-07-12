@@ -749,11 +749,16 @@ void CSceneRenderer::RenderParticles(
 }
 
 void CSceneRenderer::PrepareSubmissions(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const CBoundingBoxAligned& waterScissor)
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	PROFILE3_GPU(deviceCommandContext, "prepare submissions");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Prepare submissions");
+
+	if (m->waterManager.m_RenderWater && m_WaterScissor.GetVolume() > 0 && m->waterManager.WillRenderFancyWater())
+	{
+		// Render the waves to the Fancy effects texture
+		m->waterManager.RenderWaves(deviceCommandContext, m_CullCamera.GetFrustum());
+	}
 
 	m->skyManager.LoadAndUploadSkyTexturesIfNeeded(deviceCommandContext);
 
@@ -802,16 +807,16 @@ void CSceneRenderer::PrepareSubmissions(
 
 	if (m->waterManager.m_RenderWater)
 	{
-		if (waterScissor.GetVolume() > 0 && m->waterManager.WillRenderFancyWater())
+		if (m_WaterScissor.GetVolume() > 0 && m->waterManager.WillRenderFancyWater())
 		{
 			m->waterManager.UpdateQuality();
 
 			PROFILE3_GPU(deviceCommandContext, "water scissor");
 			if (g_RenderingOptions.GetWaterReflection())
-				RenderReflections(deviceCommandContext, context, waterScissor);
+				RenderReflections(deviceCommandContext, context, m_WaterScissor);
 
 			if (g_RenderingOptions.GetWaterRefraction())
-				RenderRefractions(deviceCommandContext, context, waterScissor);
+				RenderRefractions(deviceCommandContext, context, m_WaterScissor);
 
 			if (g_RenderingOptions.GetWaterFancyEffects())
 				m->terrainRenderer.RenderWaterFoamOccluders(deviceCommandContext, CULL_DEFAULT);
@@ -820,11 +825,12 @@ void CSceneRenderer::PrepareSubmissions(
 }
 
 void CSceneRenderer::RenderSubmissions(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const CBoundingBoxAligned& waterScissor)
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	PROFILE3("render submissions");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render submissions");
+
+	ENSURE(m_CurrentScene);
 
 	CShaderDefines context = m->globalContext;
 
@@ -845,7 +851,7 @@ void CSceneRenderer::RenderSubmissions(
 	RenderModels(deviceCommandContext, context, cullGroup);
 
 	// render water
-	if (m->waterManager.m_RenderWater && g_Game && waterScissor.GetVolume() > 0)
+	if (m->waterManager.m_RenderWater && g_Game && m_WaterScissor.GetVolume() > 0)
 	{
 		if (m->waterManager.WillRenderFancyWater())
 		{
@@ -1041,12 +1047,11 @@ void CSceneRenderer::SubmitNonRecursive(CModel* model)
 	}
 }
 
-void CSceneRenderer::PrepareScene(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext, Scene& scene)
+void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 {
 	m_CurrentScene = &scene;
 
-	CFrustum frustum = m_CullCamera.GetFrustum();
+	const CFrustum& frustum{m_CullCamera.GetFrustum()};
 
 	m_CurrentCullGroup = CULL_DEFAULT;
 
@@ -1103,24 +1108,12 @@ void CSceneRenderer::PrepareScene(
 
 				scene.EnumerateObjects(refractionCamera.GetFrustum(), this);
 			}
-
-			// Render the waves to the Fancy effects texture
-			m->waterManager.RenderWaves(deviceCommandContext, frustum);
 		}
 	}
 	else
 		m_WaterScissor = CBoundingBoxAligned{};
 
 	m_CurrentCullGroup = -1;
-
-	PrepareSubmissions(deviceCommandContext, m_WaterScissor);
-}
-
-void CSceneRenderer::RenderScene(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
-{
-	ENSURE(m_CurrentScene);
-	RenderSubmissions(deviceCommandContext, m_WaterScissor);
 }
 
 void CSceneRenderer::RenderSceneOverlays(
