@@ -20,7 +20,7 @@ import { NavalManager } from "simulation/ai/petra/navalManager.js";
 import { ConstructionPlan } from "simulation/ai/petra/queueplanBuilding.js";
 import { TrainingPlan } from "simulation/ai/petra/queueplanTraining.js";
 import { ResearchManager } from "simulation/ai/petra/researchManager.js";
-import "simulation/ai/petra/startingStrategy.js";
+import { buildFirstBase, configFirstBase } from "simulation/ai/petra/startingStrategy.js";
 import { TradeManager } from "simulation/ai/petra/tradeManager.js";
 import { VictoryManager } from "simulation/ai/petra/victoryManager.js";
 import { Worker } from "simulation/ai/petra/worker.js";
@@ -303,7 +303,7 @@ Headquarters.prototype.handleNewBase = function(gameState)
 {
 	if (!this.firstBaseConfig)
 		// This is our first base, let us configure our starting resources.
-		this.configFirstBase(gameState);
+		configFirstBase(this, gameState);
 	else
 	{
 		// Let us hope this new base will fix our possible resource shortage.
@@ -1526,7 +1526,7 @@ Headquarters.prototype.checkBaseExpansion = function(gameState, queues)
 	// First build one cc if all have been destroyed
 	if (!this.hasPotentialBase())
 	{
-		this.buildFirstBase(gameState);
+		buildFirstBase(this, gameState);
 		return;
 	}
 	// Then expand if we have not enough room available for buildings

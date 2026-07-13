@@ -5,7 +5,6 @@ import { Config } from "simulation/ai/petra/config.js";
 import * as difficulty from "simulation/ai/petra/difficultyLevel.js";
 import { gatherTreasure, getHolder, getLandAccess, isFastMoving } from
 	"simulation/ai/petra/entityExtend.js";
-import { Headquarters } from "simulation/ai/petra/headquarters.js";
 import { ConstructionPlan } from "simulation/ai/petra/queueplanBuilding.js";
 
 /**
@@ -13,64 +12,64 @@ import { ConstructionPlan } from "simulation/ai/petra/queueplanBuilding.js";
  * depending on the initial conditions
  */
 
-Headquarters.prototype.gameAnalysis = function(gameState)
+export function gameAnalysis(HQ, gameState)
 {
 	// Analysis of the terrain and the different access regions
-	if (!this.regionAnalysis(gameState))
+	if (!regionAnalysis(HQ, gameState))
 		return false;
 
-	this.attackManager.init(gameState);
-	this.buildManager.init(gameState);
-	this.navalManager.init(gameState);
-	this.tradeManager.init(gameState);
-	this.diplomacyManager.init(gameState);
+	HQ.attackManager.init(gameState);
+	HQ.buildManager.init(gameState);
+	HQ.navalManager.init(gameState);
+	HQ.tradeManager.init(gameState);
+	HQ.diplomacyManager.init(gameState);
 
 	// Make a list of buildable structures from the config file
-	this.structureAnalysis(gameState);
+	structureAnalysis(HQ, gameState);
 
 	// Let's get our initial situation here.
-	this.basesManager.init(gameState);
-	this.updateTerritories(gameState);
+	HQ.basesManager.init(gameState);
+	HQ.updateTerritories(gameState);
 
 	// Assign entities and resources in the different bases
-	this.assignStartingEntities(gameState);
+	assignStartingEntities(HQ, gameState);
 
 
 	// Sandbox difficulty should not try to expand
-	this.canExpand = this.Config.difficulty != difficulty.SANDBOX;
+	HQ.canExpand = HQ.Config.difficulty != difficulty.SANDBOX;
 	// If no base yet, check if we can construct one. If not, dispatch our units to possible tasks/attacks
-	this.canBuildUnits = true;
+	HQ.canBuildUnits = true;
 	if (!gameState.getOwnStructures().filter(filters.byClass("CivCentre")).hasEntities())
 	{
 		const template = gameState.applyCiv("structures/{civ}/civil_centre");
 		if (!gameState.isTemplateAvailable(template) || !gameState.getTemplate(template).available(gameState))
 		{
-			if (this.Config.debug > 1)
+			if (HQ.Config.debug > 1)
 				aiWarn(" this AI is unable to produce any units");
-			this.canBuildUnits = false;
-			this.dispatchUnits(gameState);
+			HQ.canBuildUnits = false;
+			dispatchUnits(HQ, gameState);
 		}
 		else
-			this.buildFirstBase(gameState);
+			buildFirstBase(HQ, gameState);
 	}
 
 	// configure our first base strategy
-	if (this.hasPotentialBase())
-		this.configFirstBase(gameState);
+	if (HQ.hasPotentialBase())
+		configFirstBase(HQ, gameState);
 
 	return true;
-};
+}
 
 /**
  * Assign the starting entities to the different bases
  */
-Headquarters.prototype.assignStartingEntities = function(gameState)
+function assignStartingEntities(HQ, gameState)
 {
 	for (const ent of gameState.getOwnEntities().values())
 	{
 		// do not affect merchant ship immediately to trade as they may-be useful for transport
 		if (ent.hasClasses(["Trader+!Ship"]))
-			this.tradeManager.assignTrader(ent);
+			HQ.tradeManager.assignTrader(ent);
 
 		const pos = ent.position();
 		if (!pos)
@@ -88,11 +87,11 @@ Headquarters.prototype.assignStartingEntities = function(gameState)
 		const gamepos = gameState.ai.accessibility.gamePosToMapPos(pos);
 		const index = gamepos[0] + gamepos[1]*gameState.ai.accessibility.width;
 		const land = gameState.ai.accessibility.landPassMap[index];
-		if (land > 1 && !this.landRegions[land])
-			this.landRegions[land] = true;
+		if (land > 1 && !HQ.landRegions[land])
+			HQ.landRegions[land] = true;
 		const sea = gameState.ai.accessibility.navalPassMap[index];
-		if (sea > 1 && !this.navalRegions[sea])
-			this.navalRegions[sea] = true;
+		if (sea > 1 && !HQ.navalRegions[sea])
+			HQ.navalRegions[sea] = true;
 
 		// if garrisoned units inside, ungarrison them except if a ship in which case we will make a transport
 		// when a construction will start (see createTransportIfNeeded)
@@ -100,18 +99,18 @@ Headquarters.prototype.assignStartingEntities = function(gameState)
 			for (const id of ent.garrisoned())
 				ent.unload(id);
 
-		const territorypos = this.territoryMap.gamePosToMapPos(pos);
-		const territoryIndex = territorypos[0] + territorypos[1]*this.territoryMap.width;
+		const territorypos = HQ.territoryMap.gamePosToMapPos(pos);
+		const territoryIndex = territorypos[0] + territorypos[1] * HQ.territoryMap.width;
 
-		this.basesManager.assignEntity(gameState, ent, territoryIndex);
+		HQ.basesManager.assignEntity(gameState, ent, territoryIndex);
 	}
-};
+}
 
 /**
  * determine the main land Index (or water index if none)
  * as well as the list of allowed (land andf water) regions
  */
-Headquarters.prototype.regionAnalysis = function(gameState)
+function regionAnalysis(HQ, gameState)
 {
 	const accessibility = gameState.ai.accessibility;
 	let landIndex;
@@ -158,17 +157,17 @@ Headquarters.prototype.regionAnalysis = function(gameState)
 	for (let i = 0; i < accessibility.regionSize.length; ++i)
 	{
 		if (landIndex && i == landIndex)
-			this.landRegions[i] = true;
+			HQ.landRegions[i] = true;
 		else if (accessibility.regionType[i] === "land" && cellArea*accessibility.regionSize[i] > 320)
 		{
 			if (landIndex)
 			{
-				const sea = this.getSeaBetweenIndices(gameState, landIndex, i);
+				const sea = HQ.getSeaBetweenIndices(gameState, landIndex, i);
 				if (sea && (accessibility.regionSize[i] > minLandSize || accessibility.regionSize[sea] > minWaterSize))
 				{
-					this.navalMap = true;
-					this.landRegions[i] = true;
-					this.navalRegions[sea] = true;
+					HQ.navalMap = true;
+					HQ.landRegions[i] = true;
+					HQ.navalRegions[sea] = true;
 				}
 			}
 			else
@@ -176,53 +175,53 @@ Headquarters.prototype.regionAnalysis = function(gameState)
 				const traject = accessibility.getTrajectToIndex(seaIndex, i);
 				if (traject && traject.length === 2)
 				{
-					this.navalMap = true;
-					this.landRegions[i] = true;
-					this.navalRegions[seaIndex] = true;
+					HQ.navalMap = true;
+					HQ.landRegions[i] = true;
+					HQ.navalRegions[seaIndex] = true;
 				}
 			}
 		}
 		else if (accessibility.regionType[i] === "water" && accessibility.regionSize[i] > minWaterSize)
 		{
-			this.navalMap = true;
-			this.navalRegions[i] = true;
+			HQ.navalMap = true;
+			HQ.navalRegions[i] = true;
 		}
 		else if (accessibility.regionType[i] === "water" && cellArea*accessibility.regionSize[i] > 3600)
-			this.navalRegions[i] = true;
+			HQ.navalRegions[i] = true;
 	}
 
-	if (this.Config.debug < 3)
+	if (HQ.Config.debug < 3)
 		return true;
-	for (const region in this.landRegions)
+	for (const region in HQ.landRegions)
 	{
 		aiWarn(" >>> zone " + region + " taille " +
 			cellArea * gameState.ai.accessibility.regionSize[region]);
 	}
-	aiWarn(" navalMap " + this.navalMap);
-	aiWarn(" landRegions " + uneval(this.landRegions));
-	aiWarn(" navalRegions " + uneval(this.navalRegions));
+	aiWarn(" navalMap " + HQ.navalMap);
+	aiWarn(" landRegions " + uneval(HQ.landRegions));
+	aiWarn(" navalRegions " + uneval(HQ.navalRegions));
 	return true;
-};
+}
 
 /**
  * load units and buildings from the config files
  * TODO: change that to something dynamic
  */
-Headquarters.prototype.structureAnalysis = function(gameState)
+function structureAnalysis(HQ, gameState)
 {
 	const civref = gameState.playerData.civ;
-	const civ = civref in this.Config.buildings ? civref : 'default';
-	this.bAdvanced = [];
-	for (const building of this.Config.buildings[civ])
+	const civ = civref in HQ.Config.buildings ? civref : 'default';
+	HQ.bAdvanced = [];
+	for (const building of HQ.Config.buildings[civ])
 		if (gameState.isTemplateAvailable(gameState.applyCiv(building)))
-			this.bAdvanced.push(gameState.applyCiv(building));
-};
+			HQ.bAdvanced.push(gameState.applyCiv(building));
+}
 
 /**
  * build our first base
  * if not enough resource, try first to do a dock
  */
-Headquarters.prototype.buildFirstBase = function(gameState)
+export function buildFirstBase(HQ, gameState)
 {
 	if (gameState.ai.queues.civilCentre.hasQueuedUnits())
 		return;
@@ -262,7 +261,7 @@ Headquarters.prototype.buildFirstBase = function(gameState)
 		}
 
 		// not enough resource to build a cc, try with a dock to accumulate resources if none yet
-		if (!this.navalManager.docks.filter(filters.byClass("Dock")).hasEntities())
+		if (!HQ.navalManager.docks.filter(filters.byClass("Dock")).hasEntities())
 		{
 			if (gameState.ai.queues.dock.hasQueuedUnits())
 				return;
@@ -275,7 +274,7 @@ Headquarters.prototype.buildFirstBase = function(gameState)
 			goal = "dock";
 		}
 	}
-	if (!this.canBuild(gameState, templateName))
+	if (!HQ.canBuild(gameState, templateName))
 		return;
 
 	// We first choose as startingPoint the point where we have the more units
@@ -332,26 +331,27 @@ Headquarters.prototype.buildFirstBase = function(gameState)
 			"structures/{civ}/civil_centre",
 			{ "base": -1, "resource": "wood", "proximity": startingPoint[imax].pos }));
 	}
-};
+}
 
 /**
  * set strategy if game without construction:
  *   - if one of our allies has a cc, affect a small fraction of our army for his defense, the rest will attack
  *   - otherwise all units will attack
  */
-Headquarters.prototype.dispatchUnits = function(gameState)
+function dispatchUnits(HQ, gameState)
 {
 	const allycc = gameState.getExclusiveAllyEntities().filter(filters.byClass("CivCentre"))
 		.toEntityArray();
 	if (allycc.length)
 	{
-		if (this.Config.debug > 1)
+		if (HQ.Config.debug > 1)
 		{
 			aiWarn(" We have allied cc " + allycc.length + " and " + gameState.getOwnUnits().length +
 				" units ");
 		}
 		const units = gameState.getOwnUnits();
-		let num = Math.max(Math.min(Math.round(0.08*(1+this.Config.personality.cooperative)*units.length), 20), 5);
+		let num = Math.max(Math.min(Math.round(0.08 * (1 + HQ.Config.personality.cooperative) *
+			units.length), 20), 5);
 		let num1 = Math.floor(num / 2);
 		let num2 = num1;
 		// first pass to affect ranged infantry
@@ -415,25 +415,25 @@ Headquarters.prototype.dispatchUnits = function(gameState)
 			}
 		});
 	}
-};
+}
 
 /**
  * configure our first base expansion
  *   - if on a small island, favor fishing
  *   - count the available wood resource, and allow rushes only if enough (we should otherwise favor expansion)
  */
-Headquarters.prototype.configFirstBase = function(gameState)
+export function configFirstBase(HQ, gameState)
 {
-	if (!this.hasPotentialBase())
+	if (!HQ.hasPotentialBase())
 		return;
 
-	this.firstBaseConfig = true;
+	HQ.firstBaseConfig = true;
 
 	let startingSize = 0;
 	const startingLand = [];
-	for (const region in this.landRegions)
+	for (const region in HQ.landRegions)
 	{
-		for (const base of this.baseManagers())
+		for (const base of HQ.baseManagers())
 		{
 			if (!base.anchor || base.accessIndex != +region)
 				continue;
@@ -444,62 +444,62 @@ Headquarters.prototype.configFirstBase = function(gameState)
 	}
 	const cell = gameState.getPassabilityMap().cellSize;
 	startingSize = startingSize * cell * cell;
-	if (this.Config.debug > 1)
+	if (HQ.Config.debug > 1)
 		aiWarn("starting size " + startingSize + "(cut at 24000 for fish pushing)");
 	if (startingSize < 25000)
 	{
-		this.saveSpace = true;
-		this.Config.Economy.popForDock = Math.min(this.Config.Economy.popForDock, 16);
-		const num = Math.max(this.Config.Economy.targetNumFishers, 2);
+		HQ.saveSpace = true;
+		HQ.Config.Economy.popForDock = Math.min(HQ.Config.Economy.popForDock, 16);
+		const num = Math.max(HQ.Config.Economy.targetNumFishers, 2);
 		for (const land of startingLand)
 		{
 			for (const sea of gameState.ai.accessibility.regionLinks[land])
 				if (gameState.ai.HQ.navalRegions[sea])
-					this.navalManager.updateFishingBoats(sea, num);
+					HQ.navalManager.updateFishingBoats(sea, num);
 		}
-		this.maxFields = 1;
-		this.needCorral = true;
+		HQ.maxFields = 1;
+		HQ.needCorral = true;
 	}
 	else if (startingSize < 60000)
-		this.maxFields = 2;
+		HQ.maxFields = 2;
 	else
-		this.maxFields = false;
+		HQ.maxFields = false;
 
 	// - count the available food resource, and react accordingly
 	let startingFood = gameState.getResources().food;
-	startingFood += this.getTotalResourceLevel(gameState, ["food"], ["nearby", "medium", "faraway"]).food;
+	startingFood += HQ.getTotalResourceLevel(gameState, ["food"], ["nearby", "medium", "faraway"]).food;
 
 	if (startingFood < 800)
 	{
 		if (startingSize < 25000)
 		{
-			this.needFish = true;
-			this.Config.Economy.popForDock = 1;
+			HQ.needFish = true;
+			HQ.Config.Economy.popForDock = 1;
 		}
 		else
-			this.needFarm = true;
+			HQ.needFarm = true;
 	}
 	// - count the available wood resource, and allow rushes only if enough (we should otherwise favor expansion)
 	let startingWood = gameState.getResources().wood;
-	startingWood += this.getTotalResourceLevel(gameState, ["wood"], ["nearby", "medium", "faraway"]).wood;
+	startingWood += HQ.getTotalResourceLevel(gameState, ["wood"], ["nearby", "medium", "faraway"]).wood;
 
-	if (this.Config.debug > 1)
+	if (HQ.Config.debug > 1)
 	{
 		aiWarn("startingWood: " + startingWood +
 			" (cut at 8500 for no rush and 6000 for saveResources)");
 	}
 	if (startingWood < 6000)
 	{
-		this.saveResources = true;
-		this.Config.Economy.popPhase2 = Math.floor(0.75 * this.Config.Economy.popPhase2);	// Switch to town phase sooner to be able to expand
+		HQ.saveResources = true;
+		HQ.Config.Economy.popPhase2 = Math.floor(0.75 * HQ.Config.Economy.popPhase2);	// Switch to town phase sooner to be able to expand
 
-		if (startingWood < 2000 && this.needFarm)
+		if (startingWood < 2000 && HQ.needFarm)
 		{
-			this.needCorral = true;
-			this.needFarm = false;
+			HQ.needCorral = true;
+			HQ.needFarm = false;
 		}
 	}
-	if (startingWood > 8500 && this.canBuildUnits)
+	if (startingWood > 8500 && HQ.canBuildUnits)
 	{
 		let allowed = Math.ceil((startingWood - 8500) / 3000);
 		// Not useful to prepare rushing if too long ceasefire
@@ -510,14 +510,14 @@ Headquarters.prototype.configFirstBase = function(gameState)
 			else if (gameState.ceasefireTimeRemaining > 600 && allowed > 1)
 				allowed = 1;
 		}
-		this.attackManager.setRushes(allowed);
+		HQ.attackManager.setRushes(allowed);
 	}
 
 	// immediatly build a wood dropsite if possible.
 	if (!gameState.getOwnEntitiesByClass("DropsiteWood", true).hasEntities())
 	{
-		const newDP = this.baseManagers()[0].findBestDropsiteAndLocation(gameState, "wood");
-		if (newDP.quality > 40 && this.canBuild(gameState, newDP.templateName))
+		const newDP = HQ.baseManagers()[0].findBestDropsiteAndLocation(gameState, "wood");
+		if (newDP.quality > 40 && HQ.canBuild(gameState, newDP.templateName))
 		{
 			// if we start with enough workers, put our available resources in this first dropsite
 			// same thing if our pop exceed the allowed one, as we will need several houses
@@ -529,18 +529,18 @@ Headquarters.prototype.configFirstBase = function(gameState)
 				gameState.ai.queueManager.setAccounts(gameState, cost, "dropsites");
 			}
 			gameState.ai.queues.dropsites.addPlan(new ConstructionPlan(gameState, newDP.templateName,
-				{ "base": this.baseManagers()[0].ID }, newDP.pos));
+				{ "base": HQ.baseManagers()[0].ID }, newDP.pos));
 		}
 	}
 	// and build immediately a corral if needed
-	if (this.needCorral)
+	if (HQ.needCorral)
 	{
 		const template = gameState.applyCiv("structures/{civ}/corral");
 		if (!gameState.getOwnEntitiesByClass("Corral", true).hasEntities() &&
-			this.canBuild(gameState, template))
+			HQ.canBuild(gameState, template))
 		{
 			gameState.ai.queues.corral.addPlan(
-				new ConstructionPlan(gameState, template, { "base": this.baseManagers()[0].ID }));
+				new ConstructionPlan(gameState, template, { "base": HQ.baseManagers()[0].ID }));
 		}
 	}
-};
+}

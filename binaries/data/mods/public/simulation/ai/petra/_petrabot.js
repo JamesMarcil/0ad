@@ -4,6 +4,7 @@ import { Config } from "simulation/ai/petra/config.js";
 import { Headquarters } from "simulation/ai/petra/headquarters.js";
 import { Queue } from "simulation/ai/petra/queue.js";
 import { QueueManager } from "simulation/ai/petra/queueManager.js";
+import { gameAnalysis } from "simulation/ai/petra/startingStrategy.js";
 
 export function PetraBot(settings)
 {
@@ -85,7 +86,7 @@ PetraBot.prototype.CustomInit = function(gameState)
 		this.HQ.init(gameState, this.queues);
 
 		// Try to analyze our starting position and set a strategy.
-		this.canPlay = this.HQ.gameAnalysis(gameState);
+		this.canPlay = gameAnalysis(this.HQ, gameState);
 	}
 };
 
