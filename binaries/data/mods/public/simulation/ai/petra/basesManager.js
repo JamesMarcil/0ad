@@ -482,18 +482,6 @@ BasesManager.prototype.GetTCResGatherer = function(resource)
 };
 
 /**
- * flag a resource as exhausted
- */
-BasesManager.prototype.isResourceExhausted = function(resource)
-{
-	const check = "exhausted-" + resource;
-	if (this.turnCache[check] == undefined)
-		this.turnCache[check] = this.basesManager.isResourceExhausted(resource);
-
-	return this.turnCache[check];
-};
-
-/**
  * returns the number of bases with a cc
  * ActiveBases includes only those with a built cc
  * PotentialBases includes also those with a cc in construction
