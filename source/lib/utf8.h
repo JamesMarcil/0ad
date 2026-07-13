@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,6 +26,7 @@
 #include "lib/status.h"
 
 #include <string>
+#include <string_view>
 
 // note: error codes are returned via optional output parameter.
 namespace ERR
@@ -46,11 +47,11 @@ namespace ERR
  * otherwise, the function raises a warning dialog for every
  * error/warning.
  **/
-std::wstring wstring_from_utf8(const std::string& s, Status* err = 0);
+std::wstring wstring_from_utf8(const std::string_view s, Status* err = 0);
 
 /**
  * opposite of wstring_from_utf8
  **/
-std::string utf8_from_wstring(const std::wstring& s, Status* err = 0);
+std::string utf8_from_wstring(const std::wstring_view s, Status* err = 0);
 
 #endif	// #ifndef INCLUDED_UTF8

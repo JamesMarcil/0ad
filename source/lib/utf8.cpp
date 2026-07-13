@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -215,7 +215,7 @@ private:
 
 //-----------------------------------------------------------------------------
 
-std::string utf8_from_wstring(const std::wstring& src, Status* err)
+std::string utf8_from_wstring(const std::wstring_view src, Status* err)
 {
 	if(err)
 		*err = INFO::OK;
@@ -232,7 +232,7 @@ std::string utf8_from_wstring(const std::wstring& src, Status* err)
 }
 
 
-std::wstring wstring_from_utf8(const std::string& src, Status* err)
+std::wstring wstring_from_utf8(const std::string_view src, Status* err)
 {
 	if(err)
 		*err = INFO::OK;
