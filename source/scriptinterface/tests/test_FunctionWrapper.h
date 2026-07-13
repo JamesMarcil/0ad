@@ -106,7 +106,7 @@ public:
 		{
 			std::string input = "Test._1p_v(0);";
 			JS::RootedValue val(rq.cx);
-			TS_ASSERT(script.Eval(input.c_str(), &val));
+			TS_ASSERT(script.Eval(input, &val));
 		}
 
 		Script::Function::Register<&TestFunctionWrapper::_3p_r>(script, "_3p_r");

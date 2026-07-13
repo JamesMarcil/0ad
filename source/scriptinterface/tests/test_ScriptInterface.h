@@ -263,7 +263,7 @@ public:
 
 		std::string input = "({'x':1,'z':[2,'3\\u263A\\ud800'],\"y\":true})";
 		JS::RootedValue val(rq.cx);
-		TS_ASSERT(script.Eval(input.c_str(), &val));
+		TS_ASSERT(script.Eval(input, &val));
 
 		std::string stringified = Script::StringifyJSON(rq, &val);
 		TS_ASSERT_STR_EQUALS(stringified, "{\n  \"x\": 1,\n  \"z\": [\n    2,\n    \"3\u263A\\ud800\"\n  ],\n  \"y\": true\n}");

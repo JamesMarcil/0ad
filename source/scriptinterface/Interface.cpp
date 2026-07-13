@@ -734,7 +734,7 @@ bool Interface::LoadGlobalScriptFile(const VfsPath& path) const
 	return LoadGlobalScript(path, code);
 }
 
-bool Interface::Eval(const char* code) const
+bool Interface::Eval(const std::string_view code) const
 {
 	Request rq(this);
 	JS::RootedValue rval(rq.cx);
@@ -743,7 +743,7 @@ bool Interface::Eval(const char* code) const
 	opts.setFileAndLine("(eval)", 1);
 	opts.setForceStrictMode();
 	JS::SourceText<mozilla::Utf8Unit> src;
-	ENSURE(src.init(rq.cx, code, strlen(code), JS::SourceOwnership::Borrowed));
+	ENSURE(src.init(rq.cx, code.data(), code.size(), JS::SourceOwnership::Borrowed));
 	if (JS::Evaluate(rq.cx, opts, src, &rval))
 		return true;
 
@@ -751,7 +751,7 @@ bool Interface::Eval(const char* code) const
 	return false;
 }
 
-bool Interface::Eval(const char* code, JS::MutableHandleValue rval) const
+bool Interface::Eval(const std::string_view code, JS::MutableHandleValue rval) const
 {
 	Request rq(this);
 
@@ -759,7 +759,7 @@ bool Interface::Eval(const char* code, JS::MutableHandleValue rval) const
 	opts.setFileAndLine("(eval)", 1);
 	opts.setForceStrictMode();
 	JS::SourceText<mozilla::Utf8Unit> src;
-	ENSURE(src.init(rq.cx, code, strlen(code), JS::SourceOwnership::Borrowed));
+	ENSURE(src.init(rq.cx, code.data(), code.size(), JS::SourceOwnership::Borrowed));
 	if (JS::Evaluate(rq.cx, opts, src, rval))
 		return true;
 

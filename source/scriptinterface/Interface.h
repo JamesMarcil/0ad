@@ -34,6 +34,7 @@
 #include <js/ValueArray.h>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -242,9 +243,9 @@ public:
 	 * Evaluate some JS code in the global scope.
 	 * @return true on successful compilation and execution; false otherwise
 	 */
-	bool Eval(const char* code) const;
-	bool Eval(const char* code, JS::MutableHandleValue out) const;
-	template<typename T> bool Eval(const char* code, T& out) const;
+	bool Eval(const std::string_view code) const;
+	bool Eval(const std::string_view code, JS::MutableHandleValue out) const;
+	template<typename T> bool Eval(const std::string_view code, T& out) const;
 
 	/**
 	 * Calls the random number generator assigned to this Interface instance and returns the generated number.
@@ -336,7 +337,7 @@ bool Script::Interface::SetGlobal(const char* name, const T& value, bool replace
 }
 
 template<typename T>
-bool Script::Interface::Eval(const char* code, T& ret) const
+bool Script::Interface::Eval(const std::string_view code, T& ret) const
 {
 	Script::Request rq(this);
 	JS::RootedValue rval(rq.cx);

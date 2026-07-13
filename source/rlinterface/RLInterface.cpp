@@ -367,7 +367,7 @@ void Interface::ApplyMessage(const GameMessage& msg)
 			const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
 			Script::Request rq(scriptInterface);
 			JS::RootedValue ret(rq.cx);
-			scriptInterface.Eval(m_Code.c_str(), &ret);
+			scriptInterface.Eval(m_Code, &ret);
 			m_ReturnValue = Script::StringifyJSON(rq, &ret, false);
 			m_MsgApplied.notify_one();
 			m_MsgLock.unlock();
