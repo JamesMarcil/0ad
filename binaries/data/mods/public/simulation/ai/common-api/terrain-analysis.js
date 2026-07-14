@@ -1,5 +1,6 @@
 import { InfoMap } from "simulation/ai/common-api/map-module.js";
 import { copyPrototype } from "simulation/ai/common-api/shared.js";
+import * as terrainStates from "simulation/ai/common-api/terrain-states.js";
 
 /**
  * TerrainAnalysis, inheriting from the Map Component.
@@ -17,20 +18,6 @@ export function TerrainAnalysis()
 
 copyPrototype(TerrainAnalysis, InfoMap);
 
-TerrainAnalysis.prototype.IMPASSABLE = 0;
-/**
-* non-passable by land units
-*/
-TerrainAnalysis.prototype.DEEP_WATER = 200;
-/**
-* passable by land units and water units
-*/
-TerrainAnalysis.prototype.SHALLOW_WATER = 201;
-/**
-* passable by land units
-*/
-TerrainAnalysis.prototype.LAND = 255;
-
 TerrainAnalysis.prototype.init = function(sharedScript, rawState)
 {
 	const passabilityMap = rawState.passabilityMap;
@@ -46,12 +33,19 @@ TerrainAnalysis.prototype.init = function(sharedScript, rawState)
 
 	for (let i = 0; i < passabilityMap.data.length; ++i)
 	{
-		obstructionTiles[i] = (passabilityMap.data[i] & obstructionMaskLand) ? this.IMPASSABLE : this.LAND;
+		obstructionTiles[i] = (passabilityMap.data[i] & obstructionMaskLand) ?
+			terrainStates.IMPASSABLE : terrainStates.LAND;
 
-		if (!(passabilityMap.data[i] & obstructionMaskWater) && obstructionTiles[i] === this.IMPASSABLE)
-			obstructionTiles[i] = this.DEEP_WATER;
-		else if (!(passabilityMap.data[i] & obstructionMaskWater) && obstructionTiles[i] === this.LAND)
-			obstructionTiles[i] = this.SHALLOW_WATER;
+		if (!(passabilityMap.data[i] & obstructionMaskWater) &&
+			obstructionTiles[i] === terrainStates.IMPASSABLE)
+		{
+			obstructionTiles[i] = terrainStates.DEEP_WATER;
+		}
+		else if (!(passabilityMap.data[i] & obstructionMaskWater) &&
+			obstructionTiles[i] === terrainStates.LAND)
+		{
+			obstructionTiles[i] = terrainStates.SHALLOW_WATER;
+		}
 	}
 
 	this.InfoMap(rawState, "passability", obstructionTiles);
@@ -90,7 +84,7 @@ Accessibility.prototype.init = function(rawState, terrainAnalyser)
 
 	for (let i = 0; i < this.landPassMap.length; ++i)
 	{
-		if (this.map[i] !== this.IMPASSABLE)
+		if (this.map[i] !== terrainStates.IMPASSABLE)
 		{	// any non-painted, non-inacessible area.
 			if (this.landPassMap[i] == 0 && this.floodFill(i, this.regionID, false))
 				this.regionType[this.regionID++] = "land";
@@ -261,7 +255,7 @@ Accessibility.prototype.floodFill = function(startIndex, value, onWater)
 		return false;	// already painted.
 
 	let floodFor = "land";
-	if (this.map[startIndex] === this.IMPASSABLE)
+	if (this.map[startIndex] === terrainStates.IMPASSABLE)
 	{
 		this.landPassMap[startIndex] = 1;
 		this.navalPassMap[startIndex] = 1;
@@ -270,14 +264,15 @@ Accessibility.prototype.floodFill = function(startIndex, value, onWater)
 
 	if (onWater === true)
 	{
-		if (this.map[startIndex] !== this.DEEP_WATER && this.map[startIndex] !== this.SHALLOW_WATER)
+		if (this.map[startIndex] !== terrainStates.DEEP_WATER &&
+			this.map[startIndex] !== terrainStates.SHALLOW_WATER)
 		{
 			this.navalPassMap[startIndex] = 1;	// impassable for naval
 			return false;	// do nothing
 		}
 		floodFor = "water";
 	}
-	else if (this.map[startIndex] === this.DEEP_WATER)
+	else if (this.map[startIndex] === terrainStates.DEEP_WATER)
 	{
 		this.landPassMap[startIndex] = 1;	// impassable for land
 		return false;
@@ -308,10 +303,18 @@ Accessibility.prototype.floodFill = function(startIndex, value, onWater)
 			const index = newIndex + w*y;
 			if (index < 0)
 				break;
-			if (floodFor === "land" && this.landPassMap[index] === 0 && this.map[index] !== this.IMPASSABLE && this.map[index] !== this.DEEP_WATER)
+			if (floodFor === "land" && this.landPassMap[index] === 0 &&
+				this.map[index] !== terrainStates.IMPASSABLE &&
+				this.map[index] !== terrainStates.DEEP_WATER)
+			{
 				continue;
-			if (floodFor === "water" && this.navalPassMap[index] === 0 && (this.map[index] === this.DEEP_WATER || this.map[index] === this.SHALLOW_WATER))
+			}
+			if (floodFor === "water" && this.navalPassMap[index] === 0 &&
+				(this.map[index] === terrainStates.DEEP_WATER ||
+				this.map[index] === terrainStates.SHALLOW_WATER))
+			{
 				continue;
+			}
 			break;
 		} // should actually break
 		++y;
@@ -322,12 +325,16 @@ Accessibility.prototype.floodFill = function(startIndex, value, onWater)
 		{
 			index = newIndex + w*y;
 
-			if (floodFor === "land" && this.landPassMap[index] === 0 && this.map[index] !== this.IMPASSABLE && this.map[index] !== this.DEEP_WATER)
+			if (floodFor === "land" && this.landPassMap[index] === 0 &&
+				this.map[index] !== terrainStates.IMPASSABLE &&
+				this.map[index] !== terrainStates.DEEP_WATER)
 			{
 				this.landPassMap[index] = value;
 				this.regionSize[value]++;
 			}
-			else if (floodFor === "water" && this.navalPassMap[index] === 0 && (this.map[index] === this.DEEP_WATER || this.map[index] === this.SHALLOW_WATER))
+			else if (floodFor === "water" && this.navalPassMap[index] === 0 &&
+				(this.map[index] === terrainStates.DEEP_WATER ||
+				this.map[index] === terrainStates.SHALLOW_WATER))
 			{
 				this.navalPassMap[index] = value;
 				this.regionSize[value]++;
@@ -337,7 +344,9 @@ Accessibility.prototype.floodFill = function(startIndex, value, onWater)
 
 			if (index%w > 0)
 			{
-				if (floodFor === "land" && this.landPassMap[index -1] === 0 && this.map[index -1] !== this.IMPASSABLE && this.map[index -1] !== this.DEEP_WATER)
+				if (floodFor === "land" && this.landPassMap[index -1] === 0 &&
+					this.map[index -1] !== terrainStates.IMPASSABLE &&
+					this.map[index -1] !== terrainStates.DEEP_WATER)
 				{
 					if (!reachLeft)
 					{
@@ -345,7 +354,9 @@ Accessibility.prototype.floodFill = function(startIndex, value, onWater)
 						reachLeft = true;
 					}
 				}
-				else if (floodFor === "water" && this.navalPassMap[index -1] === 0 && (this.map[index -1] === this.DEEP_WATER || this.map[index -1] === this.SHALLOW_WATER))
+				else if (floodFor === "water" && this.navalPassMap[index -1] === 0 &&
+					(this.map[index -1] === terrainStates.DEEP_WATER ||
+					this.map[index -1] === terrainStates.SHALLOW_WATER))
 				{
 					if (!reachLeft)
 					{
@@ -359,7 +370,9 @@ Accessibility.prototype.floodFill = function(startIndex, value, onWater)
 
 			if (index%w < w - 1)
 			{
-				if (floodFor === "land" && this.landPassMap[index +1] === 0 && this.map[index +1] !== this.IMPASSABLE && this.map[index +1] !== this.DEEP_WATER)
+				if (floodFor === "land" && this.landPassMap[index +1] === 0 &&
+					this.map[index +1] !== terrainStates.IMPASSABLE &&
+					this.map[index +1] !== terrainStates.DEEP_WATER)
 				{
 					if (!reachRight)
 					{
@@ -367,7 +380,9 @@ Accessibility.prototype.floodFill = function(startIndex, value, onWater)
 						reachRight = true;
 					}
 				}
-				else if (floodFor === "water" && this.navalPassMap[index +1] === 0 && (this.map[index +1] === this.DEEP_WATER || this.map[index +1] === this.SHALLOW_WATER))
+				else if (floodFor === "water" && this.navalPassMap[index +1] === 0 &&
+					(this.map[index +1] === terrainStates.DEEP_WATER ||
+					this.map[index +1] === terrainStates.SHALLOW_WATER))
 				{
 					if (!reachRight)
 					{
