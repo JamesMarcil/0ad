@@ -693,6 +693,9 @@ void ScenarioEditor::OnClose(wxCloseEvent& event)
 
 	m_Timer.Stop();
 	m_RenderTimer.Stop();
+	// Wait for in-flight work to finish.
+	qPing qry;
+	qry.Post();
 
 	m_ToolManager.SetCurrentTool(_T(""));
 
