@@ -113,10 +113,8 @@ SharedScript.prototype.init = function(state, deserialization)
 	this.entities = new EntityCollection(this, this._entities);
 
 	// create the terrain analyzer
-	this.terrainAnalyzer = new TerrainAnalysis();
-	this.terrainAnalyzer.init(this, state);
-	this.accessibility = new Accessibility();
-	this.accessibility.init(state, this.terrainAnalyzer);
+	this.terrainAnalyzer = new TerrainAnalysis(this, state);
+	this.accessibility = new Accessibility(state, this.terrainAnalyzer);
 
 	// Resource types: ignore = not used for resource maps
 	//                 abundant = abundant resource with small amount each
@@ -378,18 +376,6 @@ SharedScript.prototype.deleteMetadata = function(player, ent, key)
 	this.updateEntityCollections('metadata.' + key, ent);
 	return true;
 };
-
-export function copyPrototype(descendant, parent)
-{
-	const sConstructor = parent.toString();
-	const aMatch = sConstructor.match(/\s*function (.*)\(/);
-
-	if (aMatch != null)
-		descendant.prototype[aMatch[1]] = parent;
-
-	for (const p in parent.prototype)
-		descendant.prototype[p] = parent.prototype[p];
-}
 
 /** creates a map of resource density */
 SharedScript.prototype.createResourceMaps = function()
