@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -61,7 +61,7 @@ public:
 
 	template<typename C> ObservableConnection RegisterObserver(int order, void (C::*callback) (const T&), C* obj)
 	{
-		return m_Signal.connect(order, std::bind(std::mem_fn(callback), obj, std::placeholders::_1));
+		return m_Signal.connect(order, std::bind_front(callback, obj));
 	}
 
 	ObservableConnection RegisterObserver(int order, void (*callback) (const T&))
@@ -133,7 +133,7 @@ public:
 
 	template<typename C> ObservableConnection RegisterObserver(int order, void (C::*callback) (T*), C* obj)
 	{
-		return m_Signal.connect(order, std::bind(std::mem_fn(callback), obj, std::placeholders::_1));
+		return m_Signal.connect(order, std::bind_front(callback, obj));
 	}
 
 	ObservableConnection RegisterObserver(int order, void (*callback) (T*))
