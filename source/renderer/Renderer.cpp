@@ -508,7 +508,9 @@ void CRenderer::Resize(int width, int height)
 
 bool CRenderer::ShouldRender() const
 {
-	return !g_app_minimized && (g_app_has_focus || !g_VideoMode.IsInFullscreen());
+	const bool shouldRenderWhenOutOfFocus{
+		g_ConfigDB.Get("renderer.renderwhenoutoffocus", true)};
+	return !g_app_minimized && (g_app_has_focus || shouldRenderWhenOutOfFocus);
 }
 
 void CRenderer::RenderFrame(const bool needsPresent)
