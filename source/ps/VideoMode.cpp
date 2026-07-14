@@ -963,6 +963,11 @@ SDL_Window* CVideoMode::GetWindow()
 	return m_Window;
 }
 
+bool CVideoMode::IsInitialized() const
+{
+	return m_IsInitialised;
+}
+
 void CVideoMode::SetWindowIcon()
 {
 	// The window icon should be kept outside of art/textures/, or else it will be converted

@@ -95,6 +95,7 @@ public:
 	int GetBPP() const;
 
 	bool IsVSyncEnabled() const;
+	bool IsInitialized() const;
 
 	int GetDesktopXRes() const;
 	int GetDesktopYRes() const;

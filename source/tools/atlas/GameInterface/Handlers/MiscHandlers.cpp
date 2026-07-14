@@ -118,6 +118,9 @@ MESSAGEHANDLER(GuiSwitchPage)
 
 MESSAGEHANDLER(GuiMouseButtonEvent)
 {
+	if (!g_VideoMode.IsInitialized())
+		return;
+
 	SDL_Event ev{};
 	ev.type = msg->pressed ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
 	ev.button.button = msg->button;
@@ -132,6 +135,9 @@ MESSAGEHANDLER(GuiMouseButtonEvent)
 
 MESSAGEHANDLER(GuiMouseMotionEvent)
 {
+	if (!g_VideoMode.IsInitialized())
+		return;
+
 	SDL_Event ev{};
 	ev.type = SDL_MOUSEMOTION;
 	float x, y;
@@ -143,6 +149,9 @@ MESSAGEHANDLER(GuiMouseMotionEvent)
 
 MESSAGEHANDLER(GuiKeyEvent)
 {
+	if (!g_VideoMode.IsInitialized())
+		return;
+
 	SDL_Event ev{};
 	ev.type = msg->pressed ? SDL_KEYDOWN : SDL_KEYUP;
 	ev.key.keysym.sym = static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey));
@@ -152,6 +161,9 @@ MESSAGEHANDLER(GuiKeyEvent)
 
 MESSAGEHANDLER(GuiCharEvent)
 {
+	if (!g_VideoMode.IsInitialized())
+		return;
+
 	// Simulate special 'text input' events in the SDL
 	// This isn't quite compatible with WXWidget's handling,
 	// so to avoid trouble we only send 'letter-like' ASCII input.
