@@ -2280,7 +2280,7 @@ AttackPlan.prototype.Serialize = function()
 		"siegeState": this.siegeState,
 		"position5TurnsAgo": this.position5TurnsAgo,
 		"lastPosition": this.lastPosition,
-		"position": clone(this.position),
+		"position": this.position !== undefined ? clone(this.position) : undefined,
 		"isBlocked": this.isBlocked,
 		"targetPlayer": this.targetPlayer,
 		"target": this.target !== undefined ? this.target.id() : undefined,
