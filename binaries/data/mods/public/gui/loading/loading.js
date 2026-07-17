@@ -26,7 +26,7 @@ async function init(data)
 				"argument": data
 			} });
 		};
-		globalThis.cancelOnLoadGameError = async() =>
+		globalThis.cancelOnLoadGameError = async(errorMessage) =>
 		{
 			Engine.ResetCursor();
 			Engine.EndGame();
