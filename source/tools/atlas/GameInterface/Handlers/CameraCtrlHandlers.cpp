@@ -199,6 +199,14 @@ MESSAGEHANDLER(RotateAround)
 	}
 }
 
+MESSAGEHANDLER(RotateY)
+{
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
+		return;
+
+	g_AtlasGameLoop->input.rotateDelta = msg->angle;
+}
+
 MESSAGEHANDLER(LookAt)
 {
 	// TODO: different camera depending on msg->view

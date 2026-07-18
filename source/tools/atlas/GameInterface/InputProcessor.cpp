@@ -117,6 +117,35 @@ bool InputProcessor::ProcessInput(GameLoopState* state)
 		moved = true;
 	}
 
+	if (state->input.rotateDelta != 0.f)
+	{
+		float angle{4 * state->realFrameLength};
+		if (input.rotateDelta > 0 )
+		{
+			if (angle > input.rotateDelta)
+			{
+				angle = input.rotateDelta;
+				input.rotateDelta = 0.f;
+			}
+			else
+				input.rotateDelta -= angle;
+		}
+		else
+		{
+			angle *= -1;
+			if (angle < input.rotateDelta)
+			{
+				angle = input.rotateDelta;
+				input.rotateDelta = 0.f;
+			}
+			else
+				input.rotateDelta -= angle;
+		}
+		Rotate(camera, angle);
+
+		moved = true;
+	}
+
 	if (moved)
 	{
 		camera.UpdateFrustum();

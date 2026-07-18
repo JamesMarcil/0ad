@@ -456,6 +456,10 @@ MESSAGE(RotateAround,
 		((Position, pos))
 		);
 
+MESSAGE(RotateY,
+		((float, angle))
+		);
+
 MESSAGE(LookAt,
 		((int, view)) // eRenderView
 		((Position, pos))

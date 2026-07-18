@@ -1,4 +1,4 @@
-/* Copyright (C) 2012 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -41,7 +41,8 @@ struct GameLoopState
 	struct Input
 	{
 		float scrollSpeed[6]; // [fwd, bwd, left, right, cw-rotation, ccw-rotation]. 0.0f for disabled.
-		float zoomDelta;
+		float zoomDelta{0.f};
+		float rotateDelta{0.f};
 	} input;
 };
 

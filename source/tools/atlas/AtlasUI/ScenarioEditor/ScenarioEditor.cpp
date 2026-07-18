@@ -273,8 +273,16 @@ private:
 
 		if (evt.GetWheelRotation())
 		{
-			float speed = 16.f * ScenarioEditor::GetSpeedModifier();
-			POST_MESSAGE(SmoothZoom, (eRenderView::GAME, evt.GetWheelRotation() * speed / evt.GetWheelDelta()));
+			if (evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
+			{
+				float speed = 16.f * ScenarioEditor::GetSpeedModifier();
+				POST_MESSAGE(SmoothZoom, (eRenderView::GAME, evt.GetWheelRotation() * speed / evt.GetWheelDelta()));
+			}
+			else
+			{
+				float speed = ScenarioEditor::GetSpeedModifier();
+				POST_MESSAGE(RotateY, (evt.GetWheelRotation() * speed / evt.GetWheelDelta()));
+			}
 		}
 		else
 		{
