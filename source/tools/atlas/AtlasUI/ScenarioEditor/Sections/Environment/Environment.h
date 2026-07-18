@@ -46,5 +46,5 @@ private:
 	VariableListBox* m_WaterTypeList;
 	ObservableScopedConnection m_Conn;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };

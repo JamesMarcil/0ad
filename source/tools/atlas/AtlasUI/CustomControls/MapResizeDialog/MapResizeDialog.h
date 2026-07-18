@@ -48,7 +48,7 @@ private:
 	ssize_t m_NewSize;
 	PseudoMiniMapPanel* m_MiniMap;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
 #endif // INCLUDED_MAPRESIZEDIALOG

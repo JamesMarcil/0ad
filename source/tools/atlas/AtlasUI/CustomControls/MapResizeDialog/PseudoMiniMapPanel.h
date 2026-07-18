@@ -57,7 +57,7 @@ private:
 	bool m_SameOrGrowing;
 	ssize_t m_NewSize;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
 #endif // INCLUDED_PSEUDOMINIMAPPANEL

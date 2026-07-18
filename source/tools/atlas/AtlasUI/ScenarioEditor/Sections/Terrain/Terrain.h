@@ -41,5 +41,5 @@ private:
 	wxChoice* m_PassabilityChoice;
 	TexturePreviewPanel* m_TexturePreview;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };

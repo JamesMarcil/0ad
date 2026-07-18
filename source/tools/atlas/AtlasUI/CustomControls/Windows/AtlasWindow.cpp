@@ -85,19 +85,19 @@ public:
 	void OnSave(wxCommandEvent& WXUNUSED(event)) { EndModal(wxID_SAVE); }
 	void OnNo(wxCommandEvent& WXUNUSED(event)) { EndModal(wxID_NO); }
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(SaveOnExitDialog, wxDialog)
+wxBEGIN_EVENT_TABLE(SaveOnExitDialog, wxDialog)
 	EVT_BUTTON(wxID_SAVE, SaveOnExitDialog::OnSave)
 	EVT_BUTTON(wxID_NO, SaveOnExitDialog::OnNo)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 //////////////////////////////////////////////////////////////////////////
 
 IMPLEMENT_CLASS(AtlasWindow, wxFrame);
 
-BEGIN_EVENT_TABLE(AtlasWindow, wxFrame)
+wxBEGIN_EVENT_TABLE(AtlasWindow, wxFrame)
 	EVT_MENU(wxID_NEW, AtlasWindow::OnNew)
 //	EVT_MENU(ID_Import, AtlasWindow::OnImport)
 //	EVT_MENU(ID_Export, AtlasWindow::OnExport)
@@ -111,7 +111,7 @@ BEGIN_EVENT_TABLE(AtlasWindow, wxFrame)
 	EVT_MENU(wxID_REDO, AtlasWindow::OnRedo)
 
 	EVT_CLOSE(AtlasWindow::OnClose)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 AtlasWindow::AtlasWindow(wxWindow* parent, const wxString& title, const wxSize& size)
 	: wxFrame(parent, wxID_ANY, _T(""), wxDefaultPosition, size),

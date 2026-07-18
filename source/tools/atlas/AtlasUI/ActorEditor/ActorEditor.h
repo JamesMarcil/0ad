@@ -61,5 +61,5 @@ private:
 	// but should be persisted so for convenience keep a copy of the last loaded file.
 	AtObj m_Actor;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };

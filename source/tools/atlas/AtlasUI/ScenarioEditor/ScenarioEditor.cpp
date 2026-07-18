@@ -329,15 +329,15 @@ private:
 
 	ScenarioEditor& m_ScenarioEditor;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(GameCanvas, Canvas)
+wxBEGIN_EVENT_TABLE(GameCanvas, Canvas)
 	EVT_KEY_DOWN(GameCanvas::OnKeyDown)
 	EVT_KEY_UP(GameCanvas::OnKeyUp)
 	EVT_CHAR(GameCanvas::OnChar)
 	EVT_KILL_FOCUS(GameCanvas::OnKillFocus)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -372,7 +372,7 @@ enum
 	ID_Toolbar // must be last in the list
 };
 
-BEGIN_EVENT_TABLE(ScenarioEditor, wxFrame)
+wxBEGIN_EVENT_TABLE(ScenarioEditor, wxFrame)
 	EVT_CLOSE(ScenarioEditor::OnClose)
 	EVT_TIMER(wxID_ANY, ScenarioEditor::OnTimer)
 
@@ -407,7 +407,7 @@ BEGIN_EVENT_TABLE(ScenarioEditor, wxFrame)
 	EVT_MENU_OPEN(ScenarioEditor::OnMenuOpen)
 
 	EVT_IDLE(ScenarioEditor::OnIdle)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 static AtlasWindowCommandProc g_CommandProc;
 AtlasWindowCommandProc& ScenarioEditor::GetCommandProc() { return g_CommandProc; }

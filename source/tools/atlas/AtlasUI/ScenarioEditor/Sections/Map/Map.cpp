@@ -158,16 +158,16 @@ private:
 	std::vector<wxChoice*> m_PlayerCivChoices;
 	Observable<AtObj>& m_MapSettings;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(MapSettingsControl, wxPanel)
+wxBEGIN_EVENT_TABLE(MapSettingsControl, wxPanel)
 	EVT_TEXT(ID_MapName, MapSettingsControl::OnEdit)
 	EVT_TEXT(ID_MapDescription, MapSettingsControl::OnEdit)
 	EVT_TEXT(ID_MapPreview, MapSettingsControl::OnEdit)
 	EVT_CHECKBOX(wxID_ANY, MapSettingsControl::OnEdit)
 	EVT_CHOICE(wxID_ANY, MapSettingsControl::OnEdit)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 MapSettingsControl::MapSettingsControl(wxWindow* parent, ScenarioEditor& scenarioEditor)
 	: wxPanel(parent, wxID_ANY), m_MapSettings(scenarioEditor.GetMapSettings())
@@ -837,7 +837,7 @@ void MapSidebar::OnResizeMap(wxCommandEvent& WXUNUSED(evt))
 	POST_COMMAND(ResizeMap, (dlg.GetNewSize(), offset.x, offset.y));
 }
 
-BEGIN_EVENT_TABLE(MapSidebar, Sidebar)
+wxBEGIN_EVENT_TABLE(MapSidebar, Sidebar)
 	EVT_BUTTON(ID_SimPlay, MapSidebar::OnSimPlay)
 	EVT_BUTTON(ID_SimFast, MapSidebar::OnSimPlay)
 	EVT_BUTTON(ID_SimSlow, MapSidebar::OnSimPlay)
@@ -848,4 +848,4 @@ BEGIN_EVENT_TABLE(MapSidebar, Sidebar)
 	EVT_BUTTON(ID_ResizeMap, MapSidebar::OnResizeMap)
 	EVT_BUTTON(ID_OpenPlayerPanel, MapSidebar::OnOpenPlayerPanel)
 	EVT_CHOICE(ID_RandomScript, MapSidebar::OnRandomScript)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()

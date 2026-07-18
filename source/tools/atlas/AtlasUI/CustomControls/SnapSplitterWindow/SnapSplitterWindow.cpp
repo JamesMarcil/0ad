@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,11 +27,11 @@
 
 class wxWindow;
 
-BEGIN_EVENT_TABLE(SnapSplitterWindow, wxSplitterWindow)
+wxBEGIN_EVENT_TABLE(SnapSplitterWindow, wxSplitterWindow)
 	EVT_SPLITTER_SASH_POS_CHANGING(wxID_ANY, SnapSplitterWindow::OnSashPosChanging)
 	EVT_SPLITTER_SASH_POS_CHANGED(wxID_ANY, SnapSplitterWindow::OnSashPosChanged)
 	EVT_SPLITTER_DCLICK(wxID_ANY, SnapSplitterWindow::OnDoubleClick)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 SnapSplitterWindow::SnapSplitterWindow(wxWindow* parent, long style, const wxString& configPath)
 	: wxSplitterWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -48,9 +48,9 @@ class wxWindow;
 
 // WDR: event table for wxVirtualDirTreeCtrl
 
-BEGIN_EVENT_TABLE(wxVirtualDirTreeCtrl, wxTreeCtrl)
+wxBEGIN_EVENT_TABLE(wxVirtualDirTreeCtrl, wxTreeCtrl)
 	EVT_TREE_ITEM_EXPANDING(-1, wxVirtualDirTreeCtrl::OnExpanding)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 wxVirtualDirTreeCtrl::wxVirtualDirTreeCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style, const wxValidator& validator, const wxString& name)
 	: wxTreeCtrl(parent, id, pos, size, style, validator, name)

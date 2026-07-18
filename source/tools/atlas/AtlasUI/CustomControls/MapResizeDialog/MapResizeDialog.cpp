@@ -126,9 +126,9 @@ void MapResizeDialog::OnOK(wxCommandEvent& WXUNUSED(evt))
 	EndModal(wxID_OK);
 }
 
-BEGIN_EVENT_TABLE(MapResizeDialog, wxDialog)
+wxBEGIN_EVENT_TABLE(MapResizeDialog, wxDialog)
 	EVT_BUTTON(wxID_CANCEL, MapResizeDialog::OnCancel)
 	EVT_BUTTON(wxID_OK, MapResizeDialog::OnOK)
 	EVT_LISTBOX(wxID_ANY, MapResizeDialog::OnListBox)
 	EVT_LISTBOX_DCLICK(wxID_ANY, MapResizeDialog::OnListBox)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()

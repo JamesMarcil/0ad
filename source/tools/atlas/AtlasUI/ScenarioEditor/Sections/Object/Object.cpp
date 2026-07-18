@@ -124,7 +124,7 @@ private:
 	wxScrolledWindow* m_TemplateNames;
 
 	ObjectSidebarImpl* p;
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
 struct ObjectSidebarImpl
@@ -450,13 +450,13 @@ void ObjectSidebar::OnToggleExactFilter(wxCommandEvent& WXUNUSED(evt))
 	FilterObjects();
 }
 
-BEGIN_EVENT_TABLE(ObjectSidebar, Sidebar)
+wxBEGIN_EVENT_TABLE(ObjectSidebar, Sidebar)
 	EVT_CHOICE(ID_ObjectType, ObjectSidebar::OnSelectType)
 	EVT_TEXT(ID_ObjectFilter, ObjectSidebar::OnSelectFilter)
 	EVT_LISTBOX(ID_SelectObject, ObjectSidebar::OnSelectObject)
 	EVT_BUTTON(ID_ToggleViewer, ObjectSidebar::OnToggleViewer)
 	EVT_CHECKBOX(ID_ObjectExactFilter, ObjectSidebar::OnToggleExactFilter)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -525,11 +525,11 @@ private:
 		m_ObjectSettings.NotifyObserversExcept(m_ObjectConn);
 	}
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
-BEGIN_EVENT_TABLE(PlayerComboBox, wxComboBox)
+wxBEGIN_EVENT_TABLE(PlayerComboBox, wxComboBox)
 	EVT_COMBOBOX(wxID_ANY, PlayerComboBox::OnSelect)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -792,7 +792,7 @@ void ObjectBottomBar::OnSpeed(wxCommandEvent& evt)
 	p->ActorViewerPostToGame();
 }
 
-BEGIN_EVENT_TABLE(ObjectBottomBar, wxPanel)
+wxBEGIN_EVENT_TABLE(ObjectBottomBar, wxPanel)
 	EVT_BUTTON(ID_ViewerWireframe, ObjectBottomBar::OnViewerSetting)
 	EVT_BUTTON(ID_ViewerMove, ObjectBottomBar::OnViewerSetting)
 	EVT_BUTTON(ID_ViewerGround, ObjectBottomBar::OnViewerSetting)
@@ -806,4 +806,4 @@ BEGIN_EVENT_TABLE(ObjectBottomBar, wxPanel)
 	EVT_BUTTON(ID_ViewerBoundingBox, ObjectBottomBar::OnViewerSetting)
 	EVT_BUTTON(ID_ViewerAxesMarker, ObjectBottomBar::OnViewerSetting)
 	EVT_BUTTON(ID_ViewerPropPoints, ObjectBottomBar::OnViewerSetting)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();

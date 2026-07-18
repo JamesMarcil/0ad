@@ -124,12 +124,12 @@ public:
 private:
 	wxWindow* m_Control;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(DefaultCheckbox, wxCheckBox)
+wxBEGIN_EVENT_TABLE(DefaultCheckbox, wxCheckBox)
 	EVT_CHECKBOX(wxID_ANY, DefaultCheckbox::OnChecked)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 
 class PlayerNotebookPage : public wxPanel
@@ -365,15 +365,15 @@ private:
 
 	PlayerPageControls m_Controls;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(PlayerNotebookPage, wxPanel)
+wxBEGIN_EVENT_TABLE(PlayerNotebookPage, wxPanel)
 	EVT_BUTTON(ID_PlayerColor, PlayerNotebookPage::OnColor)
 	EVT_BUTTON(ID_CameraSet, PlayerNotebookPage::OnCameraSet)
 	EVT_BUTTON(ID_CameraView, PlayerNotebookPage::OnCameraView)
 	EVT_BUTTON(ID_CameraClear, PlayerNotebookPage::OnCameraClear)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -440,12 +440,12 @@ protected:
 private:
 	std::vector<PlayerNotebookPage*> m_Pages;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(PlayerNotebook, wxChoicebook)
+wxBEGIN_EVENT_TABLE(PlayerNotebook, wxChoicebook)
 	EVT_CHOICEBOOK_PAGE_CHANGED(wxID_ANY, PlayerNotebook::OnPageChanged)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -573,10 +573,10 @@ private:
 	Observable<AtObj>& m_MapSettings;
 	size_t m_NumPlayers;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(PlayerSettingsControl, wxPanel)
+wxBEGIN_EVENT_TABLE(PlayerSettingsControl, wxPanel)
 	EVT_BUTTON(ID_PlayerColor, PlayerSettingsControl::OnPlayerColor)
 	EVT_BUTTON(ID_CameraSet, PlayerSettingsControl::OnEdit)
 	EVT_BUTTON(ID_CameraClear, PlayerSettingsControl::OnEdit)
@@ -593,7 +593,7 @@ BEGIN_EVENT_TABLE(PlayerSettingsControl, wxPanel)
 	EVT_TEXT_ENTER(ID_PlayerMetal, PlayerSettingsControl::OnEditSpin)
 	EVT_TEXT_ENTER(ID_PlayerStone, PlayerSettingsControl::OnEditSpin)
 	EVT_TEXT_ENTER(ID_PlayerPop, PlayerSettingsControl::OnEditSpin)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 PlayerSettingsControl::PlayerSettingsControl(wxWindow* parent, ScenarioEditor& scenarioEditor)
 	: wxPanel(parent, wxID_ANY), m_InGUIUpdate(false), m_MapSettings(scenarioEditor.GetMapSettings()), m_NumPlayers(0)

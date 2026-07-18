@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -39,9 +39,9 @@
 
 class wxWindow;
 
-BEGIN_EVENT_TABLE(ToolButton, wxButton)
+wxBEGIN_EVENT_TABLE(ToolButton, wxButton)
 	EVT_BUTTON(wxID_ANY, ToolButton::OnClick)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 ToolButton::ToolButton
 	(ToolManager& toolManager, wxWindow *parent, const wxString& label, const wxString& toolName, const wxSize& size, long style)
@@ -77,9 +77,9 @@ void ToolButton::SetSelectedAppearance(bool selected)
 
 //////////////////////////////////////////////////////////////////////////
 
-BEGIN_EVENT_TABLE(ToolButtonBar, wxToolBar)
+wxBEGIN_EVENT_TABLE(ToolButtonBar, wxToolBar)
 	EVT_TOOL(wxID_ANY, ToolButtonBar::OnTool)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 ToolButtonBar::ToolButtonBar(ToolManager& toolManager, wxWindow* parent, SectionLayout* sectionLayout, int baseID, long style)
 : wxToolBar(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, style)

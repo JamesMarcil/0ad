@@ -45,5 +45,5 @@ private:
 
 	std::unique_ptr<ObjectSidebarImpl> m_Impl;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };

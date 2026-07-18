@@ -47,5 +47,5 @@ private:
 	wxListBox* m_PathList;
 	wxTextCtrl* m_NewPathName;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };

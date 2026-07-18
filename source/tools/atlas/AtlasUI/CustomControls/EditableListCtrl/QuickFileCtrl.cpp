@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -79,13 +79,13 @@ public:
 			event.Skip();
 	}
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(FileCtrl_TextCtrl, wxTextCtrl)
+wxBEGIN_EVENT_TABLE(FileCtrl_TextCtrl, wxTextCtrl)
 	EVT_KILL_FOCUS(FileCtrl_TextCtrl::OnKillFocus)
 	EVT_CHAR(FileCtrl_TextCtrl::OnChar)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 class FileCtrl_Button : public wxButton
 {
@@ -105,13 +105,13 @@ public:
 
 	virtual void OnPress(wxCommandEvent& event)=0;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(FileCtrl_Button, wxButton)
+wxBEGIN_EVENT_TABLE(FileCtrl_Button, wxButton)
 	EVT_KILL_FOCUS(FileCtrl_Button::OnKillFocus)
 	EVT_BUTTON(wxID_ANY, FileCtrl_Button::OnPress)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 //////////////////////////////////////////////////////////////////////////
 

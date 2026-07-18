@@ -79,12 +79,12 @@ private:
 	SidebarBook* m_Book;
 	size_t m_Id;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(SidebarButton, wxBitmapButton)
+wxBEGIN_EVENT_TABLE(SidebarButton, wxBitmapButton)
 	EVT_BUTTON(wxID_ANY, SidebarButton::OnClick)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 
 class SidebarBook : public wxPanel
@@ -257,12 +257,12 @@ private:
 	std::vector<SidebarPage> m_Pages;
 	ssize_t m_SelectedPage;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(SidebarBook, wxPanel)
+wxBEGIN_EVENT_TABLE(SidebarBook, wxPanel)
 	EVT_SIZE(SidebarBook::OnSize)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 void SidebarButton::OnClick(wxCommandEvent& WXUNUSED(event))
 {

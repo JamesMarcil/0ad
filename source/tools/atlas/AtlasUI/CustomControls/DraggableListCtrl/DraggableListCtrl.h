@@ -61,7 +61,7 @@ public:
 private:
 	long m_DragSource;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
 #endif // INCLUDED_DRAGGABLELISTCTRL

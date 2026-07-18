@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -35,10 +35,10 @@ class wxWindow;
 
 IMPLEMENT_CLASS(AtlasDialog, wxDialog);
 
-BEGIN_EVENT_TABLE(AtlasDialog, wxDialog)
+wxBEGIN_EVENT_TABLE(AtlasDialog, wxDialog)
 	EVT_MENU(wxID_UNDO, AtlasDialog::OnUndo)
 	EVT_MENU(wxID_REDO, AtlasDialog::OnRedo)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 
 AtlasDialog::AtlasDialog(wxWindow* parent, const wxString& title, const wxSize& size)

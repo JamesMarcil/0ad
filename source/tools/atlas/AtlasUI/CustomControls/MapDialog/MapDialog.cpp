@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -265,7 +265,7 @@ void MapDialog::SaveFile()
 	EndModal(wxID_OK);
 }
 
-BEGIN_EVENT_TABLE(MapDialog, wxDialog)
+wxBEGIN_EVENT_TABLE(MapDialog, wxDialog)
 	EVT_BUTTON			 (wxID_CANCEL, MapDialog::OnCancel)
 	EVT_BUTTON			 (wxID_OPEN, MapDialog::OnOpen)
 	EVT_BUTTON			 (wxID_SAVE, MapDialog::OnSave)
@@ -273,4 +273,4 @@ BEGIN_EVENT_TABLE(MapDialog, wxDialog)
 	EVT_LISTBOX_DCLICK   (wxID_ANY, MapDialog::OnListBox)
 	EVT_TEXT			 (ID_MapDialogFilename, MapDialog::OnFilename)
 	EVT_NOTEBOOK_PAGE_CHANGED (ID_MapDialogNotebook, MapDialog::OnNotebookChanged)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()

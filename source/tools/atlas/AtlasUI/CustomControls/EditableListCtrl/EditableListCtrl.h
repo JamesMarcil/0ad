@@ -116,7 +116,7 @@ protected:
 
 	wxListItemAttr m_ListItemAttr[2]; // standard+alternate colors
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
 #endif // INCLUDED_EDITABLELISTCTRL

@@ -150,14 +150,14 @@ public:
 	float theta, phi;
 	LightControl* m_LightControl;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(LightSphere, wxControl)
+wxBEGIN_EVENT_TABLE(LightSphere, wxControl)
 	EVT_PAINT(LightSphere::OnPaint)
 	EVT_MOTION(LightSphere::OnMouse)
 	EVT_LEFT_DOWN(LightSphere::OnMouse)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 LightControl::LightControl(wxWindow* parent, const wxSize& size, Observable<AtlasMessage::sEnvironmentSettings>& environment)
 : wxPanel(parent), m_Environment(environment)

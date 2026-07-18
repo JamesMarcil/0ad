@@ -48,5 +48,5 @@ private:
 
 	int m_SimState;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };

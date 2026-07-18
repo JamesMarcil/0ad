@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -67,7 +67,7 @@ void QuickComboBox::OnChar(wxKeyEvent& event)
 		event.Skip();
 }
 
-BEGIN_EVENT_TABLE(QuickComboBox, wxComboBox)
+wxBEGIN_EVENT_TABLE(QuickComboBox, wxComboBox)
 	EVT_KILL_FOCUS(QuickComboBox::OnKillFocus)
 	EVT_CHAR(QuickComboBox::OnChar)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()

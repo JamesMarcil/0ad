@@ -43,5 +43,5 @@ private:
 	int m_SnapTolerance;
 	wxString m_ConfigPath;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };

@@ -94,12 +94,12 @@ private:
 	Shareable<float>& m_Var;
 	float m_Min, m_Max;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(VariableSliderBox, wxPanel)
+wxBEGIN_EVENT_TABLE(VariableSliderBox, wxPanel)
 	EVT_SCROLL(VariableSliderBox::OnScroll)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -152,12 +152,12 @@ private:
 	wxComboBox* m_Combo;
 	Shareable<std::wstring>& m_Var;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(VariableListBox, wxPanel)
+wxBEGIN_EVENT_TABLE(VariableListBox, wxPanel)
 	EVT_COMBOBOX(wxID_ANY, VariableListBox::OnSelect)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -216,12 +216,12 @@ private:
 	wxButton* m_Button;
 	Shareable<AtlasMessage::Color>& m_Color;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(VariableColorBox, wxPanel)
+wxBEGIN_EVENT_TABLE(VariableColorBox, wxPanel)
 	EVT_BUTTON(wxID_ANY, VariableColorBox::OnClick)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -361,8 +361,8 @@ void EnvironmentSidebar::OnPickWaterHeight(wxCommandEvent& WXUNUSED(evt))
 	m_ScenarioEditor.GetToolManager().SetCurrentTool(_T("PickWaterHeight"), this);
 }
 
-BEGIN_EVENT_TABLE(EnvironmentSidebar, Sidebar)
+wxBEGIN_EVENT_TABLE(EnvironmentSidebar, Sidebar)
 	EVT_BUTTON(ID_RecomputeWaterData, EnvironmentSidebar::RecomputeWaterData)
 	EVT_BUTTON(ID_PickWaterHeight, EnvironmentSidebar::OnPickWaterHeight)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 

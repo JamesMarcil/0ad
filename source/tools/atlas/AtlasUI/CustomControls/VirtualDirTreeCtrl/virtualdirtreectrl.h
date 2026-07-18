@@ -482,7 +482,7 @@ private:
     // WDR: handler declarations for wxVirtualDirTreeCtrl
 
 private:
-    DECLARE_EVENT_TABLE()
+    wxDECLARE_EVENT_TABLE();
 };
 
 

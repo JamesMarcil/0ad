@@ -53,7 +53,7 @@ private:
 	wxString m_FileName;
 	MapDialogType m_Type;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
 #endif // INCLUDED_MAPDIALOG

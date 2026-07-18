@@ -228,7 +228,7 @@ void PseudoMiniMapPanel::EraseBackground(wxEraseEvent& WXUNUSED(evt))
 	// Do nothing - don't erase to remove flicker.
 }
 
-BEGIN_EVENT_TABLE(PseudoMiniMapPanel, wxPanel)
+wxBEGIN_EVENT_TABLE(PseudoMiniMapPanel, wxPanel)
 	EVT_LEAVE_WINDOW(PseudoMiniMapPanel::OnMouseUp)
 	EVT_LEFT_DOWN(PseudoMiniMapPanel::OnMouseDown)
 	EVT_LEFT_UP(PseudoMiniMapPanel::OnMouseUp)
@@ -239,4 +239,4 @@ BEGIN_EVENT_TABLE(PseudoMiniMapPanel, wxPanel)
 	EVT_MOTION(PseudoMiniMapPanel::OnMouseMove)
 	EVT_LEAVE_WINDOW(PseudoMiniMapPanel::OnMouseLeave)
 	EVT_PAINT(PseudoMiniMapPanel::PaintEvent)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()

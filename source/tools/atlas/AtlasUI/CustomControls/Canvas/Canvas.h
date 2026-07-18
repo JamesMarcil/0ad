@@ -45,5 +45,5 @@ private:
 	wxPoint m_LastMousePos;
 	bool m_MouseCaptured;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };

@@ -148,8 +148,8 @@ void CinemaSidebar::ReloadPathList()
 		m_PathList->Append(*path.name);
 }
 
-BEGIN_EVENT_TABLE(CinemaSidebar, Sidebar)
+wxBEGIN_EVENT_TABLE(CinemaSidebar, Sidebar)
 EVT_CHECKBOX(ID_PathsDrawing, CinemaSidebar::OnTogglePathsDrawing)
 EVT_BUTTON(ID_AddPath, CinemaSidebar::OnAddPath)
 EVT_BUTTON(ID_DeletePath, CinemaSidebar::OnDeletePath)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();

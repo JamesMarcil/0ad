@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -58,7 +58,7 @@ void QuickTextCtrl::OnChar(wxKeyEvent& event)
 		event.Skip();
 }
 
-BEGIN_EVENT_TABLE(QuickTextCtrl, wxTextCtrl)
+wxBEGIN_EVENT_TABLE(QuickTextCtrl, wxTextCtrl)
 	EVT_KILL_FOCUS(QuickTextCtrl::OnKillFocus)
 	EVT_CHAR(QuickTextCtrl::OnChar)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()

@@ -50,9 +50,9 @@
 
 class wxWindow;
 
-BEGIN_EVENT_TABLE(ActorEditor, AtlasWindow)
+wxBEGIN_EVENT_TABLE(ActorEditor, AtlasWindow)
 	EVT_MENU(ID_CreateEntity, ActorEditor::OnCreateEntity)
-END_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
 
 ActorEditor::ActorEditor(wxWindow* parent)

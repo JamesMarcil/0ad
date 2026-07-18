@@ -51,7 +51,7 @@ protected:
 private:
 	AtlasWindowCommandProc m_CommandProc;
 
-	DECLARE_EVENT_TABLE()
+	wxDECLARE_EVENT_TABLE();
 };
 
 #endif // INCLUDED_ATLASDIALOG

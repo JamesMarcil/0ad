@@ -211,12 +211,12 @@ private:
 	wxTimer m_Timer;
 	wxString m_TextureName;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(TexturePreviewPanel, wxPanel)
+wxBEGIN_EVENT_TABLE(TexturePreviewPanel, wxPanel)
 	EVT_TIMER(wxID_ANY, TexturePreviewPanel::OnTimer)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -324,10 +324,10 @@ void TerrainSidebar::OnShowPriorities(wxCommandEvent& evt)
 	POST_MESSAGE(SetViewParamB, (AtlasMessage::eRenderView::GAME, L"priorities", evt.IsChecked()));
 }
 
-BEGIN_EVENT_TABLE(TerrainSidebar, Sidebar)
+wxBEGIN_EVENT_TABLE(TerrainSidebar, Sidebar)
 	EVT_CHOICE(ID_Passability, TerrainSidebar::OnPassabilityChoice)
 	EVT_CHECKBOX(ID_ShowPriorities, TerrainSidebar::OnShowPriorities)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -531,14 +531,14 @@ private:
 	};
 	std::unordered_map<std::wstring, PreviewButton> m_PreviewButtons;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(TextureNotebookPage, wxPanel)
+wxBEGIN_EVENT_TABLE(TextureNotebookPage, wxPanel)
 	EVT_BUTTON(wxID_ANY, TextureNotebookPage::OnButton)
 	EVT_SIZE(TextureNotebookPage::OnSize)
 	EVT_TIMER(wxID_ANY, TextureNotebookPage::OnTimer)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 
 class TextureNotebook : public wxChoicebook
@@ -600,12 +600,12 @@ private:
 	ScenarioEditor& m_ScenarioEditor;
 	wxArrayString m_TerrainGroups;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(TextureNotebook, wxChoicebook)
+wxBEGIN_EVENT_TABLE(TextureNotebook, wxChoicebook)
 	EVT_CHOICEBOOK_PAGE_CHANGED(wxID_ANY, TextureNotebook::OnPageChanged)
-END_EVENT_TABLE();
+wxEND_EVENT_TABLE();
 
 //////////////////////////////////////////////////////////////////////////
 

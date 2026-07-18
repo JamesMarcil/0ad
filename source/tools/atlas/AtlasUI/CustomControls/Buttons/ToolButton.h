@@ -41,7 +41,7 @@ private:
 	wxString m_Tool;
 	bool m_Selected;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
 
 class ToolButtonBar : public wxToolBar
@@ -68,5 +68,5 @@ private:
 	std::map<int, Button> m_Buttons;
 	SectionLayout* m_SectionLayout;
 
-	DECLARE_EVENT_TABLE();
+	wxDECLARE_EVENT_TABLE();
 };
