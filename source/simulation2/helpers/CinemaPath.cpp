@@ -80,22 +80,22 @@ CCinemaPath::CCinemaPath(const CCinemaData& data, const TNSpline& spline, const 
 
 CVector3D CCinemaPath::GetNodePosition(const int index) const
 {
-	return Node[index].Position;
+	return m_Nodes[index].Position;
 }
 
 fixed CCinemaPath::GetNodeDuration(const int index) const
 {
-	return Node[index].Distance;
+	return m_Nodes[index].Distance;
 }
 
 fixed CCinemaPath::GetDuration() const
 {
-	return MaxDistance;
+	return m_MaxDistance;
 }
 
 float CCinemaPath::GetNodeFraction() const
 {
-	return (m_TimeElapsed - m_PreviousNodeTime) / Node[m_CurrentNode].Distance.ToFloat();
+	return (m_TimeElapsed - m_PreviousNodeTime) / m_Nodes[m_CurrentNode].Distance.ToFloat();
 }
 
 float CCinemaPath::GetElapsedTime() const
@@ -121,14 +121,14 @@ void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRota
 
 	if (m_LookAtTarget)
 	{
-		if (m_TimeElapsed <= m_TargetSpline.MaxDistance.ToFloat())
-			camera.LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.MaxDistance.ToFloat()), CVector3D(0, 1, 0));
+		if (m_TimeElapsed <= m_TargetSpline.m_MaxDistance.ToFloat())
+			camera.LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.m_MaxDistance.ToFloat()), CVector3D(0, 1, 0));
 		else
 			camera.LookAt(pos, m_TargetSpline.GetAllNodes().back().Position, CVector3D(0, 1, 0));
 	}
 	else
 	{
-		CVector3D nodeRotation = Node[m_CurrentNode + 1].Rotation;
+		CVector3D nodeRotation = m_Nodes[m_CurrentNode + 1].Rotation;
 		CQuaternion start, end;
 		start.FromEulerAngles(DEGTORAD(startRotation.X), DEGTORAD(startRotation.Y), DEGTORAD(startRotation.Z));
 		end.FromEulerAngles(DEGTORAD(nodeRotation.X), DEGTORAD(nodeRotation.Y), DEGTORAD(nodeRotation.Z));
@@ -220,17 +220,17 @@ bool CCinemaPath::Validate()
 	float previousTime = 0.0f, cumulation = 0.0f;
 
 	// Ignore the last node, since it is a blank (node time values are shifted down one from interface)
-	for (size_t i = 0; i < Node.size() - 1; ++i)
+	for (size_t i = 0; i < m_Nodes.size() - 1; ++i)
 	{
-		cumulation += Node[i].Distance.ToFloat();
+		cumulation += m_Nodes[i].Distance.ToFloat();
 		if (m_TimeElapsed <= cumulation)
 		{
 			m_PreviousNodeTime = previousTime;
-			m_PreviousRotation = Node[i].Rotation;
+			m_PreviousRotation = m_Nodes[i].Rotation;
 			m_CurrentNode = i; // We're moving toward this next node, so use its rotation
 			return true;
 		}
-		previousTime += Node[i].Distance.ToFloat();
+		previousTime += m_Nodes[i].Distance.ToFloat();
 	}
 	debug_warn("validation of cinema path is wrong\n");
 	return false;
@@ -248,7 +248,7 @@ bool CCinemaPath::Play(const float deltaRealTime, CCamera& camera)
 
 bool CCinemaPath::Empty() const
 {
-	return Node.empty();
+	return m_Nodes.empty();
 }
 
 void CCinemaPath::Reset()

@@ -92,12 +92,12 @@ void CCinemaManager::DrawSpline(Renderer::Backend::IDeviceCommandContext& device
 	if (spline.GetAllNodes().size() == 2)
 		smoothness = 2;
 
-	const float start = spline.MaxDistance.ToFloat() / smoothness;
+	const float start = spline.m_MaxDistance.ToFloat() / smoothness;
 
 	std::vector<CVector3D> line;
 	for (int i = 0; i <= smoothness; ++i)
 	{
-		const float time = start * i / spline.MaxDistance.ToFloat();
+		const float time = start * i / spline.m_MaxDistance.ToFloat();
 		line.emplace_back(spline.GetPosition(time));
 	}
 
@@ -108,7 +108,7 @@ void CCinemaManager::DrawSpline(Renderer::Backend::IDeviceCommandContext& device
 	{
 		for (int i = 0; i <= smoothness; ++i)
 		{
-			const float time = start * i / spline.MaxDistance.ToFloat();
+			const float time = start * i / spline.m_MaxDistance.ToFloat();
 			const CVector3D tmp = spline.GetPosition(time);
 			const float groundY = g_Game->GetWorld()->GetTerrain().GetExactGroundLevel(tmp.X, tmp.Z);
 			g_Renderer.GetDebugRenderer().DrawLine(deviceCommandContext, tmp, CVector3D(tmp.X, groundY, tmp.Z), splineColor, 0.1f, false);

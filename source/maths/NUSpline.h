@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,12 +63,12 @@ public:
 	CVector3D GetRotation(float time) const;
 	const std::vector<SplineData>& GetAllNodes() const;
 
-	fixed MaxDistance;
-	int NodeCount;
+	fixed m_MaxDistance;
+	int m_NodeCount;
 
 protected:
 
-	std::vector<SplineData> Node;
+	std::vector<SplineData> m_Nodes;
 	CVector3D GetStartVelocity(int index);
 	CVector3D GetEndVelocity(int index);
 };
