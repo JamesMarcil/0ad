@@ -186,7 +186,7 @@ private:
 //////////////////////////////////////////////////////////////////////////
 
 
-IMPLEMENT_DYNAMIC_CLASS(QuickFileCtrl, wxPanel);
+wxIMPLEMENT_DYNAMIC_CLASS(QuickFileCtrl, wxPanel);
 
 QuickFileCtrl::QuickFileCtrl(wxWindow* parent,
 							 wxRect& location,

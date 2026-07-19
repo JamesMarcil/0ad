@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,10 +26,10 @@
 #include <wx/log.h>
 #include <wx/translation.h>
 
-IMPLEMENT_ABSTRACT_CLASS(AtlasWindowCommand, wxCommand);
+wxIMPLEMENT_ABSTRACT_CLASS(AtlasWindowCommand, wxCommand);
 
-IMPLEMENT_CLASS(AtlasCommand_Begin, AtlasWindowCommand);
-IMPLEMENT_CLASS(AtlasCommand_End, AtlasWindowCommand);
+wxIMPLEMENT_CLASS(AtlasCommand_Begin, AtlasWindowCommand);
+wxIMPLEMENT_CLASS(AtlasCommand_End, AtlasWindowCommand);
 
 AtlasCommand_Begin::AtlasCommand_Begin(const wxString& description, IAtlasSerialiser* object)
 	: AtlasWindowCommand(true, description),

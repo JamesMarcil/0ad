@@ -143,4 +143,4 @@ public:
 	Roughing;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(SmoothElevation, StateDrivenTool<SmoothElevation>);
+wxIMPLEMENT_DYNAMIC_CLASS(SmoothElevation, StateDrivenTool<SmoothElevation>);

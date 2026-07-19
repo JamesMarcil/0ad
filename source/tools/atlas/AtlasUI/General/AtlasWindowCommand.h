@@ -29,7 +29,7 @@ class IAtlasSerialiser;
 
 class AtlasWindowCommand : public wxCommand
 {
-	DECLARE_ABSTRACT_CLASS(AtlasWindowCommand);
+	wxDECLARE_ABSTRACT_CLASS(AtlasWindowCommand);
 
 	friend class AtlasWindowCommandProc;
 
@@ -53,7 +53,7 @@ private:
 
 class AtlasCommand_Begin : public AtlasWindowCommand
 {
-	DECLARE_CLASS(AtlasCommand_Begin);
+	wxDECLARE_CLASS(AtlasCommand_Begin);
 
 	friend class AtlasCommand_End;
 
@@ -70,7 +70,7 @@ private:
 
 class AtlasCommand_End : public AtlasWindowCommand
 {
-	DECLARE_CLASS(AtlasCommand_End);
+	wxDECLARE_CLASS(AtlasCommand_End);
 
 public:
 	AtlasCommand_End() : AtlasWindowCommand(true, _T("[error]")) {}

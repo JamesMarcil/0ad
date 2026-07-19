@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-IMPLEMENT_CLASS(EditCommand_Dialog, AtlasWindowCommand);
+wxIMPLEMENT_CLASS(EditCommand_Dialog, AtlasWindowCommand);
 
 EditCommand_Dialog::EditCommand_Dialog(EditableListCtrl* ctrl, long row, int col, AtObj& newData)
 	: AtlasWindowCommand(true, _("Edit")), m_Ctrl(ctrl), m_Row(row), m_Col(col), m_NewData(newData)
@@ -60,7 +60,7 @@ bool EditCommand_Dialog::Undo()
 
 //////////////////////////////////////////////////////////////////////////
 
-IMPLEMENT_CLASS(EditCommand_Text, AtlasWindowCommand);
+wxIMPLEMENT_CLASS(EditCommand_Text, AtlasWindowCommand);
 
 EditCommand_Text::EditCommand_Text(EditableListCtrl* ctrl, long row, int col, wxString newText)
 	: AtlasWindowCommand(true, _("Edit")), m_Ctrl(ctrl), m_Row(row), m_Col(col), m_NewText(newText)
@@ -93,7 +93,7 @@ bool EditCommand_Text::Undo()
 
 //////////////////////////////////////////////////////////////////////////
 
-IMPLEMENT_CLASS(PasteCommand, AtlasWindowCommand);
+wxIMPLEMENT_CLASS(PasteCommand, AtlasWindowCommand);
 
 PasteCommand::PasteCommand(EditableListCtrl* ctrl, long row, AtObj& newData)
 	: AtlasWindowCommand(true, _("Paste")), m_Ctrl(ctrl), m_Row(row), m_NewData(newData)

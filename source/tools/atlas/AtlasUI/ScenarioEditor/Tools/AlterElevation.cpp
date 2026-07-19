@@ -143,4 +143,4 @@ public:
 	Lowering;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(AlterElevation, StateDrivenTool<AlterElevation>);
+wxIMPLEMENT_DYNAMIC_CLASS(AlterElevation, StateDrivenTool<AlterElevation>);

@@ -167,4 +167,4 @@ public:
 	Dragging;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(TransformPath, StateDrivenTool<TransformPath>);
+wxIMPLEMENT_DYNAMIC_CLASS(TransformPath, StateDrivenTool<TransformPath>);

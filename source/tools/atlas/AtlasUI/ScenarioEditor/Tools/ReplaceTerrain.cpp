@@ -83,4 +83,4 @@ public:
 	Waiting;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(ReplaceTerrain, StateDrivenTool<ReplaceTerrain>);
+wxIMPLEMENT_DYNAMIC_CLASS(ReplaceTerrain, StateDrivenTool<ReplaceTerrain>);

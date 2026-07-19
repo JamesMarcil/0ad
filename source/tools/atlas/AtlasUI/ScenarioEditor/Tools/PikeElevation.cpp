@@ -143,4 +143,4 @@ public:
 	PikeLowering;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(PikeElevation, StateDrivenTool<PikeElevation>);
+wxIMPLEMENT_DYNAMIC_CLASS(PikeElevation, StateDrivenTool<PikeElevation>);

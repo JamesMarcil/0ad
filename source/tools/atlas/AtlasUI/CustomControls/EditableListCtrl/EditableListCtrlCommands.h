@@ -26,7 +26,7 @@ class EditableListCtrl;
 
 class EditCommand_Dialog : public AtlasWindowCommand
 {
-	DECLARE_CLASS(EditCommand_Dialog);
+	wxDECLARE_CLASS(EditCommand_Dialog);
 
 public:
 	EditCommand_Dialog(EditableListCtrl* ctrl, long row, int col, AtObj& newData);
@@ -46,7 +46,7 @@ private:
 
 class EditCommand_Text : public AtlasWindowCommand
 {
-	DECLARE_CLASS(EditCommand_Text);
+	wxDECLARE_CLASS(EditCommand_Text);
 
 public:
 	EditCommand_Text(EditableListCtrl* ctrl, long row, int col, wxString newText);
@@ -65,7 +65,7 @@ private:
 
 class PasteCommand : public AtlasWindowCommand
 {
-	DECLARE_CLASS(PasteCommand);
+	wxDECLARE_CLASS(PasteCommand);
 
 public:
 	PasteCommand(EditableListCtrl* ctrl, long row, AtObj& newData);

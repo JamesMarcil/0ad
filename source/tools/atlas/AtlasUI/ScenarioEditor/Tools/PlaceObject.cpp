@@ -246,4 +246,4 @@ public:
 	Placing;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(PlaceObject, StateDrivenTool<PlaceObject>);
+wxIMPLEMENT_DYNAMIC_CLASS(PlaceObject, StateDrivenTool<PlaceObject>);

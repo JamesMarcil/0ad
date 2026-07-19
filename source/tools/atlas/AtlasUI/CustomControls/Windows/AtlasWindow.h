@@ -39,7 +39,7 @@ class AtlasWindow : public wxFrame, public IAtlasSerialiser
 {
 	friend class AtlasWindowCommandProc;
 
-	DECLARE_CLASS(AtlasWindow);
+	wxDECLARE_CLASS(AtlasWindow);
 
 public:
 

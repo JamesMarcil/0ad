@@ -66,4 +66,4 @@ public:
 	Waiting;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(PickWaterHeight, StateDrivenTool<PickWaterHeight>);
+wxIMPLEMENT_DYNAMIC_CLASS(PickWaterHeight, StateDrivenTool<PickWaterHeight>);

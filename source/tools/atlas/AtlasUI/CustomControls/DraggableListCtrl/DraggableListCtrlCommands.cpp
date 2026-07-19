@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-IMPLEMENT_CLASS(DragCommand, AtlasWindowCommand);
+wxIMPLEMENT_CLASS(DragCommand, AtlasWindowCommand);
 
 DragCommand::DragCommand(DraggableListCtrl* ctrl, long src, long tgt)
 	: AtlasWindowCommand(true, _("Drag")), m_Ctrl(ctrl), m_Src(src), m_Tgt(tgt)
@@ -104,7 +104,7 @@ bool DragCommand::Merge(AtlasWindowCommand* command)
 
 //////////////////////////////////////////////////////////////////////////
 
-IMPLEMENT_CLASS(DeleteCommand, AtlasWindowCommand);
+wxIMPLEMENT_CLASS(DeleteCommand, AtlasWindowCommand);
 
 DeleteCommand::DeleteCommand(DraggableListCtrl* ctrl, long itemID)
 	: AtlasWindowCommand(true, _("Delete")), m_Ctrl(ctrl), m_ItemID(itemID)

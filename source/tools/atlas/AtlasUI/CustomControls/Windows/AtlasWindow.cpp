@@ -95,7 +95,7 @@ wxEND_EVENT_TABLE()
 
 //////////////////////////////////////////////////////////////////////////
 
-IMPLEMENT_CLASS(AtlasWindow, wxFrame);
+wxIMPLEMENT_CLASS(AtlasWindow, wxFrame);
 
 wxBEGIN_EVENT_TABLE(AtlasWindow, wxFrame)
 	EVT_MENU(wxID_NEW, AtlasWindow::OnNew)

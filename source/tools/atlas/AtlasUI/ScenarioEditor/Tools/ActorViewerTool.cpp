@@ -187,4 +187,4 @@ public:
 	Viewing;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(ActorViewerTool, StateDrivenTool<ActorViewerTool>);
+wxIMPLEMENT_DYNAMIC_CLASS(ActorViewerTool, StateDrivenTool<ActorViewerTool>);

@@ -33,7 +33,7 @@
 class wxSize;
 class wxWindow;
 
-IMPLEMENT_CLASS(AtlasDialog, wxDialog);
+wxIMPLEMENT_CLASS(AtlasDialog, wxDialog);
 
 wxBEGIN_EVENT_TABLE(AtlasDialog, wxDialog)
 	EVT_MENU(wxID_UNDO, AtlasDialog::OnUndo)

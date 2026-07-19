@@ -624,4 +624,4 @@ public:
 	Rotating;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(TransformObject, StateDrivenTool<TransformObject>);
+wxIMPLEMENT_DYNAMIC_CLASS(TransformObject, StateDrivenTool<TransformObject>);

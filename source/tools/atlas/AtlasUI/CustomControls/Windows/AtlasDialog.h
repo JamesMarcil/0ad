@@ -35,7 +35,7 @@ class AtlasDialog : public wxDialog, public IAtlasSerialiser
 	friend class FieldEditCtrl_Dialog;
 	friend class AtlasWindowCommandProc;
 
-	DECLARE_CLASS(AtlasDialog);
+	wxDECLARE_CLASS(AtlasDialog);
 
 public:
 	AtlasDialog(wxWindow* parent, const wxString& title, const wxSize& size);

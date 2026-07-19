@@ -120,4 +120,4 @@ public:
 	Flattening;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(FlattenElevation, StateDrivenTool<FlattenElevation>);
+wxIMPLEMENT_DYNAMIC_CLASS(FlattenElevation, StateDrivenTool<FlattenElevation>);

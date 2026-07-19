@@ -75,7 +75,7 @@ extern void RegisterToolBarButton(wxToolBar* toolbar, int buttonId, const wxStri
 namespace AtlasMessage { struct mWorldCommand; }
 class WorldCommand : public AtlasWindowCommand
 {
-	DECLARE_CLASS(WorldCommand);
+	wxDECLARE_CLASS(WorldCommand);
 
 	bool m_AlreadyDone;
 public:

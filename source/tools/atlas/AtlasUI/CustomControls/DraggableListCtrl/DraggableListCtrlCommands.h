@@ -25,7 +25,7 @@ class DraggableListCtrl;
 
 class DragCommand : public AtlasWindowCommand
 {
-	DECLARE_CLASS(DragCommand);
+	wxDECLARE_CLASS(DragCommand);
 
 public:
 	DragCommand(DraggableListCtrl* ctrl, long src, long tgt);
@@ -44,7 +44,7 @@ private:
 
 class DeleteCommand : public AtlasWindowCommand
 {
-	DECLARE_CLASS(DeleteCommand);
+	wxDECLARE_CLASS(DeleteCommand);
 
 public:
 	DeleteCommand(DraggableListCtrl* ctrl, long itemID);

@@ -219,4 +219,4 @@ public:
 	Eyedropper;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(PaintTerrain, StateDrivenTool<PaintTerrain>);
+wxIMPLEMENT_DYNAMIC_CLASS(PaintTerrain, StateDrivenTool<PaintTerrain>);
