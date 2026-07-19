@@ -357,6 +357,7 @@ enum
 	ID_Wireframe,
 	ID_SmoothFramerate,
 	ID_BirdsEyeView,
+	ID_Fullscreen,
 	ID_CameraReset,
 
 	ID_MessageTrace,
@@ -392,6 +393,7 @@ wxBEGIN_EVENT_TABLE(ScenarioEditor, wxFrame)
 	EVT_MENU(ID_Wireframe, ScenarioEditor::OnWireframe)
 	EVT_MENU(ID_SmoothFramerate, ScenarioEditor::OnSmoothFramerate)
 	EVT_MENU(ID_BirdsEyeView, ScenarioEditor::OnBirdsEyeView)
+	EVT_MENU(ID_Fullscreen, ScenarioEditor::OnFullscreen)
 	EVT_MENU(ID_CameraReset, ScenarioEditor::OnCameraReset)
 
 	EVT_MENU(ID_MessageTrace, ScenarioEditor::OnMessageTrace)
@@ -510,8 +512,7 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 		menuView->AppendCheckItem(ID_Wireframe, _("&Wireframe"));
 		menuView->AppendCheckItem(ID_SmoothFramerate, _("Smooth framerate"));
 		menuView->AppendCheckItem(ID_BirdsEyeView, _("&Birds Eye View\tCtrl+B"));
-		auto* fullscreenItem = menuView->AppendCheckItem(wxID_ANY, _("&Fullscreen\tAlt+Enter"));
-		this->Bind(wxEVT_MENU, [this, fullscreenItem](auto&){ SetFullscreen(fullscreenItem->IsChecked()); });
+		menuView->AppendCheckItem(ID_Fullscreen, _("&Fullscreen\tAlt+Enter"));
 		menuView->Append(ID_CameraReset, _("&Reset camera"));
 	}
 
@@ -1001,9 +1002,9 @@ void ScenarioEditor::OnBirdsEyeView(wxCommandEvent& event)
 	POST_MESSAGE(SetBirdsEyeView, (event.IsChecked()));
 }
 
-void ScenarioEditor::SetFullscreen(const bool enabled)
+void ScenarioEditor::OnFullscreen(wxCommandEvent& event)
 {
-	ShowFullScreen(enabled, wxFULLSCREEN_NOBORDER | wxFULLSCREEN_NOCAPTION);
+	ShowFullScreen(event.IsChecked(), wxFULLSCREEN_NOBORDER | wxFULLSCREEN_NOCAPTION);
 }
 
 void ScenarioEditor::OnDumpState(wxCommandEvent& event)
