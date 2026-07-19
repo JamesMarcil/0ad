@@ -114,7 +114,7 @@ void CinemaSidebar::OnAddPath(wxCommandEvent&)
 	if (m_NewPathName->GetValue().empty())
 		return;
 
-	POST_COMMAND(AddCinemaPath, ((std::wstring)m_NewPathName->GetValue().wc_str()));
+	POST_COMMAND(AddCinemaPath, (m_NewPathName->GetValue().ToStdWstring()));
 	m_NewPathName->Clear();
 	ReloadPathList();
 }
@@ -129,7 +129,7 @@ void CinemaSidebar::OnDeletePath(wxCommandEvent&)
 	if (pathName.empty())
 		return;
 
-	POST_COMMAND(DeleteCinemaPath, ((std::wstring)pathName.wc_str()));
+	POST_COMMAND(DeleteCinemaPath, (pathName.ToStdWstring()));
 	ReloadPathList();
 }
 

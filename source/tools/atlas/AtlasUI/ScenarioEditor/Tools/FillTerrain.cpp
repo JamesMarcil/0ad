@@ -66,7 +66,7 @@ public:
 			{
 				Position pos(evt.GetPosition());
 				POST_MESSAGE(BrushPreview, (true, pos));
-				POST_COMMAND(FillTerrain, (pos, (std::wstring)g_SelectedTexture.wc_str()));
+				POST_COMMAND(FillTerrain, (pos, g_SelectedTexture.ToStdWstring()));
 				return true;
 			}
 			else if (evt.Moving())

@@ -105,7 +105,7 @@ AtlasMessage::sObjectSettings ObjectSettings::GetSettings() const
 		it != m_ActorSelections.end();
 		++it)
 	{
-		selections.push_back((std::wstring)it->wc_str());
+		selections.push_back(it->ToStdWstring());
 	}
 	settings.selections = selections;
 

@@ -807,7 +807,7 @@ void MapSidebar::OnRandomGenerate(wxCommandEvent& WXUNUSED(evt))
 	m_ScenarioEditor.GetToolManager().SetCurrentTool(_T(""));
 	// TODO: clear the undo buffer, etc
 
-	AtlasMessage::qGenerateMap qry((std::wstring)scriptName.wc_str(), json);
+	AtlasMessage::qGenerateMap qry(scriptName.ToStdWstring(), json);
 	qry.Post();
 
 	if (qry.status < 0)

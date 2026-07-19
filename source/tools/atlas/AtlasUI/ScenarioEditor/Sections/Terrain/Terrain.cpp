@@ -145,7 +145,7 @@ public:
 
 		m_Sizer->Clear(true);
 
-		AtlasMessage::qGetTerrainTexturePreview qry((std::wstring)m_TextureName.wc_str(), imageWidth, imageHeight);
+		AtlasMessage::qGetTerrainTexturePreview qry(m_TextureName.ToStdWstring(), imageWidth, imageHeight);
 		qry.Post();
 
 		AtlasMessage::sTerrainTexturePreview preview = qry.preview;
@@ -316,7 +316,7 @@ void TerrainSidebar::OnPassabilityChoice(wxCommandEvent& evt)
 	if (evt.GetSelection() == 0)
 		POST_MESSAGE(SetViewParamS, (AtlasMessage::eRenderView::GAME, L"passability", L""));
 	else
-		POST_MESSAGE(SetViewParamS, (AtlasMessage::eRenderView::GAME, L"passability", (std::wstring)evt.GetString().wc_str()));
+		POST_MESSAGE(SetViewParamS, (AtlasMessage::eRenderView::GAME, L"passability", evt.GetString().ToStdWstring()));
 }
 
 void TerrainSidebar::OnShowPriorities(wxCommandEvent& evt)
@@ -365,7 +365,7 @@ public:
 
 		wxBusyInfo busy (_("Loading terrain previews"));
 
-		AtlasMessage::qGetTerrainGroupTextures query((std::wstring)m_Name.wc_str());
+		AtlasMessage::qGetTerrainGroupTextures query(m_Name.ToStdWstring());
 		query.Post();
 		m_Textures = *query.names;
 
