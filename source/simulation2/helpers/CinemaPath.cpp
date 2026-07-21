@@ -90,7 +90,7 @@ fixed CCinemaPath::GetNodeDuration(const int index) const
 
 fixed CCinemaPath::GetDuration() const
 {
-	return m_MaxDistance;
+	return GetMaxDistance();
 }
 
 float CCinemaPath::GetNodeFraction() const
@@ -121,8 +121,8 @@ void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRota
 
 	if (m_LookAtTarget)
 	{
-		if (m_TimeElapsed <= m_TargetSpline.m_MaxDistance.ToFloat())
-			camera.LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.m_MaxDistance.ToFloat()), CVector3D(0, 1, 0));
+		if (m_TimeElapsed <= m_TargetSpline.GetMaxDistance().ToFloat())
+			camera.LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.GetMaxDistance().ToFloat()), CVector3D(0, 1, 0));
 		else
 			camera.LookAt(pos, m_TargetSpline.GetAllNodes().back().Position, CVector3D(0, 1, 0));
 	}

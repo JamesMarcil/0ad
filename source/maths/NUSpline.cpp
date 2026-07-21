@@ -52,10 +52,7 @@ CVector3D GetPositionOnCubic(const CVector3D& startPos, const CVector3D& startVe
 
 /*********************************** R N S **************************************************/
 
-RNSpline::RNSpline()
-	: m_NodeCount(0)
-{
-}
+RNSpline::RNSpline() = default;
 
 RNSpline::~RNSpline() = default;
 

@@ -63,11 +63,11 @@ public:
 	CVector3D GetRotation(float time) const;
 	const std::vector<SplineData>& GetAllNodes() const;
 
-	fixed m_MaxDistance;
-	int m_NodeCount;
+	fixed GetMaxDistance() const { return m_MaxDistance; }
 
 protected:
-
+	fixed m_MaxDistance;
+	int m_NodeCount{0};
 	std::vector<SplineData> m_Nodes;
 	CVector3D GetStartVelocity(int index);
 	CVector3D GetEndVelocity(int index);
