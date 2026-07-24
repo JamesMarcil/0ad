@@ -1,6 +1,6 @@
 function RandomMapLogger()
 {
-	this.lastTime = undefined;
+	this.taskStarted = false;
 	this.startTime = Engine.GetMicroseconds ? Engine.GetMicroseconds() : 0;
 	this.prefix = ""; // seems noisy
 
@@ -21,27 +21,18 @@ RandomMapLogger.prototype.printDirectly = function(string)
 
 RandomMapLogger.prototype.print = function(string)
 {
-	this.printDuration();
-	this.printDirectly(this.prefix + string + "...");
-	this.lastTime = Engine.GetMicroseconds();
-};
+	if (this.taskStarted)
+		Engine.ProfileStop();
 
-RandomMapLogger.prototype.printDuration = function()
-{
-	if (!this.lastTime)
-		return;
-
-	this.printDurationDirectly("", this.lastTime);
-	this.lastTime = Engine.GetMicroseconds();
+	const text = this.prefix + string;
+	this.printDirectly(text + "...\n");
+	Engine.ProfileStart(text);
+	this.taskStarted = true;
 };
 
 RandomMapLogger.prototype.close = function()
 {
-	this.printDuration();
-	this.printDurationDirectly(this.prefix + "Total map generation time:", this.startTime);
-};
-
-RandomMapLogger.prototype.printDurationDirectly = function(text, startTime)
-{
-	this.printDirectly(text + " " + ((Engine.GetMicroseconds() - startTime) / 1000000).toFixed(6) + "s.\n");
+	if (this.taskStarted)
+		Engine.ProfileStop();
+	this.printDirectly(this.prefix + "Map generation finished.\n");
 };
