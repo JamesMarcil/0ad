@@ -84,6 +84,7 @@
 #include "lib/types.h"
 #include "ps/ThreadUtil.h"
 
+#include <atomic>
 #include <cstdarg>
 #include <cstring>
 #include <iosfwd>
@@ -223,16 +224,18 @@ private:
 		// To allow hopefully-safe reading of the buffer from a separate thread,
 		// without any expensive synchronisation in the recording thread,
 		// two copies of the current buffer write position are stored.
-		// BufferPos0 is updated before writing; BufferPos1 is updated after writing.
-		// GetBuffer can read Pos1, copy the buffer, read Pos0, then assume any bytes
-		// outside the range Pos1 <= x < Pos0 are safe to use. (Any in that range might
+		// begin is updated before writing; end is updated after writing.
+		// GetBuffer can load end, copy the buffer, load begin, then assume any bytes
+		// outside the range end <= x < begin are safe to use. (Any in that range might
 		// be half-written and corrupted.) (All ranges are modulo BUFFER_SIZE.)
 		// Outside of Write(), these will always be equal.
-		//
-		// TODO: does this attempt at synchronisation (plus use of COMPILER_FENCE etc)
-		// actually work in practice?
-		u32 m_BufferPos0;
-		u32 m_BufferPos1;
+
+		struct RingBufferSpan
+		{
+			std::atomic<std::uint32_t> begin{0};
+			std::atomic<std::uint32_t> end{0};
+		};
+		RingBufferSpan m_ValidRange;
 	};
 
 public:

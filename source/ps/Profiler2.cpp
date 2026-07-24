@@ -255,7 +255,7 @@ void CProfiler2::RemoveThreadStorage(ThreadStorage* storage)
 }
 
 CProfiler2::ThreadStorage::ThreadStorage(CProfiler2& profiler, const std::string& name) :
-m_Profiler(profiler), m_Name(name), m_BufferPos0(0), m_BufferPos1(0), m_LastTime(timer_Time())
+	m_Profiler(profiler), m_Name(name), m_LastTime(timer_Time())
 {
 	m_Buffer = new u8[BUFFER_SIZE];
 	memset(m_Buffer, ITEM_NOP, BUFFER_SIZE);
@@ -268,50 +268,45 @@ CProfiler2::ThreadStorage::~ThreadStorage()
 
 void CProfiler2::ThreadStorage::Write(EItem type, const void* item, u32 itemSize)
 {
-	// See m_BufferPos0 etc for comments on synchronisation
+	// See RingBufferSpan for comments on synchronisation
 
 	u32 size = 1 + itemSize;
-	u32 start = m_BufferPos0;
+	std::uint32_t start{m_ValidRange.begin.load()};
 	if (start + size > BUFFER_SIZE)
 	{
 		// The remainder of the buffer is too small - fill the rest
 		// with NOPs then start from offset 0, so we don't have to
 		// bother splitting the real item across the end of the buffer
 
-		m_BufferPos0 = size;
-		COMPILER_FENCE; // must write m_BufferPos0 before m_Buffer
+		m_ValidRange.begin.store(size);
 
 		memset(m_Buffer + start, 0, BUFFER_SIZE - start);
 		start = 0;
 	}
 	else
 	{
-		m_BufferPos0 = start + size;
-		COMPILER_FENCE; // must write m_BufferPos0 before m_Buffer
+		m_ValidRange.begin.store(start + size);
 	}
 
 	m_Buffer[start] = (u8)type;
 	memcpy(&m_Buffer[start + 1], item, itemSize);
 
-	COMPILER_FENCE; // must write m_BufferPos1 after m_Buffer
-	m_BufferPos1 = start + size;
+	m_ValidRange.end.store(start + size);
 }
 
 std::string CProfiler2::ThreadStorage::GetBuffer()
 {
 	// Called from an arbitrary thread (not the one writing to the buffer).
 	//
-	// See comments on m_BufferPos0 etc.
+	// See comments on RingBufferSpan.
 
 	std::unique_ptr<u8[]> buffer{std::make_unique<u8[]>(BUFFER_SIZE)};
 
-	u32 pos1 = m_BufferPos1;
-	COMPILER_FENCE; // must read m_BufferPos1 before m_Buffer
+	const std::uint32_t pos1{m_ValidRange.end.load()};
 
 	memcpy(buffer.get(), m_Buffer, BUFFER_SIZE);
 
-	COMPILER_FENCE; // must read m_BufferPos0 after m_Buffer
-	u32 pos0 = m_BufferPos0;
+	const std::uint32_t pos0{m_ValidRange.begin.load()};
 
 	// The range [pos1, pos0) modulo BUFFER_SIZE is invalid, so concatenate the rest of the buffer
 
