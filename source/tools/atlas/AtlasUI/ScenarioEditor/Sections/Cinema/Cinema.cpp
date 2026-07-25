@@ -135,10 +135,7 @@ void CinemaSidebar::OnDeletePath(wxCommandEvent&)
 
 void CinemaSidebar::ReloadPathList()
 {
-	int index = m_PathList->GetSelection();
-	wxString pathName;
-	if (index >= 0)
-		pathName = m_PathList->GetString(index);
+	const wxString selection = m_PathList->GetStringSelection();
 
 	AtlasMessage::qGetCinemaPaths query_paths;
 	query_paths.Post();
@@ -146,6 +143,8 @@ void CinemaSidebar::ReloadPathList()
 	m_PathList->Clear();
 	for (const AtlasMessage::sCinemaPath& path : *query_paths.paths)
 		m_PathList->Append(*path.name);
+
+	m_PathList->SetStringSelection(selection);
 }
 
 wxBEGIN_EVENT_TABLE(CinemaSidebar, Sidebar)
