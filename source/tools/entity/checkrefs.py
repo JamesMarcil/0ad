@@ -273,7 +273,7 @@ class CheckRefs:
                 (version,) = unpack(int_fmt, f.read(int_len))
                 if version != 7:
                     raise ValueError(f"Invalid PMP version ({version}) in '{ffp}'")
-                (datasize,) = unpack(int_fmt, f.read(int_len))
+                (datasize,) = unpack(int_fmt, f.read(int_len))  # noqa: RUF059
                 (mapsize,) = unpack(int_fmt, f.read(int_len))
                 f.seek(2 * (mapsize * 16 + 1) * (mapsize * 16 + 1), 1)  # skip heightmap
                 (numtexs,) = unpack(int_fmt, f.read(int_len))
