@@ -69,7 +69,7 @@ class TimedConfirmation
 	}
 }
 
-function init(data)
+export function init(data)
 {
 	return new TimedConfirmation().setup(data);
 }
