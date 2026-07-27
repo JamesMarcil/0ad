@@ -7,11 +7,11 @@
  * The user should be able to save and print the text of the terms.
  */
 
-var g_TermsPage;
-var g_TermsFile;
-var g_TermsSprintf;
+let g_TermsPage;
+let g_TermsFile;
+let g_TermsSprintf;
 
-async function init(data)
+export async function init(data)
 {
 	g_TermsPage = data.page;
 	g_TermsFile = data.file;

@@ -2,7 +2,7 @@
 <objects>
 
 	<script directory="gui/common/"/>
-	<script directory="gui/termsdialog/"/>
+	<script module="gui/termsdialog/termsdialog.js"/>
 
 	<object type="image" sprite="ModernFade"/>
 
