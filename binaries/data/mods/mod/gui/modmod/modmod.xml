@@ -3,7 +3,7 @@
 <objects>
 
 	<script directory="gui/common/"/>
-	<script directory="gui/modmod/"/>
+	<script module="gui/modmod/modmod.js"/>
 
 	<object type="image" style="ModernWindow">
 
@@ -80,10 +80,6 @@
 				font="sans-stroke-13"
 				auto_scroll="true"
 			>
-				<action on="SelectionChange">selectedMod(this.name);</action>
-				<action on="SelectionColumnChange">displayModLists();</action>
-				<action on="MouseLeftDoubleClickItem">enableMod();</action>
-
 				<!-- List headers -->
 				<!-- Keep the column names in sync with the property names of mods -->
 				<column id="name" textcolor="255 255 255" width="10%">
@@ -123,9 +119,6 @@
 				tooltip_style="pgToolTip"
 				auto_scroll="true"
 			>
-				<action on="SelectionChange">selectedMod(this.name);</action>
-				<action on="MouseLeftDoubleClickItem">disableMod();</action>
-
 				<!-- List headers -->
 				<column id="name" textcolor="255 255 255" width="10%">
 					<translatableAttribute id="heading">Name</translatableAttribute>
@@ -159,7 +152,6 @@
 				sprite_disabled="ModernArrowUpGrey"
 			>
 				<translatableAttribute id="tooltip">Change the order in which mods are launched. This should match the mods dependencies.</translatableAttribute>
-				<action on="Press">moveCurrItem("modsEnabledList", true);</action>
 			</object>
 			<object
 				name="enabledModDown"
@@ -173,7 +165,6 @@
 				sprite_disabled="ModernArrowDownGrey"
 			>
 				<translatableAttribute id="tooltip">Change the order in which mods are launched. This should match the mods dependencies.</translatableAttribute>
-				<action on="Press">moveCurrItem("modsEnabledList", false);</action>
 			</object>
 		</object>
 
@@ -181,7 +172,6 @@
 		<object name="toggleModButton" type="button" style="ModernButtonRed" size="16 100%-80 196 100%-52" enabled="false"/>
 		<object name="visitWebButton" type="button" style="ModernButtonRed" size="200 100%-80 380 100%-52" enabled="false">
 			<translatableAttribute id="caption">Visit Website</translatableAttribute>
-			<action on="Press">visitModWebsite();</action>
 		</object>
 
 		<!-- Message -->
@@ -198,22 +188,19 @@
 
 		<object type="button" style="ModernButtonRed" size="100%-748 100%-44 100%-568 100%-16">
 			<translatableAttribute id="caption">Help</translatableAttribute>
-			<action on="Press">Engine.OpenChildPage("page_modhelp.xml");</action>
+		  <action on="Press">Engine.OpenChildPage("page_modhelp.xml");</action>
 		</object>
 
-		<object type="button" style="ModernButtonRed" size="100%-564 100%-44 100%-384 100%-16">
+		<object name="downloadButton" type="button" style="ModernButtonRed" size="100%-564 100%-44 100%-384 100%-16">
 			<translatableAttribute id="caption">Download Mods</translatableAttribute>
-			<action on="Press">downloadModsButton();</action>
 		</object>
 
 		<object name="saveConfigurationButton" type="button" style="ModernButtonRed" size="100%-380 100%-44 100%-200 100%-16">
 			<translatableAttribute id="caption">Save Configuration</translatableAttribute>
-			<action on="Press">saveMods();</action>
 		</object>
 
 		<object name="startButton" type="button" style="ModernButtonRed" size="100%-196 100%-44 100%-16 100%-16">
 			<translatableAttribute id="caption">Save and Restart</translatableAttribute>
-			<action on="Press">startMods();</action>
 		</object>
 	</object>
 </objects>

@@ -19,33 +19,37 @@
  * This allows mods to express upwards and downwards compatibility.
  */
 
+import { downloadModsButton } from "gui/modmod/modmodio.js";
+import { regExpComparisonOperator, validateMod } from "gui/modmod/validatemod.js";
+
 /**
  * Mod definitions loaded from the files, including invalid mods.
  */
-var g_Mods = {};
+let g_Mods = {};
 
 /**
  * Folder names of all mods that are or can be launched.
  */
-var g_ModsEnabled = [];
-var g_ModsDisabled = [];
+let g_ModsEnabled = [];
+let g_ModsDisabled = [];
 
-var g_ModsEnabledFiltered = [];
-var g_ModsDisabledFiltered = [];
+let g_ModsEnabledFiltered = [];
+let g_ModsDisabledFiltered = [];
 
 /**
  * Cache mod compatibility recomputed when some mod is enbaled/disabled.
  */
-var g_ModsCompatibility = [];
+const g_ModsCompatibility = [];
 
 /**
  * Name of the mods installed by the ModInstaller.
  */
-var g_InstalledMods;
+let g_InstalledMods;
 
-var g_HasIncompatibleMods;
+let g_HasIncompatibleMods;
 
-var g_FakeMod = {
+/* eslint-disable prefer-const -- Mods should be able to change them */
+let g_FakeMod = {
 	"name": translate("This mod does not exist"),
 	"version": "",
 	"label": "",
@@ -54,12 +58,34 @@ var g_FakeMod = {
 	"dependencies": []
 };
 
-var g_ColorNoModSelected = "255 255 100";
-var g_ColorDependenciesMet = "100 255 100";
-var g_ColorDependenciesNotMet = "255 100 100";
+let g_ColorNoModSelected = "255 255 100";
+let g_ColorDependenciesMet = "100 255 100";
+let g_ColorDependenciesNotMet = "255 100 100";
+/* eslint-enable prefer-const */
 
-function init(data, hotloadData)
+export function init(data, hotloadData)
 {
+	Object.assign(Engine.GetGUIObjectByName("modsDisabledList"), {
+		"onSelectionChange": selectedMod.bind(undefined, "modsDisabledList"),
+		"onSelectionColumnChange": displayModLists,
+		"onMouseLeftDoubleClickItem": enableMod
+	});
+	Object.assign(Engine.GetGUIObjectByName("modsEnabledList"), {
+		"onSelectionChange": selectedMod.bind(undefined, "modsEnabledList"),
+		"onMouseLeftDoubleClickItem": disableMod
+	});
+
+	Engine.GetGUIObjectByName("enabledModUp").onPress =
+		moveCurrItem.bind(undefined, "modsEnabledList", true);
+	Engine.GetGUIObjectByName("enabledModDown").onPress =
+		moveCurrItem.bind(undefined, "modsEnabledList", false);
+
+	Engine.GetGUIObjectByName("visitWebButton").onPress = visitModWebsite;
+	Engine.GetGUIObjectByName("downloadButton").onPress = downloadModsButton.bind(undefined, initMods);
+	Engine.GetGUIObjectByName("saveConfigurationButton").onPress = saveMods;
+	Engine.GetGUIObjectByName("startButton").onPress = startMods;
+
+
 	g_InstalledMods = data && data.installedMods || hotloadData && hotloadData.installedMods || [];
 	g_HasIncompatibleMods = Engine.HasIncompatibleMods();
 
@@ -354,7 +380,7 @@ function recomputeCompatibility(disabledAction = false)
  */
 function isDependencyMet(dependency)
 {
-	const operator = dependency.match(g_RegExpComparisonOperator);
+	const operator = dependency.match(regExpComparisonOperator);
 	const [name, version] = operator ? dependency.split(operator[0]) : [dependency, undefined];
 
 	return g_ModsEnabled.some(folder =>
@@ -403,7 +429,7 @@ function sortEnabledMods()
 {
 	const dependencies = {};
 	for (const folder of g_ModsEnabled)
-		dependencies[folder] = getMod(folder).dependencies.map(d => d.split(g_RegExpComparisonOperator)[0]);
+		dependencies[folder] = getMod(folder).dependencies.map(d => d.split(regExpComparisonOperator)[0]);
 
 	g_ModsEnabled.sort((folder1, folder2) =>
 		dependencies[folder1].indexOf(getMod(folder2).name) != -1 ? 1 :

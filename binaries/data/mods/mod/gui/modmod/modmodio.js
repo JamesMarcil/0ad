@@ -1,4 +1,4 @@
-function downloadModsButton()
+export function downloadModsButton(initMods)
 {
 	initTerms({
 		"Disclaimer": {
@@ -6,7 +6,7 @@ function downloadModsButton()
 			"file": "gui/modio/Disclaimer.txt",
 			"config": "modio.disclaimer",
 			"accepted": false,
-			"callback": openModIo,
+			"callback": openModIo.bind(undefined, initMods),
 			"urlButtons": [
 				{
 					"caption": translate("mod.io Terms"),
@@ -23,7 +23,7 @@ function downloadModsButton()
 	openTerms("Disclaimer");
 }
 
-async function openModIo(data)
+async function openModIo(initMods, data)
 {
 	if (!data.accepted)
 		return;

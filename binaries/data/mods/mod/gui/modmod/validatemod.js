@@ -48,12 +48,12 @@ const g_RegExpVersion= /[0-9]+(\.[0-9]+){0,2}/;
 /**
  * Version checks in mod dependencies can use these operators.
  */
-const g_RegExpComparisonOperator = /(<=|>=|<|>|=)/;
+export const regExpComparisonOperator = /(<=|>=|<|>|=)/;
 
 /**
  * Tests if a dependency compares a mod version against another, for instance "0ad<=0.0.16".
  */
-const g_RegExpComparison = globalRegExp(new RegExp(g_RegExpName.source + g_RegExpComparisonOperator.source + g_RegExpVersion.source));
+const g_RegExpComparison = globalRegExp(new RegExp(g_RegExpName.source + regExpComparisonOperator.source + g_RegExpVersion.source));
 
 /**
  * The label may not be empty.
@@ -69,7 +69,7 @@ function globalRegExp(regexp)
  * Returns whether the mod defines all required properties and whether all properties are valid.
  * Shows a notification if not.
  */
-function validateMod(folder, modData, notify)
+export function validateMod(folder, modData, notify)
 {
 	let valid = true;
 
