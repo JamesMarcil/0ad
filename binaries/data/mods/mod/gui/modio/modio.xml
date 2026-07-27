@@ -3,7 +3,7 @@
 <objects>
 
 	<script directory="gui/common/"/>
-	<script directory="gui/modio/"/>
+	<script module="gui/modio/modio.js"/>
 
 	<object type="image" sprite="ModernFade"/>
 
@@ -25,8 +25,6 @@
 				style="ModernInput"
 				size="16 0 200 24"
 			>
-				<action on="Press">displayMods();</action>
-				<action on="TextEdit">displayMods();</action>
 				<translatableAttribute id="placeholder_text" context="placeholder text for input field to filter mods">Filter</translatableAttribute>
 			</object>
 
@@ -39,10 +37,6 @@
 				selected_column_order="1"
 				font="sans-stroke-13"
 			>
-				<action on="SelectionChange">showModDescription();</action>
-				<action on="SelectionColumnChange">displayMods();</action>
-				<action on="MouseLeftDoubleClickItem">downloadMod();</action>
-
 				<!-- List headers -->
 				<!-- Keep in sync with mod property names -->
 				<column id="name_id" textcolor="255 255 255" width="20%">
@@ -69,9 +63,7 @@
 		<!-- Right Panel: Compatibility Filter-->
 		<object name="rightPanel" size="100%-250 20 100%-10 40" >
 			<!-- Compatibility Filter Checkbox -->
-			<object name="compatibilityFilter" type="checkbox" checked="true" style="ModernTickBox" size="0 4 20 100%">
-				<action on="Press">displayMods();</action>
-			</object>
+			<object name="compatibilityFilter" type="checkbox" checked="true" style="ModernTickBox" size="0 4 20 100%" />
 			<!-- Compatibility Filter Label -->
 			<object type="text" size="20 2 100% 100%" text_align="left" textcolor="white">
 				<translatableAttribute id="caption">Filter valid mods</translatableAttribute>
@@ -85,12 +77,10 @@
 
 		<object name="refreshButton" type="button" style="ModernButtonRed" size="100%-368 100%-44 100%-188 100%-16" enabled="false">
 			<translatableAttribute id="caption">Refresh List</translatableAttribute>
-			<action on="Press">updateModList();</action>
 		</object>
 
 		<object name="downloadButton" type="button" style="ModernButtonRed" size="100%-184 100%-44 100%-16 100%-16" enabled="false">
 			<translatableAttribute id="caption">Download</translatableAttribute>
-			<action on="Press">downloadMod();</action>
 		</object>
 
 	</object>

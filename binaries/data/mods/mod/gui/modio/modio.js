@@ -1,4 +1,4 @@
-var g_ModsAvailableOnline = [];
+let g_ModsAvailableOnline = [];
 
 /**
  * Indicates if we have encountered an error in one of the network-interaction attempts.
@@ -8,7 +8,7 @@ var g_ModsAvailableOnline = [];
  * Set to `true` by showErrorMessageBox
  * Set to `false` by init, updateModList, downloadFile, and cancelRequest
  */
-var g_Failure;
+let g_Failure;
 
 /**
  * Indicates if the user has cancelled a request.
@@ -19,11 +19,11 @@ var g_Failure;
  * Set to `true` by cancelRequest
  * Set to `false` by updateModList, and downloadFile
  */
-var g_RequestCancelled;
+let g_RequestCancelled;
 
-var g_RequestStartTime;
+let g_RequestStartTime;
 
-var g_ModIOState = {
+const g_ModIOState = {
 	/**
 	 * Finished status indicators
 	 */
@@ -142,7 +142,7 @@ var g_ModIOState = {
 	}
 };
 
-function init(data)
+export function init(data)
 {
 	const promise = progressDialog(
 		translate("Initializing mod.io interface."),
@@ -152,6 +152,21 @@ function init(data)
 
 	g_Failure = false;
 	Engine.ModIoStartGetGameId();
+
+	Object.assign(Engine.GetGUIObjectByName("modFilter"), {
+		"onPress": displayMods,
+		"onTextEdit": displayMods
+	});
+
+	Object.assign(Engine.GetGUIObjectByName("modsAvailableList"), {
+		"onSelectionChange": showModDescription,
+		"onSelectionColumnChange": displayMods,
+		"onMouseLeftDoubleClickItem": downloadMod
+	});
+
+	Engine.GetGUIObjectByName("compatibilityFilter").onPress = displayMods;
+	Engine.GetGUIObjectByName("refreshButton").onPress = updateModList;
+	Engine.GetGUIObjectByName("downloadButton").onPress = downloadMod;
 
 	return Promise.race([
 		promise,
