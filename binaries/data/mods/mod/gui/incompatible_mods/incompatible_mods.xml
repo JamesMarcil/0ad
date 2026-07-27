@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <objects>
 	<script directory="gui/common/"/>
-	<script directory="gui/incompatible_mods/"/>
+	<script module="gui/incompatible_mods/incompatible_mods.js"/>
 
 	<!-- Add a translucent black background to fade out the menu page -->
 	<object type="image" sprite="ModernFade"/>
