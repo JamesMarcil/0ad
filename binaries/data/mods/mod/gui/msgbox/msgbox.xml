@@ -3,7 +3,7 @@
 <objects>
 
 	<script directory="gui/common/"/>
-	<script directory="gui/msgbox/"/>
+	<script module="gui/msgbox/msgbox.js"/>
 
 	<!-- Fade out the background because it's non-interactable -->
 	<object sprite="ModernFade" type="image"/>

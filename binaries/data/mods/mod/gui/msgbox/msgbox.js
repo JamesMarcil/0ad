@@ -2,7 +2,7 @@
  * Currently limited to at most 3 buttons per message box.
  * The convention is to have "cancel" appear first.
  */
-function init(data)
+export function init(data)
 {
 	// Set title
 	Engine.GetGUIObjectByName("mbTitleBar").caption = data.title;
