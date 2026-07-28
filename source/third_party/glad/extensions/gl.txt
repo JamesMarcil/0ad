@@ -25,4 +25,5 @@ GL_EXT_packed_depth_stencil
 GL_EXT_texture_array
 GL_EXT_texture_compression_s3tc
 GL_EXT_texture_filter_anisotropic
+GL_EXT_texture_sRGB
 GL_KHR_debug
