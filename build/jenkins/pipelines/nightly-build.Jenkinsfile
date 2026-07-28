@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -54,7 +54,7 @@ pipeline {
         stage('Check for shader changes') {
             when {
                 anyOf {
-                    changeset 'binaries/data/mods/**/shaders/**/*.xml'
+                    changeset 'binaries/data/mods/**/shaders/**/*'
                     changeset 'source/tools/spirv/compile.py'
                 }
             }
