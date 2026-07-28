@@ -826,7 +826,7 @@ bool Autostart(const CmdLineArgs& args)
 	Script::GetPropertyInt(rq, pageData, 1, &pageArgs);
 	Script::StructuredClone clonedpageArgs{Script::WriteStructuredClone(rq, pageArgs)};
 
-	g_GUI->OpenChildPage(pageName, std::move(clonedpageArgs));
+	g_GUI->SwitchPage(pageName, &scriptInterface, pageArgs);
 
 	return true;
 }
