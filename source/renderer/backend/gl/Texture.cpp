@@ -174,6 +174,12 @@ std::unique_ptr<CTexture> CTexture::Create(
 		// pixel format.
 		GLenum pixelFormat = GL_RGBA;
 		GLenum pixelType = GL_UNSIGNED_BYTE;
+#if !CONFIG2_GLES
+		// load/store operation requires sized formats. See Table 8.25:
+		//   https://registry.khronos.org/OpenGL/specs/gl/glspec43.core.pdf
+		if (usage & ITexture::Usage::STORAGE)
+			internalFormat = GL_RGBA8;
+#endif
 		switch (format)
 		{
 		case Format::UNDEFINED:

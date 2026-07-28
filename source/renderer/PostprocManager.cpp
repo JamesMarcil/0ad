@@ -215,7 +215,7 @@ void CPostprocManager::InitializePBR()
 			LOGWARNING("%s is unsupported", framebufferFormatName);
 	}
 
-	if (m_Device->GetCapabilities().computeShaders && m_Device->GetCapabilities().storage)
+	if (m_Device->GetCapabilities().computeShaders)
 	{
 		m_ResolvePBRComputeTech = g_Renderer.GetShaderManager().LoadEffect(str_compute_resolve_pbr);
 		if (m_ResolvePBRComputeTech)
