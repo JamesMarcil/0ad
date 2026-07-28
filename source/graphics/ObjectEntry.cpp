@@ -51,6 +51,22 @@
 #include <sstream>
 #include <utility>
 
+namespace
+{
+
+bool ShouldInterpretTextureAsSRGB(const CObjectBase::Samp& sampler, const CMaterial& material)
+{
+	const auto requiredSamplers{material.GetRequiredSamplers()};
+	auto it{std::find_if(requiredSamplers.begin(), requiredSamplers.end(),
+		[&](const CMaterial::RequiredSampler& requiredSampler)
+		{
+			return requiredSampler.name == sampler.m_SamplerName;
+		})};
+	return it != requiredSamplers.end() && it->sRGB;
+}
+
+}
+
 CObjectEntry::CObjectEntry(const std::shared_ptr<CObjectBase>& base, const CSimulation2& simulation) :
 	m_Base(base), m_Color(1.0f, 1.0f, 1.0f, 1.0f), m_Simulation(simulation)
 {
@@ -155,6 +171,7 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 	{
 		CTextureProperties textureProps(samp.m_SamplerFile);
 		textureProps.SetAddressMode(Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE);
+		textureProps.SetSRGB(ShouldInterpretTextureAsSRGB(samp, material));
 		CTexturePtr texture = g_Renderer.GetTextureManager().CreateTexture(textureProps);
 		// if we've loaded this model we're probably going to render it soon, so prefetch its texture.
 		// All textures are prefetched even in the fixed pipeline, including the normal maps etc.
@@ -167,11 +184,14 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 	CModel* model = newModel.get();
 	m_Model = std::move(newModel);
 
-	for (const CStrIntern& requSampName : model->GetMaterial().GetRequiredSampler())
+	for (const auto& requiredSampler : model->GetMaterial().GetRequiredSamplers())
 	{
 		if (std::find_if(m_Samplers.begin(), m_Samplers.end(),
-		                 [&](const CObjectBase::Samp& sampler) { return sampler.m_SamplerName == requSampName; }) == m_Samplers.end())
-			LOGERROR("Actor %s: required texture sampler %s not found (material %s)", m_Base->GetIdentifier(), requSampName.string().c_str(), m_Base->m_Material.string8().c_str());
+		                 [&](const CObjectBase::Samp& sampler) { return sampler.m_SamplerName == requiredSampler.name; }) == m_Samplers.end())
+		{
+			LOGERROR("Actor %s: required texture sampler %s not found (material %s)",
+				m_Base->GetIdentifier(), requiredSampler.name.string().c_str(), m_Base->m_Material.string8().c_str());
+		}
 	}
 
 	// calculate initial object space bounds, based on vertex positions

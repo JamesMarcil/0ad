@@ -352,11 +352,11 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 #if CONFIG2_GLES
 	// Some GLES implementations have GL_EXT_texture_compression_dxt1
 	// but that only supports DXT1 so we can't use it.
-	capabilities.S3TC = GLAD_GL_EXT_texture_compression_s3tc;
+	capabilities.S3TC = GLAD_GL_EXT_texture_compression_s3tc && GLAD_GL_EXT_texture_compression_s3tc_srgb;
 #else
 	// Note: we don't bother checking for GL_S3_s3tc - it is incompatible
 	// and irrelevant (was never widespread).
-	capabilities.S3TC = GLAD_GL_EXT_texture_compression_s3tc;
+	capabilities.S3TC = GLAD_GL_EXT_texture_compression_s3tc && GLAD_GL_EXT_texture_sRGB;
 #endif
 #if CONFIG2_GLES
 	capabilities.multisampling = false;
@@ -738,6 +738,7 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 
 	case Format::R8G8B8_UNORM:
 	case Format::R8G8B8A8_UNORM:
+	case Format::R8G8B8A8_SRGB:
 	case Format::A8_UNORM:
 	case Format::L8_UNORM:
 		supported = true;
@@ -763,9 +764,13 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 		break;
 
 	case Format::BC1_RGB_UNORM:
+	case Format::BC1_RGB_SRGB:
 	case Format::BC1_RGBA_UNORM:
+	case Format::BC1_RGBA_SRGB:
 	case Format::BC2_UNORM:
+	case Format::BC2_SRGB:
 	case Format::BC3_UNORM:
+	case Format::BC3_SRGB:
 		supported = m_Capabilities.S3TC;
 		break;
 

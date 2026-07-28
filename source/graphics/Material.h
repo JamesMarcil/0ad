@@ -53,6 +53,12 @@ public:
 		CTexturePtr Sampler;
 	};
 
+	struct RequiredSampler
+	{
+		CStrIntern name;
+		bool sRGB;
+	};
+
 	typedef std::vector<TextureSampler> SamplersVector;
 
 	CMaterial();
@@ -82,8 +88,8 @@ public:
 	void AddRenderQuery(const char* key);
 	const CShaderRenderQueries& GetRenderQueries() const { return m_RenderQueries; }
 
-	void AddRequiredSampler(const CStr& samplerName);
-	const std::vector<CStrIntern>& GetRequiredSampler() const { return m_RequiredSamplers; }
+	void AddRequiredSampler(RequiredSampler sampler);
+	const std::vector<RequiredSampler>& GetRequiredSamplers() const { return m_RequiredSamplers; }
 
 private:
 
@@ -92,7 +98,7 @@ private:
 	CTexturePtr m_DiffuseTexture;
 
 	SamplersVector m_Samplers;
-	std::vector<CStrIntern> m_RequiredSamplers;
+	std::vector<RequiredSampler> m_RequiredSamplers;
 
 	std::array<CStrIntern, static_cast<size_t>(Pass::COUNT)> m_ShaderEffects;
 	CShaderDefines m_ShaderDefines;

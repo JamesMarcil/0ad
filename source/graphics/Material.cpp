@@ -62,8 +62,7 @@ void CMaterial::AddRenderQuery(const char* key)
 	m_RenderQueries.Add(key);
 }
 
-void CMaterial::AddRequiredSampler(const CStr& samplerName)
+void CMaterial::AddRequiredSampler(RequiredSampler sampler)
 {
-	CStrIntern string(samplerName);
-	m_RequiredSamplers.push_back(string);
+	m_RequiredSamplers.emplace_back(std::move(sampler));
 }

@@ -78,6 +78,9 @@
         <optional>
           <attribute name="define"/>
         </optional>
+        <optional>
+          <attribute name="srgb"/>
+        </optional>
       </element>
     </zeroOrMore>
   </interleave>

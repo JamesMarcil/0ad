@@ -32,8 +32,10 @@ enum class Format
 	R8G8_UINT,
 	R8G8B8_UNORM,
 	R8G8B8A8_UNORM,
+	R8G8B8A8_SRGB,
 	R8G8B8A8_UINT,
 	B8G8R8A8_UNORM,
+	B8G8R8A8_SRGB,
 
 	// TODO: we need to drop legacy A8 and L8 formats as soon as we have proper
 	// channel swizzling.
@@ -65,9 +67,13 @@ enum class Format
 	D32_SFLOAT_S8_UINT,
 
 	BC1_RGB_UNORM,
+	BC1_RGB_SRGB,
 	BC1_RGBA_UNORM,
+	BC1_RGBA_SRGB,
 	BC2_UNORM,
-	BC3_UNORM
+	BC2_SRGB,
+	BC3_UNORM,
+	BC3_SRGB,
 };
 
 inline bool IsDepthFormat(const Format format)

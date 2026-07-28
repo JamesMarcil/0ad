@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -245,6 +245,8 @@ public:
 
 	void SetIgnoreQuality(bool ignore) { m_IgnoreQuality = ignore; }
 
+	void SetSRGB(const bool sRGB) { m_SRGB = sRGB; }
+
 private:
 	// Must update TPhash, TPequal_to when changing these fields
 	VfsPath m_Path;
@@ -257,6 +259,7 @@ private:
 	Renderer::Backend::Format m_FormatOverride =
 		Renderer::Backend::Format::UNDEFINED;
 	bool m_IgnoreQuality = false;
+	bool m_SRGB{false};
 };
 
 /**

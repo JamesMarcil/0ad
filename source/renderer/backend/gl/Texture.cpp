@@ -187,6 +187,9 @@ std::unique_ptr<CTexture> CTexture::Create(
 			break;
 		case Format::R8G8B8A8_UNORM:
 			break;
+		case Format::R8G8B8A8_SRGB:
+			internalFormat = GL_SRGB_ALPHA_EXT;
+			break;
 		case Format::R8G8B8_UNORM:
 			internalFormat = GL_RGB;
 			pixelFormat = GL_RGB;
@@ -254,9 +257,13 @@ std::unique_ptr<CTexture> CTexture::Create(
 			break;
 #endif
 		case Format::BC1_RGB_UNORM:
+		case Format::BC1_RGB_SRGB:
 		case Format::BC1_RGBA_UNORM:
+		case Format::BC1_RGBA_SRGB:
 		case Format::BC2_UNORM:
+		case Format::BC2_SRGB:
 		case Format::BC3_UNORM:
+		case Format::BC3_SRGB:
 			compressedFormat = true;
 			break;
 		default:

@@ -348,7 +348,8 @@ void CDeviceCommandContext::UploadTextureRegion(
 			GLenum pixelFormat = GL_RGBA;
 			switch (dataFormat)
 			{
-			case Format::R8G8B8A8_UNORM:
+			case Format::R8G8B8A8_UNORM: [[fallthrough]];
+			case Format::R8G8B8A8_SRGB:
 				break;
 			case Format::R8G8B8_UNORM:
 				pixelFormat = GL_RGB;
@@ -381,9 +382,13 @@ void CDeviceCommandContext::UploadTextureRegion(
 		}
 		else if (
 			texture->GetFormat() == Format::BC1_RGB_UNORM ||
+			texture->GetFormat() == Format::BC1_RGB_SRGB ||
 			texture->GetFormat() == Format::BC1_RGBA_UNORM ||
+			texture->GetFormat() == Format::BC1_RGBA_SRGB ||
 			texture->GetFormat() == Format::BC2_UNORM ||
-			texture->GetFormat() == Format::BC3_UNORM)
+			texture->GetFormat() == Format::BC2_SRGB ||
+			texture->GetFormat() == Format::BC3_UNORM ||
+			texture->GetFormat() == Format::BC3_SRGB)
 		{
 			ENSURE(xOffset == 0 && yOffset == 0);
 			ENSURE(texture->GetFormat() == dataFormat);
@@ -392,14 +397,26 @@ void CDeviceCommandContext::UploadTextureRegion(
 			GLenum internalFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
 			switch (texture->GetFormat())
 			{
+			case Format::BC1_RGB_SRGB:
+				internalFormat = GL_COMPRESSED_SRGB_S3TC_DXT1_EXT;
+				break;
 			case Format::BC1_RGBA_UNORM:
 				internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+				break;
+			case Format::BC1_RGBA_SRGB:
+				internalFormat = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT;
 				break;
 			case Format::BC2_UNORM:
 				internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
 				break;
+			case Format::BC2_SRGB:
+				internalFormat = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT;
+				break;
 			case Format::BC3_UNORM:
 				internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+				break;
+			case Format::BC3_SRGB:
+				internalFormat = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT;
 				break;
 			default:
 				break;

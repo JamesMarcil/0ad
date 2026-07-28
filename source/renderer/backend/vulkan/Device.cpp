@@ -847,9 +847,13 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 		return false;
 
 	case Format::BC1_RGB_UNORM:
+	case Format::BC1_RGB_SRGB:
 	case Format::BC1_RGBA_UNORM:
+	case Format::BC1_RGBA_SRGB:
 	case Format::BC2_UNORM:
+	case Format::BC2_SRGB:
 	case Format::BC3_UNORM:
+	case Format::BC3_SRGB:
 		if (m_Capabilities.S3TC)
 			return true;
 		else

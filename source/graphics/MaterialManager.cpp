@@ -103,6 +103,7 @@ CMaterial CMaterialManager::LoadMaterial(const VfsPath& pathname)
 	AT(material);
 	AT(name);
 	AT(pass);
+	AT(srgb);
 	AT(value);
 	#undef AT
 	#undef EL
@@ -161,7 +162,8 @@ CMaterial CMaterialManager::LoadMaterial(const VfsPath& pathname)
 		}
 		else if (token == el_required_texture)
 		{
-			material.AddRequiredSampler(attrs.GetNamedItem(at_name));
+			const bool sRGB{attrs.GetNamedItem(at_srgb) == "true"};
+			material.AddRequiredSampler({CStrIntern{attrs.GetNamedItem(at_name)}, sRGB});
 			if (!attrs.GetNamedItem(at_define).empty())
 				material.AddShaderDefine(CStrIntern(attrs.GetNamedItem(at_define)), str_1);
 		}

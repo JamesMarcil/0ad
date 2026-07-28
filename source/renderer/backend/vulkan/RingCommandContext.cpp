@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -179,13 +179,18 @@ void CRingCommandContext::ScheduleUpload(
 
 	const bool isCompressedFormat =
 		format == Format::BC1_RGB_UNORM ||
+		format == Format::BC1_RGB_SRGB ||
 		format == Format::BC1_RGBA_UNORM ||
+		format == Format::BC1_RGBA_SRGB ||
 		format == Format::BC2_UNORM ||
-		format == Format::BC3_UNORM;
+		format == Format::BC2_SRGB ||
+		format == Format::BC3_UNORM ||
+		format == Format::BC3_SRGB;
 	ENSURE(
 		format == Format::R8_UNORM ||
 		format == Format::R8G8_UNORM ||
 		format == Format::R8G8B8A8_UNORM ||
+		format == Format::R8G8B8A8_SRGB ||
 		format == Format::A8_UNORM ||
 		format == Format::L8_UNORM ||
 		isCompressedFormat);

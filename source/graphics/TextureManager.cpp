@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -60,7 +60,7 @@ namespace
 {
 
 Renderer::Backend::Format ChooseFormatAndTransformTextureDataIfNeeded(
-	Renderer::Backend::IDevice* device, Tex& textureData, const bool hasS3TC)
+	Renderer::Backend::IDevice* device, Tex& textureData, const bool hasS3TC, const bool sRGB)
 {
 	const bool alpha = (textureData.m_Flags & TEX_ALPHA) != 0;
 	const bool grey = (textureData.m_Flags & TEX_GREY) != 0;
@@ -81,13 +81,13 @@ Renderer::Backend::Format ChooseFormatAndTransformTextureDataIfNeeded(
 			switch (dxt)
 			{
 			case DXT1A:
-				return Renderer::Backend::Format::BC1_RGBA_UNORM;
+				return sRGB ? Renderer::Backend::Format::BC1_RGBA_SRGB : Renderer::Backend::Format::BC1_RGBA_UNORM;
 			case 1:
-				return Renderer::Backend::Format::BC1_RGB_UNORM;
+				return sRGB ? Renderer::Backend::Format::BC1_RGB_SRGB : Renderer::Backend::Format::BC1_RGB_UNORM;
 			case 3:
-				return Renderer::Backend::Format::BC2_UNORM;
+				return sRGB ? Renderer::Backend::Format::BC2_SRGB : Renderer::Backend::Format::BC2_UNORM;
 			case 5:
-				return Renderer::Backend::Format::BC3_UNORM;
+				return sRGB ? Renderer::Backend::Format::BC3_SRGB : Renderer::Backend::Format::BC3_UNORM;
 			default:
 				LOGERROR("Unknown DXT compression.");
 				return Renderer::Backend::Format::UNDEFINED;
@@ -101,9 +101,12 @@ Renderer::Backend::Format ChooseFormatAndTransformTextureDataIfNeeded(
 	{
 	case 8:
 		ENSURE(grey);
+		ENSURE(!sRGB);
 		return Renderer::Backend::Format::L8_UNORM;
 	case 24:
+		ENSURE(grey);
 		ENSURE(!alpha);
+		ENSURE(!sRGB);
 		if (device->IsTextureFormatSupported(Renderer::Backend::Format::R8G8B8_UNORM))
 			return Renderer::Backend::Format::R8G8B8_UNORM;
 		else
@@ -114,7 +117,7 @@ Renderer::Backend::Format ChooseFormatAndTransformTextureDataIfNeeded(
 		}
 	case 32:
 		ENSURE(alpha);
-		return Renderer::Backend::Format::R8G8B8A8_UNORM;
+		return sRGB ? Renderer::Backend::Format::R8G8B8A8_SRGB : Renderer::Backend::Format::R8G8B8A8_UNORM;
 	default:
 		LOGERROR("Unsupported BPP: %zu", textureData.m_Bpp);
 	}
@@ -336,6 +339,7 @@ struct TPhash
 		hash_combine(seed, textureProperties.m_AnisotropicFilterEnabled);
 		hash_combine(seed, textureProperties.m_FormatOverride);
 		hash_combine(seed, textureProperties.m_IgnoreQuality);
+		hash_combine(seed, textureProperties.m_SRGB);
 		return seed;
 	}
 
@@ -358,7 +362,8 @@ struct TPequal_to
 			lhs.m_AddressModeV == rhs.m_AddressModeV &&
 			lhs.m_AnisotropicFilterEnabled == rhs.m_AnisotropicFilterEnabled &&
 			lhs.m_FormatOverride == rhs.m_FormatOverride &&
-			lhs.m_IgnoreQuality == rhs.m_IgnoreQuality;
+			lhs.m_IgnoreQuality == rhs.m_IgnoreQuality &&
+			lhs.m_SRGB == rhs.m_SRGB;
 	}
 
 	bool operator()(const CTexturePtr& lhs, const CTexturePtr& rhs) const
@@ -526,7 +531,8 @@ public:
 		}
 		else
 		{
-			format = ChooseFormatAndTransformTextureDataIfNeeded(m_Device, textureData, m_HasS3TC);
+			format = ChooseFormatAndTransformTextureDataIfNeeded(
+				m_Device, textureData, m_HasS3TC, texture->m_Properties.m_SRGB);
 		}
 
 		if (format == Renderer::Backend::Format::UNDEFINED)
