@@ -52,42 +52,44 @@ enum {
 	ID_DeletePath
 };
 
-// Helper function for adding tooltips
-static wxWindow* Tooltipped(wxWindow* window, const wxString& tip)
-{
-	window->SetToolTip(tip);
-	return window;
-}
-
 CinemaSidebar::CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer)
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer)
 {
-	wxStaticBoxSizer* commonSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Common settings"));
-	m_MainSizer->Add(commonSizer, wxSizerFlags().Expand());
+	{
+		auto* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Common settings"));
 
-	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(1, 5, 5);
-	gridSizer->AddGrowableCol(0);
+		m_DrawPath = new wxCheckBox(sizer->GetStaticBox(), ID_PathsDrawing, _("Draw all paths"));
+		m_DrawPath->SetToolTip(_("Display every cinematic path added to the map"));
 
-	gridSizer->Add(Tooltipped(m_DrawPath = new wxCheckBox(commonSizer->GetStaticBox(), ID_PathsDrawing, _("Draw all paths")),
-		_("Display every cinematic path added to the map")));
+		sizer->Add(m_DrawPath, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
-	commonSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
+	}
 
-	// Paths list panel
-	wxStaticBoxSizer* pathsBoxSizer = new wxStaticBoxSizer(wxVERTICAL, commonSizer->GetStaticBox(), _T("Paths"));
-	wxStaticBox* pathsBox = pathsBoxSizer->GetStaticBox();
-	gridSizer->Add(pathsBoxSizer, wxSizerFlags().Proportion(1).Expand());
+	{
+		auto* boxSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Paths"));
+		auto* box = boxSizer->GetStaticBox();
 
-	wxFlexGridSizer* pathsSizer = new wxFlexGridSizer(1, 5, 5);
-	pathsSizer->AddGrowableCol(0);
-	pathsBoxSizer->Add(pathsSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+		m_PathList = new wxListBox(box, ID_PathsList, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT);
 
-	pathsSizer->Add(m_PathList = new wxListBox(pathsBox, ID_PathsList, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT), wxSizerFlags().Proportion(1).Expand());
-	commonSizer->AddSpacer(3);
-	pathsSizer->Add(Tooltipped(new wxButton(pathsBox, ID_DeletePath, _("Delete")), _T("Delete selected path")), wxSizerFlags().Expand());
+		auto* deleteButton = new wxButton(box, ID_DeletePath, _("Delete"));
+		deleteButton->SetToolTip(_T("Delete selected path"));
 
-	pathsSizer->Add(m_NewPathName = new wxTextCtrl(pathsBox, wxID_ANY), wxSizerFlags().Expand());
-	pathsSizer->Add(new wxButton(pathsBox, ID_AddPath, _("Add")), wxSizerFlags().Expand());
+		m_NewPathName = new wxTextCtrl(box, wxID_ANY);
+
+		auto* addButton = new wxButton(box, ID_AddPath, _("Add"));
+
+		wxFlexGridSizer* pathsSizer = new wxFlexGridSizer(1, 5, 5);
+		pathsSizer->AddGrowableCol(0);
+		pathsSizer->Add(m_PathList, wxSizerFlags().Proportion(1).Expand());
+		pathsSizer->Add(deleteButton, wxSizerFlags().Expand());
+		pathsSizer->Add(m_NewPathName, wxSizerFlags().Expand());
+		pathsSizer->Add(addButton, wxSizerFlags().Expand());
+
+		boxSizer->Add(pathsSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+
+		m_MainSizer->Add(boxSizer, wxSizerFlags().Expand());
+	}
 }
 
 void CinemaSidebar::OnFirstDisplay()
