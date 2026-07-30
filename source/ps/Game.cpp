@@ -90,7 +90,6 @@ CGame::CGame(bool replayLog, const SimulationDebugOptions debugOptions):
 	m_SimRate(1.0f),
 	m_PlayerID(-1),
 	m_ViewedPlayerID(-1),
-	m_IsSavedGame(false),
 	m_IsVisualReplay(false),
 	m_ReplayStream(NULL)
 {
@@ -224,7 +223,7 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 	const Script::Interface& scriptInterface = m_Simulation2->GetScriptInterface();
 	Script::Request rq(scriptInterface);
 
-	m_IsSavedGame = !savedState.empty();
+	const bool isSavedGame{!savedState.empty()};
 
 	m_Simulation2->SetInitAttributes(attribs);
 
@@ -285,7 +284,7 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 			co_return g_Renderer.GetSceneRenderer().GetWaterManager().LoadWaterTextures();
 		}, L"LoadWaterTextures", 80);
 
-	if (m_IsSavedGame)
+	if (isSavedGame)
 		PS::Loader::Register(std::bind_front(
 			[](CGame* game, const std::string& state) -> PS::Loader::Task
 		{
@@ -298,13 +297,32 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 			co_return game->LoadVisualReplayData();
 		}, this), L"Loading visual replay data", 1000);
 
+	// Call the script function InitGame only for new games, not saved games
+	if (!isSavedGame)
+	{
+		// Perform some simulation initializations (replace skirmish entities, explore territories, etc.)
+		// that needs to be done before setting up the AI and shouldn't be done in Atlas
+		if (!g_AtlasGameLoop->running)
+		{
+			PS::Loader::Register(std::bind_front([](CGame* game) -> PS::Loader::Task
+			{
+				game->m_Simulation2->PreInitGame();
+				co_return 0;
+			}, this), L"PreInitGame", 5000);
+		}
+
+		PS::Loader::Register(std::bind_front([](CGame* game) -> PS::Loader::Task
+		{
+			game->m_Simulation2->InitGame();
+			co_return 0;
+		}, this), L"InitGame", 4000);
+	}
+
 	PS::Loader::EndRegistering();
 }
 
 int CGame::LoadInitialState(const std::string& savedState)
 {
-	ENSURE(m_IsSavedGame);
-
 	std::stringstream stream(savedState);
 
 	bool ok = m_Simulation2->DeserializeState(stream);
@@ -324,17 +342,6 @@ int CGame::LoadInitialState(const std::string& savedState)
  **/
 PSRETURN CGame::ReallyStartGame()
 {
-	// Call the script function InitGame only for new games, not saved games
-	if (!m_IsSavedGame)
-	{
-		// Perform some simulation initializations (replace skirmish entities, explore territories, etc.)
-		// that needs to be done before setting up the AI and shouldn't be done in Atlas
-		if (!g_AtlasGameLoop->running)
-			m_Simulation2->PreInitGame();
-
-		m_Simulation2->InitGame();
-	}
-
 	// We need to do an initial Interpolate call to set up all the models etc,
 	// because Update might never interpolate (e.g. if the game starts paused)
 	// and we could end up rendering before having set up any models (so they'd
