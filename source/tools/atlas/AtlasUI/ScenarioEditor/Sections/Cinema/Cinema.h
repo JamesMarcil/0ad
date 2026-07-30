@@ -37,15 +37,12 @@ protected:
 	void OnFirstDisplay() override;
 
 private:
-	void OnTogglePathsDrawing(wxCommandEvent& evt);
-	void OnAddPath(wxCommandEvent& evt);
-	void OnDeletePath(wxCommandEvent& evt);
+	void SetPathsDrawing(const bool enable);
+	void AddPath(wxString name);
+	void DeleteSelectedPath();
 
 	void ReloadPathList();
 
 	wxCheckBox* m_DrawPath;
 	wxListBox* m_PathList;
-	wxTextCtrl* m_NewPathName;
-
-	wxDECLARE_EVENT_TABLE();
 };

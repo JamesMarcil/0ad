@@ -45,21 +45,15 @@
 
 using AtlasMessage::Shareable;
 
-enum {
-	ID_PathsDrawing,
-	ID_PathsList,
-	ID_AddPath,
-	ID_DeletePath
-};
-
 CinemaSidebar::CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer)
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer)
 {
 	{
 		auto* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Common settings"));
 
-		m_DrawPath = new wxCheckBox(sizer->GetStaticBox(), ID_PathsDrawing, _("Draw all paths"));
+		m_DrawPath = new wxCheckBox(sizer->GetStaticBox(), wxID_ANY, _("Draw all paths"));
 		m_DrawPath->SetToolTip(_("Display every cinematic path added to the map"));
+		m_DrawPath->Bind(wxEVT_CHECKBOX, [this](auto&){ SetPathsDrawing(m_DrawPath->IsChecked()); });
 
 		sizer->Add(m_DrawPath, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
@@ -70,20 +64,22 @@ CinemaSidebar::CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarCo
 		auto* boxSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Paths"));
 		auto* box = boxSizer->GetStaticBox();
 
-		m_PathList = new wxListBox(box, ID_PathsList, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT);
+		m_PathList = new wxListBox(box, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT);
 
-		auto* deleteButton = new wxButton(box, ID_DeletePath, _("Delete"));
+		auto* deleteButton = new wxButton(box, wxID_ANY, _("Delete"));
 		deleteButton->SetToolTip(_T("Delete selected path"));
+		deleteButton->Bind(wxEVT_BUTTON, [this](auto&){ DeleteSelectedPath(); });
 
-		m_NewPathName = new wxTextCtrl(box, wxID_ANY);
+		auto* newPathName = new wxTextCtrl(box, wxID_ANY);
 
-		auto* addButton = new wxButton(box, ID_AddPath, _("Add"));
+		auto* addButton = new wxButton(box, wxID_ANY, _("Add"));
+		addButton->Bind(wxEVT_BUTTON, [this, newPathName](auto&){ AddPath(newPathName->GetValue()); newPathName->Clear(); });
 
 		wxFlexGridSizer* pathsSizer = new wxFlexGridSizer(1, 5, 5);
 		pathsSizer->AddGrowableCol(0);
 		pathsSizer->Add(m_PathList, wxSizerFlags().Proportion(1).Expand());
 		pathsSizer->Add(deleteButton, wxSizerFlags().Expand());
-		pathsSizer->Add(m_NewPathName, wxSizerFlags().Expand());
+		pathsSizer->Add(newPathName, wxSizerFlags().Expand());
 		pathsSizer->Add(addButton, wxSizerFlags().Expand());
 
 		boxSizer->Add(pathsSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
@@ -106,22 +102,21 @@ void CinemaSidebar::OnMapReload()
 	ReloadPathList();
 }
 
-void CinemaSidebar::OnTogglePathsDrawing(wxCommandEvent& evt)
+void CinemaSidebar::SetPathsDrawing(const bool enable)
 {
-	POST_COMMAND(SetCinemaPathsDrawing, (evt.IsChecked()));
+	POST_COMMAND(SetCinemaPathsDrawing, (enable));
 }
 
-void CinemaSidebar::OnAddPath(wxCommandEvent&)
+void CinemaSidebar::AddPath(wxString name)
 {
-	if (m_NewPathName->GetValue().empty())
+	if (name.empty())
 		return;
 
-	POST_COMMAND(AddCinemaPath, (m_NewPathName->GetValue().ToStdWstring()));
-	m_NewPathName->Clear();
+	POST_COMMAND(AddCinemaPath, (name.ToStdWstring()));
 	ReloadPathList();
 }
 
-void CinemaSidebar::OnDeletePath(wxCommandEvent&)
+void CinemaSidebar::DeleteSelectedPath()
 {
 	int index = m_PathList->GetSelection();
 	if (index < 0)
@@ -148,9 +143,3 @@ void CinemaSidebar::ReloadPathList()
 
 	m_PathList->SetStringSelection(selection);
 }
-
-wxBEGIN_EVENT_TABLE(CinemaSidebar, Sidebar)
-EVT_CHECKBOX(ID_PathsDrawing, CinemaSidebar::OnTogglePathsDrawing)
-EVT_BUTTON(ID_AddPath, CinemaSidebar::OnAddPath)
-EVT_BUTTON(ID_DeletePath, CinemaSidebar::OnDeletePath)
-wxEND_EVENT_TABLE();
