@@ -11,7 +11,7 @@ jobs:
   lfscheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Fetch the base branch
         run: git fetch origin ${{ env.BASE_SHA }}
@@ -24,27 +24,14 @@ jobs:
     env:
       GIT_LFS_SKIP_SMUDGE: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Add remote fork origin for LFS
         run: |
           PR_REPO="${{ gitea.event.pull_request.head.repo.full_name || gitea.repository }}"
           git remote add ${{ gitea.actor }} https://gitea.wildfiregames.com/${PR_REPO}.git
-      - name: Workaround for authentication problem with LFS
-        # https://gitea.com/gitea/act_runner/issues/164
-        run: |
-          git config --local \
-          http.${{ gitea.server_url }}/${{ gitea.repository }}.git/info/lfs/objects/.extraheader ''
-
-          PR_REPO="${{ gitea.event.pull_request.head.repo.full_name || gitea.repository }}"
-          EXTRAHEADER="$(git config --get --local http.${{ gitea.server_url }}/.extraheader)"
-          git config --local \
-            http.${{ gitea.server_url }}/${PR_REPO}.git/info/lfs/objects/batch.extraheader \
-            '${EXTRAHEADER}'
-          git config --local \
-            http.${{ gitea.server_url }}/${PR_REPO}.git/info/lfs/objects/.extraheader ''
       - name: Download necessary LFS assets
         shell: sh {0}
         run: |
