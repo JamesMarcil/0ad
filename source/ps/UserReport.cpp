@@ -386,7 +386,7 @@ private:
 		r += "user_id=";
 		AppendEscaped(r, m_UserID);
 
-		r += "&time=" + CStr::FromInt64(report.m_Time);
+		r = fmt::format("{}&time={}", std::move(r), report.m_Time);
 
 		r += "&type=";
 		AppendEscaped(r, report.m_Type);
