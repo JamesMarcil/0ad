@@ -88,7 +88,7 @@ CStr CNetMessage::ToString() const
 	if (GetType() == NMT_INVALID)
 		return "MESSAGE_TYPE_NONE { Undefined Message }";
 	else
-		return "Unknown Message " + CStr::FromInt(GetType());
+		return fmt::format("Unknown Message {}", static_cast<int>(GetType()));
 }
 
 CNetMessage* CNetMessageFactory::CreateMessage(const void* pData,

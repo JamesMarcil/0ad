@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -69,7 +69,7 @@ CObjectBase::CObjectBase(CObjectManager& objectManager, CActorDef& actorDef, u8 
 	m_Properties.m_FloatOnWater = false;
 
 	// Remove leading art/actors/ & include quality level.
-	m_Identifier = m_ActorDef.m_Pathname.string8().substr(11) + CStr::FromInt(m_QualityLevel);
+	m_Identifier = fmt::format("{}{}", m_ActorDef.m_Pathname.string8().substr(11), m_QualityLevel);
 }
 
 std::unique_ptr<CObjectBase> CObjectBase::CopyWithQuality(u8 newQualityLevel) const

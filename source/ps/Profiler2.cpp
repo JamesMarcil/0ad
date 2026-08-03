@@ -517,7 +517,7 @@ void rewriteBuffer(u8* buffer, u32& bufferSize)
 			std::string basic = attrib;
 			std::map<std::string, double>::iterator time_attrib = time_per_attribute.find(attrib);
 			if (time_attrib != time_per_attribute.end())
-				basic += " " + CStr::FromInt(1000000*time_attrib->second) + "us";
+				basic = fmt::format("{} {}us", basic, 1000000 * time_attrib->second);
 
 			u32 length = static_cast<u32>(basic.size());
 			memcpy(buffer + writePos, &length, sizeof(length));

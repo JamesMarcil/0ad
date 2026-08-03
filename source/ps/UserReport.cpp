@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -44,6 +44,7 @@
 #include <cstring>
 #include <ctime>
 #include <deque>
+#include <fmt/format.h>
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -337,7 +338,7 @@ private:
 		{
 			long code = -1;
 			curl_easy_getinfo(m_Curl, CURLINFO_RESPONSE_CODE, &code);
-			SetStatus("completed:" + CStr::FromInt(code));
+			SetStatus(fmt::format("completed:{}", code));
 
 			// Check for success code
 			if (code == 200)
@@ -360,7 +361,7 @@ private:
 			if (errorString.empty())
 				errorString = curl_easy_strerror(err);
 
-			SetStatus("failed:" + CStr::FromInt(err) + ":" + errorString);
+			SetStatus(fmt::format("failed:{}:{}", static_cast<int>(err), errorString));
 		}
 
 		// We got an unhandled return code or a connection failure;
@@ -390,7 +391,7 @@ private:
 		r += "&type=";
 		AppendEscaped(r, report.m_Type);
 
-		r += "&version=" + CStr::FromInt(report.m_Version);
+		r = fmt::format("{}&version={}", std::move(r), report.m_Version);
 
 		r += "&data=";
 		AppendEscaped(r, report.m_Data);
@@ -529,7 +530,7 @@ bool CUserReporter::IsReportingEnabled()
 
 void CUserReporter::SetReportingEnabled(bool enabled)
 {
-	CStr val = CStr::FromInt(enabled ? REPORTER_VERSION : 0);
+	const std::string val{std::to_string(enabled ? REPORTER_VERSION : 0)};
 	g_ConfigDB.SetValueString(CFG_USER, "userreport.enabledversion", val);
 	g_ConfigDB.WriteValueToFile(CFG_USER, "userreport.enabledversion", val);
 

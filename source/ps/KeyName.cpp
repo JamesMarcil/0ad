@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include <SDL_keycode.h>
 #include <algorithm>
 #include <cstring>
+#include <fmt/format.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -122,7 +123,7 @@ CStr FindScancodeName(SDL_Scancode scancode)
 	const char* name = SDL_GetScancodeName(scancode);
 	// Some scancodes have no name, but we must have something to save/load/recognize it, so parse it as SYM_XX
 	if (strlen(name) == 0)
-		return CStr("SYM_") + CStr::FromInt(scancode);
+		return fmt::format("SYM_{}", static_cast<int>(scancode));
 	return name;
 }
 
@@ -221,7 +222,7 @@ CStr FindKeyName(SDL_Scancode scancode)
 		return name;
 
 	// Else, show something regardless, so the player knows it's at least recognized.
-	return CStr("SYM_") + CStr::FromInt(scancode);
+	return fmt::format("SYM_{}", static_cast<int>(scancode));
 }
 
 
