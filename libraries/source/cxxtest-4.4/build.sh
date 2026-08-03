@@ -33,6 +33,8 @@ done
 if [ -e .already-built ] && [ "$(cat .already-built || true)" = "${LIB_VERSION}" ]; then
 	echo "Skipping - already built (use --force-rebuild to override)"
 	exit
+else
+	rm -f .already-built
 fi
 
 # fetch
