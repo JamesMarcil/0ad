@@ -90,21 +90,21 @@ CStr CScriptStatsTable::GetCellText(size_t row, size_t col)
 		if (col == 0)
 			return "max nominal heap bytes";
 		uint32_t n = JS_GetGCParameter(m_ScriptInterfaces.at(col-1).first->GetGeneralJSContext(), JSGC_MAX_BYTES);
-		return CStr::FromUInt(n);
+		return std::to_string(n);
 	}
 	case Row_Bytes:
 	{
 		if (col == 0)
 			return "allocated bytes";
 		uint32_t n = JS_GetGCParameter(m_ScriptInterfaces.at(col-1).first->GetGeneralJSContext(), JSGC_BYTES);
-		return CStr::FromUInt(n);
+		return std::to_string(n);
 	}
 	case Row_NumberGC:
 	{
 		if (col == 0)
 			return "number of GCs";
 		uint32_t n = JS_GetGCParameter(m_ScriptInterfaces.at(col-1).first->GetGeneralJSContext(), JSGC_NUMBER);
-		return CStr::FromUInt(n);
+		return std::to_string(n);
 	}
 	default:
 		return "???";

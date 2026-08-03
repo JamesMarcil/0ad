@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -156,7 +156,8 @@ bool ResolveIncludesImpl(
 			it = includeCache.emplace(path, std::move(includeContent)).first;
 		}
 		// We need to insert #line directives to have correct line numbers in errors.
-		chunks.emplace_back(lineDirective + "1\n" + it->second + "\n" + lineDirective + CStr::FromUInt(line + 1) + "\n");
+		chunks.emplace_back(fmt::format("{}1\n{}\n{}{}\n", lineDirective, it->second, lineDirective,
+			line + 1));
 		processedParts.emplace_back(currentPart.substr(0, lineStart));
 		if (!ResolveIncludesImpl(chunks.back(), includeCache, includeCallback, chunks, processedParts))
 			return false;

@@ -95,7 +95,6 @@ public:
 
 	// Conversions:
 
-	static CStr FromUInt(unsigned int n);
 	static CStr FromInt64(i64 n);
 	static CStr FromDouble(double n);
 

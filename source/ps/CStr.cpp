@@ -202,13 +202,6 @@ CStr CStr::Repeat(const CStr& str, size_t reps)
 
 // Construction from numbers:
 
-CStr CStr::FromUInt(unsigned int n)
-{
-	tstringstream<StrBase> ss;
-	ss << n;
-	return ss.str();
-}
-
 CStr CStr::FromInt64(i64 n)
 {
 	tstringstream<StrBase> ss;

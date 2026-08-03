@@ -755,7 +755,7 @@ void CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, IGUIObje
 	// Check if name isn't set, generate an internal name in that case.
 	if (!NameSet)
 	{
-		object->SetName("__internal(" + CStr::FromInt(m_InternalNameNumber) + ")");
+		object->SetName(fmt::format("__internal({})", m_InternalNameNumber));
 		++m_InternalNameNumber;
 	}
 
@@ -977,7 +977,7 @@ void CGUI::Xeromyces_ReadRepeat(const XMBData& xmb, XMBElement element, IGUIObje
 
 	for (int n = 0; n < count; ++n)
 	{
-		NameSubst.emplace_back(var, "[" + CStr::FromInt(n) + "]");
+		NameSubst.emplace_back(var, fmt::format("[{}]", n));
 
 		XERO_ITER_EL(element, child)
 		{

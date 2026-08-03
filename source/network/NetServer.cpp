@@ -54,6 +54,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <fmt/format.h>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -68,6 +69,10 @@
 #include <miniupnpc/upnpcommands.h>
 #include <miniupnpc/upnpdev.h>
 #include <miniupnpc/upnperrors.h>
+#endif
+
+#if FMT_VERSION >= 80000
+#include <fmt/xchar.h>
 #endif
 
 /**
@@ -1641,7 +1646,7 @@ CStrW CNetServerWorker::DeduplicatePlayerName(const CStrW& original)
 		if (unique)
 			return name;
 
-		name = original + L" (" + CStrW::FromUInt(id++) + L")";
+		name = fmt::format(L"{}({})", original, id++);
 	}
 }
 

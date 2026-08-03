@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 
 static inline CStr NetMessageStringConvert(u32 arg)
 {
-	return CStr::FromUInt(arg);
+	return std::to_string(arg);
 }
 
 static inline CStr NetMessageStringConvert(const CStr8& arg)
