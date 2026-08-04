@@ -80,25 +80,12 @@ private:
 
 
 /**
- * Class ModelRenderer: Abstract base class for all model renders.
+ * ModelRenderer manages a per-frame list of models. It loads the appropriate
+ * shaders for rendering each model, and that batches by shader technique (and
+ * by mesh and texture).
  *
- * A ModelRenderer manages a per-frame list of models.
- *
- * It is supposed to be derived in order to create new ways in which
- * the per-frame list of models can be managed (for batching, for
- * transparent rendering, etc.) or potentially for rarely used special
- * effects.
- *
- * A typical ModelRenderer will delegate vertex transformation/setup
- * to a ModelVertexRenderer.
- * It will delegate fragment stage setup to a RenderModifier.
- *
- * For most purposes, you should use a BatchModelRenderer with
- * specialized ModelVertexRenderer and RenderModifier implementations.
- *
- * It is suggested that a derived class implement the provided generic
- * Render function, however in some cases it may be necessary to supply
- * a Render function with a different prototype.
+ * ModelRenderer delegates vertex transformation/setup to a
+ * ModelVertexRenderer. It delegates fragment stage setup to a RenderModifier.
  *
  * ModelRenderer also contains a number of static helper functions
  * for building vertex arrays.
@@ -106,14 +93,8 @@ private:
 class ModelRenderer
 {
 public:
-	ModelRenderer() { }
-	virtual ~ModelRenderer() { }
-
-	/**
-	 * Initialise global settings.
-	 * Should be called before using the class.
-	 */
-	static void Init();
+	ModelRenderer(ModelVertexRendererPtr vertexrenderer);
+	~ModelRenderer();
 
 	/**
 	 * Submit: Submit a model for rendering this frame.
@@ -125,7 +106,7 @@ public:
 	 * @param model The model that will be added to the list of models
 	 * submitted this frame.
 	 */
-	virtual void Submit(int cullGroup, CModel* model) = 0;
+	void Submit(int cullGroup, CModel* model);
 
 	/**
 	 * PrepareModels: Calculate renderer data for all previously
@@ -134,8 +115,8 @@ public:
 	 * Must be called before any rendering calls and after all models
 	 * for this frame have been submitted.
 	 */
-	virtual void PrepareModels(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext) = 0;
+	void PrepareModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	/**
 	 * Upload renderer data for all previously submitted models to backend.
@@ -143,23 +124,18 @@ public:
 	 * Must be called before any rendering calls and after all models
 	 * for this frame have been prepared.
 	 */
-	virtual void UploadModels(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext) = 0;
+	void UploadModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	/**
 	 * EndFrame: Remove all models from the list of submitted
 	 * models.
 	 */
-	virtual void EndFrame() = 0;
+	void EndFrame();
 
 	/**
 	 * Render: Render submitted models, using the given RenderModifier to setup
 	 * the fragment stage.
-	 *
-	 * @note It is suggested that derived model renderers implement and use
-	 * this Render functions. However, a highly specialized model renderer
-	 * may need to "disable" this function and provide its own Render function
-	 * with a different prototype.
 	 *
 	 * preconditions  : PrepareModels must be called after all models have been
 	 * submitted and before calling Render.
@@ -169,10 +145,10 @@ public:
 	 * If flags is non-zero, only models that contain flags in their
 	 * CModel::GetFlags() are rendered.
 	 */
-	virtual void Render(
+	void Render(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		const RenderModifierPtr& modifier, const CShaderDefines& context,
-		int cullGroup, int flags, const ERenderMode renderMode) = 0;
+		int cullGroup, int flags, const ERenderMode renderMode);
 
 	/**
 	 * CopyPositionAndNormals: Copy unanimated object-space vertices and
@@ -187,9 +163,9 @@ public:
 	 * The array behind the iterator must be as large as the Position array.
 	 */
 	static void CopyPositionAndNormals(
-			const CModelDefPtr& mdef,
-			const VertexArrayIterator<CVector3D>& Position,
-			const VertexArrayIterator<CVector3D>& Normal);
+		const CModelDefPtr& mdef,
+		const VertexArrayIterator<CVector3D>& Position,
+		const VertexArrayIterator<CVector3D>& Normal);
 
 	/**
 	 * BuildPositionAndNormals: Build animated vertices and normals,
@@ -206,9 +182,9 @@ public:
 	 * the Position array.
 	 */
 	static void BuildPositionAndNormals(
-			CModel* model,
-			const VertexArrayIterator<CVector3D>& Position,
-			const VertexArrayIterator<CVector3D>& Normal);
+		CModel* model,
+		const VertexArrayIterator<CVector3D>& Position,
+		const VertexArrayIterator<CVector3D>& Normal);
 
 	/**
 	 * BuildColor4ub: Build lighting colors for the given model,
@@ -222,9 +198,9 @@ public:
 	 * model->GetModelDef()->GetNumVertices() vertices.
 	 */
 	static void BuildColor4ub(
-			CModel* model,
-			const VertexArrayIterator<CVector3D>& Normal,
-			const VertexArrayIterator<SColor4ub>& Color);
+		CModel* model,
+		const VertexArrayIterator<CVector3D>& Normal,
+		const VertexArrayIterator<SColor4ub>& Color);
 
 	/**
 	 * BuildUV: Copy UV coordinates into the given vertex array.
@@ -235,9 +211,9 @@ public:
 	 * mdef->GetNumVertices() vertices.
 	 */
 	static void BuildUV(
-			const CModelDefPtr& mdef,
-			const VertexArrayIterator<float[2]>& UV,
-			int UVset);
+		const CModelDefPtr& mdef,
+		const VertexArrayIterator<float[2]>& UV,
+		int UVset);
 
 	/**
 	 * BuildIndices: Create the indices array for the given CModelDef.
@@ -247,8 +223,7 @@ public:
 	 * mdef->GetNumFaces()*3 elements.
 	 */
 	static void BuildIndices(
-			const CModelDefPtr& mdef,
-			const VertexArrayIterator<u16>& Indices);
+		const CModelDefPtr& mdef, const VertexArrayIterator<u16>& Indices);
 
 	/**
 	 * GenTangents: Generate tangents for the given CModelDef.
@@ -258,35 +233,10 @@ public:
 	 * The new vertices cannot be used with existing face index and must be welded/reindexed.
 	 */
 	static void GenTangents(const CModelDefPtr& mdef, std::vector<float>& newVertices, bool gpuSkinning);
-};
-
-/**
- * Implementation of ModelRenderer that loads the appropriate shaders for
- * rendering each model, and that batches by shader technique (and by mesh and texture).
- */
-class ShaderModelRenderer : public ModelRenderer
-{
-	friend struct ShaderModelRendererInternals;
-
-public:
-	ShaderModelRenderer(ModelVertexRendererPtr vertexrender);
-	~ShaderModelRenderer() override;
-
-	// Batching implementations
-	void Submit(int cullGroup, CModel* model) override;
-	void PrepareModels(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext) override;
-	void UploadModels(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext) override;
-	void EndFrame() override;
-	void Render(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const RenderModifierPtr& modifier, const CShaderDefines& context,
-		int cullGroup, int flags, const ERenderMode renderMode) override;
 
 private:
-	struct ShaderModelRendererInternals;
-	ShaderModelRendererInternals* m;
+	struct ModelRendererInternals;
+	std::unique_ptr<ModelRendererInternals> m;
 };
 
 #endif // INCLUDED_MODELRENDERER

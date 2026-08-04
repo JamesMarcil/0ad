@@ -62,7 +62,6 @@
 #include "ps/VideoMode.h"
 #include "ps/World.h"
 #include "renderer/DebugRenderer.h"
-#include "renderer/ModelRenderer.h"
 #include "renderer/PostprocManager.h"
 #include "renderer/RenderingOptions.h"
 #include "renderer/SceneRenderer.h"
@@ -456,7 +455,6 @@ CRenderer::CRenderer(Renderer::Backend::IDevice* device)
 
 	ModelDefActivateFastImpl();
 	ColorActivateFastImpl();
-	ModelRenderer::Init();
 }
 
 CRenderer::~CRenderer()

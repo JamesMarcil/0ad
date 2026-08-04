@@ -102,15 +102,11 @@ CMaterial::Pass GetMaterialPassFromCullGroup(const int cullGroup, const ERenderM
 
 }
 
-void ModelRenderer::Init()
-{
-}
-
-// Helper function to copy object-space position and normal vectors into arrays.
+// static
 void ModelRenderer::CopyPositionAndNormals(
-		const CModelDefPtr& mdef,
-		const VertexArrayIterator<CVector3D>& Position,
-		const VertexArrayIterator<CVector3D>& Normal)
+	const CModelDefPtr& mdef,
+	const VertexArrayIterator<CVector3D>& Position,
+	const VertexArrayIterator<CVector3D>& Normal)
 {
 	size_t numVertices = mdef->GetNumVertices();
 	SModelVertex* vertices = mdef->GetVertices();
@@ -122,11 +118,11 @@ void ModelRenderer::CopyPositionAndNormals(
 	}
 }
 
-// Helper function to transform position and normal vectors into world-space.
+// static
 void ModelRenderer::BuildPositionAndNormals(
-		CModel* model,
-		const VertexArrayIterator<CVector3D>& Position,
-		const VertexArrayIterator<CVector3D>& Normal)
+	CModel* model,
+	const VertexArrayIterator<CVector3D>& Position,
+	const VertexArrayIterator<CVector3D>& Normal)
 {
 	CModelDefPtr mdef = model->GetModelDef();
 	size_t numVertices = mdef->GetNumVertices();
@@ -160,12 +156,11 @@ void ModelRenderer::BuildPositionAndNormals(
 	}
 }
 
-
-// Helper function for lighting
+// static
 void ModelRenderer::BuildColor4ub(
-		CModel* model,
-		const VertexArrayIterator<CVector3D>& Normal,
-		const VertexArrayIterator<SColor4ub>& Color)
+	CModel* model,
+	const VertexArrayIterator<CVector3D>& Normal,
+	const VertexArrayIterator<SColor4ub>& Color)
 {
 	PROFILE("lighting vertices");
 
@@ -184,19 +179,16 @@ void ModelRenderer::BuildColor4ub(
 	}
 }
 
-
+// static
 void ModelRenderer::GenTangents(const CModelDefPtr& mdef, std::vector<float>& newVertices, bool gpuSkinning)
 {
 	MikkTSpace ms(mdef, newVertices, gpuSkinning);
 	ms.Generate();
 }
 
-
-// Copy UV coordinates
+// static
 void ModelRenderer::BuildUV(
-		const CModelDefPtr& mdef,
-		const VertexArrayIterator<float[2]>& UV,
-		int UVset)
+	const CModelDefPtr& mdef, const VertexArrayIterator<float[2]>& UV, int UVset)
 {
 	const size_t numVertices = mdef->GetNumVertices();
 	const size_t numberOfUVPerVertex = mdef->GetNumUVsPerVertex();
@@ -209,11 +201,9 @@ void ModelRenderer::BuildUV(
 	}
 }
 
-
-// Build default indices array.
+// static
 void ModelRenderer::BuildIndices(
-		const CModelDefPtr& mdef,
-		const VertexArrayIterator<u16>& Indices)
+	const CModelDefPtr& mdef, const VertexArrayIterator<u16>& Indices)
 {
 	size_t idxidx = 0;
 	SModelFace* faces = mdef->GetFaces();
@@ -227,25 +217,14 @@ void ModelRenderer::BuildIndices(
 	}
 }
 
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-// ShaderModelRenderer implementation
-
-
 /**
- * Internal data of the ShaderModelRenderer.
+ * Internal data of the ModelRenderer.
  *
  * Separated into the source file to increase implementation hiding (and to
  * avoid some causes of recompiles).
  */
-struct ShaderModelRenderer::ShaderModelRendererInternals
+struct ModelRenderer::ModelRendererInternals
 {
-	ShaderModelRendererInternals(ShaderModelRenderer* r) : m_Renderer(r) { }
-
-	/// Back-link to "our" renderer
-	ShaderModelRenderer* m_Renderer;
-
 	/// ModelVertexRenderer used for vertex transformations
 	ModelVertexRendererPtr vertexRenderer;
 
@@ -253,21 +232,16 @@ struct ShaderModelRenderer::ShaderModelRendererInternals
 	std::vector<CModel*> submissions[CSceneRenderer::CULL_MAX];
 };
 
-
-// Construction/Destruction
-ShaderModelRenderer::ShaderModelRenderer(ModelVertexRendererPtr vertexrenderer)
+ModelRenderer::ModelRenderer(ModelVertexRendererPtr vertexrenderer)
 {
-	m = new ShaderModelRendererInternals(this);
+	m = std::unique_ptr<ModelRendererInternals>(new ModelRendererInternals());
 	m->vertexRenderer = vertexrenderer;
 }
 
-ShaderModelRenderer::~ShaderModelRenderer()
-{
-	delete m;
-}
+ModelRenderer::~ModelRenderer() = default;
 
 // Submit one model.
-void ShaderModelRenderer::Submit(int cullGroup, CModel* model)
+void ModelRenderer::Submit(int cullGroup, CModel* model)
 {
 	CModelRData* rdata = (CModelRData*)model->GetRenderData();
 
@@ -286,7 +260,7 @@ void ShaderModelRenderer::Submit(int cullGroup, CModel* model)
 
 
 // Call update for all submitted models and enter the rendering phase
-void ShaderModelRenderer::PrepareModels(
+void ModelRenderer::PrepareModels(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	for (int cullGroup = 0; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
@@ -309,7 +283,7 @@ void ShaderModelRenderer::PrepareModels(
 	}
 }
 
-void ShaderModelRenderer::UploadModels(
+void ModelRenderer::UploadModels(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	for (int cullGroup = 0; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
@@ -319,7 +293,7 @@ void ShaderModelRenderer::UploadModels(
 }
 
 // Clear the submissions list
-void ShaderModelRenderer::EndFrame()
+void ModelRenderer::EndFrame()
 {
 	for (int cullGroup = 0; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
 		m->submissions[cullGroup].clear();
@@ -413,7 +387,7 @@ struct SMRCompareTechBucket
 	}
 };
 
-void ShaderModelRenderer::Render(
+void ModelRenderer::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	const RenderModifierPtr& modifier, const CShaderDefines& context,
 	int cullGroup, int flags, const ERenderMode renderMode)

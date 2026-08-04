@@ -135,10 +135,10 @@ public:
 		//    model instance (except for skinned models), so non-skinned models
 		//    get different ModelVertexRenderers
 
-		std::unique_ptr<ShaderModelRenderer> OpaqueSkinned;
-		std::unique_ptr<ShaderModelRenderer> OpaqueUnskinned;
-		std::unique_ptr<ShaderModelRenderer> TransparentSkinned;
-		std::unique_ptr<ShaderModelRenderer> TransparentUnskinned;
+		std::unique_ptr<ModelRenderer> OpaqueSkinned;
+		std::unique_ptr<ModelRenderer> OpaqueUnskinned;
+		std::unique_ptr<ModelRenderer> TransparentSkinned;
+		std::unique_ptr<ModelRenderer> TransparentUnskinned;
 
 		ModelVertexRendererPtr VertexRendererShader;
 		ModelVertexRendererPtr VertexInstancingShader;
@@ -241,18 +241,18 @@ void CSceneRenderer::ReloadShaders([[maybe_unused]] Renderer::Backend::IDevice* 
 	if (g_RenderingOptions.GetGPUSkinning())
 	{
 		m->Model.VertexGPUSkinningShader = ModelVertexRendererPtr(new GPUSkinnedModelModelRenderer());
-		m->Model.OpaqueSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexGPUSkinningShader);
-		m->Model.TransparentSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexGPUSkinningShader);
+		m->Model.OpaqueSkinned = std::make_unique<ModelRenderer>(m->Model.VertexGPUSkinningShader);
+		m->Model.TransparentSkinned = std::make_unique<ModelRenderer>(m->Model.VertexGPUSkinningShader);
 	}
 	else
 	{
 		m->Model.VertexGPUSkinningShader.reset();
-		m->Model.OpaqueSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexRendererShader);
-		m->Model.TransparentSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexRendererShader);
+		m->Model.OpaqueSkinned = std::make_unique<ModelRenderer>(m->Model.VertexRendererShader);
+		m->Model.TransparentSkinned = std::make_unique<ModelRenderer>(m->Model.VertexRendererShader);
 	}
 
-	m->Model.OpaqueUnskinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexInstancingShader);
-	m->Model.TransparentUnskinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexInstancingShader);
+	m->Model.OpaqueUnskinned = std::make_unique<ModelRenderer>(m->Model.VertexInstancingShader);
+	m->Model.TransparentUnskinned = std::make_unique<ModelRenderer>(m->Model.VertexInstancingShader);
 }
 
 void CSceneRenderer::Initialize()
