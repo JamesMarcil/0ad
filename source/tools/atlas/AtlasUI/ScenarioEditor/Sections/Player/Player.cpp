@@ -262,7 +262,7 @@ public:
 			wxGridSizer* gridSizer = new wxGridSizer(3, 5, 5);
 			wxButton* cameraSet = new wxButton(cameraSizer->GetStaticBox(), ID_CameraSet, _("Set"), wxDefaultPosition, wxSize(48, -1));
 			gridSizer->Add(Tooltipped(cameraSet,
-				_("Set player camera to cameraSizer->GetStaticBox() view")), wxSizerFlags().Expand());
+				_("Set player camera to this view")), wxSizerFlags().Expand());
 			wxButton* cameraView = new wxButton(cameraSizer->GetStaticBox(), ID_CameraView, _("View"), wxDefaultPosition, wxSize(48, -1));
 			cameraView->Enable(false);
 			gridSizer->Add(Tooltipped(cameraView,
