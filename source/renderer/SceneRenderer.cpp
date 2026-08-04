@@ -129,16 +129,16 @@ public:
 		// some unwanted complexity.
 
 		// Submitted models are split on two axes:
-		//  - Normal vs Transp[arent] - alpha-blended models are stored in a separate
+		//  - Opaque vs Transparent - alpha-blended models are stored in a separate
 		//    list so we can draw them above/below the alpha-blended water plane correctly
 		//  - Skinned vs Unskinned - we don't need to duplicate mesh data per
 		//    model instance (except for skinned models), so non-skinned models
 		//    get different ModelVertexRenderers
 
-		std::unique_ptr<ShaderModelRenderer> NormalSkinned;
-		std::unique_ptr<ShaderModelRenderer> NormalUnskinned;
-		std::unique_ptr<ShaderModelRenderer> TranspSkinned;
-		std::unique_ptr<ShaderModelRenderer> TranspUnskinned;
+		std::unique_ptr<ShaderModelRenderer> OpaqueSkinned;
+		std::unique_ptr<ShaderModelRenderer> OpaqueUnskinned;
+		std::unique_ptr<ShaderModelRenderer> TransparentSkinned;
+		std::unique_ptr<ShaderModelRenderer> TransparentUnskinned;
 
 		ModelVertexRendererPtr VertexRendererShader;
 		ModelVertexRendererPtr VertexInstancingShader;
@@ -152,35 +152,35 @@ public:
 	/**
 	 * Renders all non-alpha-blended models with the given context.
 	 */
-	void CallModelRenderers(
+	void CallOpaqueModelRenderers(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		const CShaderDefines& context, int cullGroup, int flags, const ERenderMode renderMode)
 	{
 		CShaderDefines contextSkinned = context;
 		if (g_RenderingOptions.GetGPUSkinning())
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
-		Model.NormalSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
+		Model.OpaqueSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
 
 		CShaderDefines contextUnskinned = context;
 		contextUnskinned.Add(str_USE_INSTANCING, str_1);
-		Model.NormalUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
+		Model.OpaqueUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
 	}
 
 	/**
 	 * Renders all alpha-blended models with the given context.
 	 */
-	void CallTranspModelRenderers(
+	void CallTransparentModelRenderers(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		const CShaderDefines& context, int cullGroup, int flags, const ERenderMode renderMode)
 	{
 		CShaderDefines contextSkinned = context;
 		if (g_RenderingOptions.GetGPUSkinning())
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
-		Model.TranspSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
+		Model.TransparentSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
 
 		CShaderDefines contextUnskinned = context;
 		contextUnskinned.Add(str_USE_INSTANCING, str_1);
-		Model.TranspUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
+		Model.TransparentUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
 	}
 };
 
@@ -241,18 +241,18 @@ void CSceneRenderer::ReloadShaders([[maybe_unused]] Renderer::Backend::IDevice* 
 	if (g_RenderingOptions.GetGPUSkinning())
 	{
 		m->Model.VertexGPUSkinningShader = ModelVertexRendererPtr(new GPUSkinnedModelModelRenderer());
-		m->Model.NormalSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexGPUSkinningShader);
-		m->Model.TranspSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexGPUSkinningShader);
+		m->Model.OpaqueSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexGPUSkinningShader);
+		m->Model.TransparentSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexGPUSkinningShader);
 	}
 	else
 	{
 		m->Model.VertexGPUSkinningShader.reset();
-		m->Model.NormalSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexRendererShader);
-		m->Model.TranspSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexRendererShader);
+		m->Model.OpaqueSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexRendererShader);
+		m->Model.TransparentSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexRendererShader);
 	}
 
-	m->Model.NormalUnskinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexInstancingShader);
-	m->Model.TranspUnskinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexInstancingShader);
+	m->Model.OpaqueUnskinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexInstancingShader);
+	m->Model.TransparentUnskinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexInstancingShader);
 }
 
 void CSceneRenderer::Initialize()
@@ -309,12 +309,12 @@ void CSceneRenderer::RenderShadowMap(
 
 		{
 			PROFILE("render models");
-			m->CallModelRenderers(deviceCommandContext, {}, cullGroup, ModelFlag::CAST_SHADOWS, ERenderMode::SOLID);
+			m->CallOpaqueModelRenderers(deviceCommandContext, {}, cullGroup, ModelFlag::CAST_SHADOWS, ERenderMode::SOLID);
 		}
 
 		{
 			PROFILE("render transparent models");
-			m->CallTranspModelRenderers(deviceCommandContext, {}, cullGroup, ModelFlag::CAST_SHADOWS, ERenderMode::SOLID);
+			m->CallTransparentModelRenderers(deviceCommandContext, {}, cullGroup, ModelFlag::CAST_SHADOWS, ERenderMode::SOLID);
 		}
 	}
 
@@ -357,10 +357,10 @@ void CSceneRenderer::RenderModels(
 	const ERenderMode modelRenderMode{
 		m_ModelRenderMode == WIREFRAME ? WIREFRAME : SOLID};
 
-	m->CallModelRenderers(deviceCommandContext, context, cullGroup, flags, modelRenderMode);
+	m->CallOpaqueModelRenderers(deviceCommandContext, context, cullGroup, flags, modelRenderMode);
 
 	if (m_ModelRenderMode == EDGED_FACES)
-		m->CallModelRenderers(deviceCommandContext, {}, cullGroup, flags, EDGED_FACES);
+		m->CallOpaqueModelRenderers(deviceCommandContext, {}, cullGroup, flags, EDGED_FACES);
 }
 
 void CSceneRenderer::RenderTransparentModels(
@@ -382,13 +382,13 @@ void CSceneRenderer::RenderTransparentModels(
 		m_ModelRenderMode == WIREFRAME ? WIREFRAME : SOLID};
 
 	if (transparentMode == TRANSPARENT || transparentMode == TRANSPARENT_OPAQUE)
-		m->CallTranspModelRenderers(deviceCommandContext, contextOpaque, cullGroup, flags, modelRenderMode);
+		m->CallTransparentModelRenderers(deviceCommandContext, contextOpaque, cullGroup, flags, modelRenderMode);
 
 	if (transparentMode == TRANSPARENT || transparentMode == TRANSPARENT_BLEND)
-		m->CallTranspModelRenderers(deviceCommandContext, contextBlend, cullGroup, flags, modelRenderMode);
+		m->CallTransparentModelRenderers(deviceCommandContext, contextBlend, cullGroup, flags, modelRenderMode);
 
 	if (m_ModelRenderMode == EDGED_FACES)
-		m->CallTranspModelRenderers(deviceCommandContext, {}, cullGroup, flags, EDGED_FACES);
+		m->CallTransparentModelRenderers(deviceCommandContext, {}, cullGroup, flags, EDGED_FACES);
 }
 
 // SetObliqueFrustumClipping: change the near plane to the given clip plane (in world space)
@@ -703,24 +703,24 @@ void CSceneRenderer::RenderSilhouettes(
 
 	{
 		PROFILE("render model occluders");
-		m->CallModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_OCCLUDER, 0, ERenderMode::SOLID);
+		m->CallOpaqueModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_OCCLUDER, 0, ERenderMode::SOLID);
 	}
 
 	{
 		PROFILE("render transparent occluders");
-		m->CallTranspModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_OCCLUDER, 0, ERenderMode::SOLID);
+		m->CallTransparentModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_OCCLUDER, 0, ERenderMode::SOLID);
 	}
 
 	// Since we can't sort, we'll use the stencil buffer to ensure we only draw
 	// a pixel once (using the color of whatever model happens to be drawn first).
 	{
 		PROFILE("render model casters");
-		m->CallModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_CASTER, 0, ERenderMode::SOLID);
+		m->CallOpaqueModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_CASTER, 0, ERenderMode::SOLID);
 	}
 
 	{
 		PROFILE("render transparent casters");
-		m->CallTranspModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_CASTER, 0, ERenderMode::SOLID);
+		m->CallTransparentModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_CASTER, 0, ERenderMode::SOLID);
 	}
 }
 
@@ -766,10 +766,10 @@ void CSceneRenderer::PrepareSubmissions(
 	// Prepare model renderers
 	{
 	PROFILE3("prepare models");
-	m->Model.NormalSkinned->PrepareModels(deviceCommandContext);
-	m->Model.TranspSkinned->PrepareModels(deviceCommandContext);
-	m->Model.NormalUnskinned->PrepareModels(deviceCommandContext);
-	m->Model.TranspUnskinned->PrepareModels(deviceCommandContext);
+	m->Model.OpaqueSkinned->PrepareModels(deviceCommandContext);
+	m->Model.TransparentSkinned->PrepareModels(deviceCommandContext);
+	m->Model.OpaqueUnskinned->PrepareModels(deviceCommandContext);
+	m->Model.TransparentUnskinned->PrepareModels(deviceCommandContext);
 	}
 
 	m->terrainRenderer.PrepareForRendering();
@@ -780,10 +780,10 @@ void CSceneRenderer::PrepareSubmissions(
 
 	{
 		PROFILE3("upload models");
-		m->Model.NormalSkinned->UploadModels(deviceCommandContext);
-		m->Model.TranspSkinned->UploadModels(deviceCommandContext);
-		m->Model.NormalUnskinned->UploadModels(deviceCommandContext);
-		m->Model.TranspUnskinned->UploadModels(deviceCommandContext);
+		m->Model.OpaqueSkinned->UploadModels(deviceCommandContext);
+		m->Model.TransparentSkinned->UploadModels(deviceCommandContext);
+		m->Model.OpaqueUnskinned->UploadModels(deviceCommandContext);
+		m->Model.TransparentUnskinned->UploadModels(deviceCommandContext);
 	}
 
 	m->overlayRenderer.Upload(deviceCommandContext);
@@ -899,10 +899,10 @@ void CSceneRenderer::EndFrame()
 	m->silhouetteRenderer.EndFrame();
 
 	// Finish model renderers
-	m->Model.NormalSkinned->EndFrame();
-	m->Model.TranspSkinned->EndFrame();
-	m->Model.NormalUnskinned->EndFrame();
-	m->Model.TranspUnskinned->EndFrame();
+	m->Model.OpaqueSkinned->EndFrame();
+	m->Model.TransparentSkinned->EndFrame();
+	m->Model.OpaqueUnskinned->EndFrame();
+	m->Model.TransparentUnskinned->EndFrame();
 }
 
 void CSceneRenderer::DisplayFrustum(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
@@ -1022,16 +1022,16 @@ void CSceneRenderer::SubmitNonRecursive(CModel* model)
 	if (model->GetMaterial().UsesAlphaBlending())
 	{
 		if (requiresSkinning)
-			m->Model.TranspSkinned->Submit(m_CurrentCullGroup, model);
+			m->Model.TransparentSkinned->Submit(m_CurrentCullGroup, model);
 		else
-			m->Model.TranspUnskinned->Submit(m_CurrentCullGroup, model);
+			m->Model.TransparentUnskinned->Submit(m_CurrentCullGroup, model);
 	}
 	else
 	{
 		if (requiresSkinning)
-			m->Model.NormalSkinned->Submit(m_CurrentCullGroup, model);
+			m->Model.OpaqueSkinned->Submit(m_CurrentCullGroup, model);
 		else
-			m->Model.NormalUnskinned->Submit(m_CurrentCullGroup, model);
+			m->Model.OpaqueUnskinned->Submit(m_CurrentCullGroup, model);
 	}
 }
 
