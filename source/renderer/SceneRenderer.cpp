@@ -118,16 +118,6 @@ public:
 	/// Various model renderers
 	struct Models
 	{
-		// NOTE: The current renderer design (with ModelRenderer, ModelVertexRenderer,
-		// RenderModifier, etc) is mostly a relic of an older design that implemented
-		// the different materials and rendering modes through extensive subclassing
-		// and hooking objects together in various combinations.
-		// The new design uses the CShaderManager API to abstract away the details
-		// of rendering, and uses a data-driven approach to materials, so there are
-		// now a small number of generic subclasses instead of many specialised subclasses,
-		// but most of the old infrastructure hasn't been refactored out yet and leads to
-		// some unwanted complexity.
-
 		// Submitted models are split on two axes:
 		//  - Opaque vs Transparent - alpha-blended models are stored in a separate
 		//    list so we can draw them above/below the alpha-blended water plane correctly
@@ -135,19 +125,115 @@ public:
 		//    model instance (except for skinned models), so non-skinned models
 		//    get different ModelVertexRenderers
 
-		std::unique_ptr<ModelRenderer> OpaqueSkinned;
-		std::unique_ptr<ModelRenderer> OpaqueUnskinned;
-		std::unique_ptr<ModelRenderer> TransparentSkinned;
-		std::unique_ptr<ModelRenderer> TransparentUnskinned;
+		struct Submissions
+		{
+			ModelVertexRenderer* modelVertexRenderer{nullptr};
+			std::vector<CModel*> submissions[CSceneRenderer::CULL_MAX];
+		};
 
-		ModelVertexRendererPtr VertexRendererShader;
+		Submissions OpaqueSkinned;
+		Submissions OpaqueUnskinned;
+		Submissions TransparentSkinned;
+		Submissions TransparentUnskinned;
+
+		ModelRenderer modelRenderer;
+
 		ModelVertexRendererPtr VertexInstancingShader;
+		ModelVertexRendererPtr VertexCPUSkinningShader;
 		ModelVertexRendererPtr VertexGPUSkinningShader;
 
 		LitRenderModifierPtr ModShader;
 	} Model;
 
 	CShaderDefines globalContext;
+
+	/**
+	 * Upload renderer data for all previously submitted models to backend.
+	 *
+	 * Must be called before any rendering calls and after all models
+	 * for this frame have been prepared.
+	 */
+	void UploadModels(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
+	{
+		PROFILE3("upload models");
+
+		for (int cullGroup{0}; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
+		{
+			Model.OpaqueSkinned.modelVertexRenderer->UploadModelsData(deviceCommandContext, Model.OpaqueSkinned.submissions[cullGroup]);
+			Model.TransparentSkinned.modelVertexRenderer->UploadModelsData(deviceCommandContext, Model.TransparentSkinned.submissions[cullGroup]);
+			Model.OpaqueUnskinned.modelVertexRenderer->UploadModelsData(deviceCommandContext, Model.OpaqueUnskinned.submissions[cullGroup]);
+			Model.TransparentUnskinned.modelVertexRenderer->UploadModelsData(deviceCommandContext, Model.TransparentUnskinned.submissions[cullGroup]);
+		}
+	}
+
+	/**
+	 * PrepareModels: Calculate renderer data for all previously
+	 * submitted models.
+	 *
+	 * Must be called before any rendering calls and after all models
+	 * for this frame have been submitted.
+	 */
+	void PrepareModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
+	{
+		PROFILE3("prepare models");
+
+		for (int cullGroup{0}; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
+		{
+			PrepareModels(deviceCommandContext, *Model.OpaqueSkinned.modelVertexRenderer, Model.OpaqueSkinned.submissions[cullGroup]);
+			PrepareModels(deviceCommandContext, *Model.TransparentSkinned.modelVertexRenderer, Model.TransparentSkinned.submissions[cullGroup]);
+			PrepareModels(deviceCommandContext, *Model.OpaqueUnskinned.modelVertexRenderer, Model.OpaqueUnskinned.submissions[cullGroup]);
+			PrepareModels(deviceCommandContext, *Model.TransparentUnskinned.modelVertexRenderer, Model.TransparentUnskinned.submissions[cullGroup]);
+		}
+	}
+
+	void PrepareModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext, ModelVertexRenderer& modelVertexRenderer, std::span<CModel*> submissions)
+	{
+		for (CModel* model : submissions)
+		{
+			model->ValidatePosition();
+
+			CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
+			ENSURE(rdata->GetKey() == &modelVertexRenderer);
+		}
+
+		modelVertexRenderer.UpdateModelsData(deviceCommandContext, submissions);
+
+		for (CModel* model : submissions)
+		{
+			CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
+			rdata->m_UpdateFlags = 0;
+		}
+	}
+
+	/**
+	 * Submit: Submit a model for rendering this frame.
+	 *
+	 * preconditions : The model must not have been submitted to any
+	 * ModelRenderer in this frame. Submit may only be called
+	 * after EndFrame and before PrepareModels.
+	 *
+	 * @param model The model that will be added to the list of models
+	 * submitted this frame.
+	 */
+	void Submit(const int cullGroup, ModelVertexRenderer& modelVertexRenderer, Models::Submissions& submissions, CModel* model)
+	{
+		CModelRData* rdata{static_cast<CModelRData*>(model->GetRenderData())};
+
+		// Ensure model data is valid.
+		// TODO: using a pointer as a key is unsafe.
+		const void* key{&modelVertexRenderer};
+		if (!rdata || rdata->GetKey() != key)
+		{
+			model->InvalidatePosition();
+			rdata = modelVertexRenderer.CreateModelData(key, model);
+			model->SetRenderData(rdata);
+			model->SetDirty(~0u);
+		}
+
+		submissions.submissions[cullGroup].push_back(model);
+	}
 
 	/**
 	 * Renders all non-alpha-blended models with the given context.
@@ -159,11 +245,11 @@ public:
 		CShaderDefines contextSkinned = context;
 		if (g_RenderingOptions.GetGPUSkinning())
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
-		Model.OpaqueSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
+		Model.modelRenderer.Render(deviceCommandContext, *Model.OpaqueSkinned.modelVertexRenderer, Model.ModShader, contextSkinned, cullGroup, flags, renderMode, Model.OpaqueSkinned.submissions[cullGroup]);
 
 		CShaderDefines contextUnskinned = context;
 		contextUnskinned.Add(str_USE_INSTANCING, str_1);
-		Model.OpaqueUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
+		Model.modelRenderer.Render(deviceCommandContext, *Model.OpaqueUnskinned.modelVertexRenderer, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode, Model.OpaqueUnskinned.submissions[cullGroup]);
 	}
 
 	/**
@@ -176,11 +262,11 @@ public:
 		CShaderDefines contextSkinned = context;
 		if (g_RenderingOptions.GetGPUSkinning())
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
-		Model.TransparentSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
+		Model.modelRenderer.Render(deviceCommandContext, *Model.TransparentSkinned.modelVertexRenderer, Model.ModShader, contextSkinned, cullGroup, flags, renderMode, Model.TransparentSkinned.submissions[cullGroup]);
 
 		CShaderDefines contextUnskinned = context;
 		contextUnskinned.Add(str_USE_INSTANCING, str_1);
-		Model.TransparentUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
+		Model.modelRenderer.Render(deviceCommandContext, *Model.TransparentUnskinned.modelVertexRenderer, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode, Model.TransparentUnskinned.submissions[cullGroup]);
 	}
 };
 
@@ -235,24 +321,24 @@ void CSceneRenderer::ReloadShaders([[maybe_unused]] Renderer::Backend::IDevice* 
 
 	m->Model.ModShader = LitRenderModifierPtr(new ShaderRenderModifier());
 
-	m->Model.VertexRendererShader = ModelVertexRendererPtr(new CPUSkinnedModelVertexRenderer());
+	m->Model.VertexCPUSkinningShader = ModelVertexRendererPtr(new CPUSkinnedModelVertexRenderer());
 	m->Model.VertexInstancingShader = ModelVertexRendererPtr(new InstancingModelRenderer());
 
 	if (g_RenderingOptions.GetGPUSkinning())
 	{
 		m->Model.VertexGPUSkinningShader = ModelVertexRendererPtr(new GPUSkinnedModelModelRenderer());
-		m->Model.OpaqueSkinned = std::make_unique<ModelRenderer>(m->Model.VertexGPUSkinningShader);
-		m->Model.TransparentSkinned = std::make_unique<ModelRenderer>(m->Model.VertexGPUSkinningShader);
+		m->Model.OpaqueSkinned.modelVertexRenderer = m->Model.VertexGPUSkinningShader.get();
+		m->Model.TransparentSkinned.modelVertexRenderer = m->Model.VertexGPUSkinningShader.get();
 	}
 	else
 	{
 		m->Model.VertexGPUSkinningShader.reset();
-		m->Model.OpaqueSkinned = std::make_unique<ModelRenderer>(m->Model.VertexRendererShader);
-		m->Model.TransparentSkinned = std::make_unique<ModelRenderer>(m->Model.VertexRendererShader);
+		m->Model.OpaqueSkinned.modelVertexRenderer = m->Model.VertexCPUSkinningShader.get();
+		m->Model.TransparentSkinned.modelVertexRenderer = m->Model.VertexCPUSkinningShader.get();
 	}
 
-	m->Model.OpaqueUnskinned = std::make_unique<ModelRenderer>(m->Model.VertexInstancingShader);
-	m->Model.TransparentUnskinned = std::make_unique<ModelRenderer>(m->Model.VertexInstancingShader);
+	m->Model.OpaqueUnskinned.modelVertexRenderer = m->Model.VertexInstancingShader.get();
+	m->Model.TransparentUnskinned.modelVertexRenderer = m->Model.VertexInstancingShader.get();
 }
 
 void CSceneRenderer::Initialize()
@@ -764,13 +850,7 @@ void CSceneRenderer::PrepareSubmissions(
 	CShaderDefines context = m->globalContext;
 
 	// Prepare model renderers
-	{
-	PROFILE3("prepare models");
-	m->Model.OpaqueSkinned->PrepareModels(deviceCommandContext);
-	m->Model.TransparentSkinned->PrepareModels(deviceCommandContext);
-	m->Model.OpaqueUnskinned->PrepareModels(deviceCommandContext);
-	m->Model.TransparentUnskinned->PrepareModels(deviceCommandContext);
-	}
+	m->PrepareModels(deviceCommandContext);
 
 	m->terrainRenderer.PrepareForRendering();
 
@@ -778,13 +858,7 @@ void CSceneRenderer::PrepareSubmissions(
 
 	m->particleRenderer.PrepareForRendering(context);
 
-	{
-		PROFILE3("upload models");
-		m->Model.OpaqueSkinned->UploadModels(deviceCommandContext);
-		m->Model.TransparentSkinned->UploadModels(deviceCommandContext);
-		m->Model.OpaqueUnskinned->UploadModels(deviceCommandContext);
-		m->Model.TransparentUnskinned->UploadModels(deviceCommandContext);
-	}
+	m->UploadModels(deviceCommandContext);
 
 	m->overlayRenderer.Upload(deviceCommandContext);
 
@@ -898,11 +972,13 @@ void CSceneRenderer::EndFrame()
 	m->particleRenderer.EndFrame();
 	m->silhouetteRenderer.EndFrame();
 
-	// Finish model renderers
-	m->Model.OpaqueSkinned->EndFrame();
-	m->Model.TransparentSkinned->EndFrame();
-	m->Model.OpaqueUnskinned->EndFrame();
-	m->Model.TransparentUnskinned->EndFrame();
+	for (int cullGroup{0}; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
+	{
+		m->Model.OpaqueSkinned.submissions[cullGroup].clear();
+		m->Model.TransparentSkinned.submissions[cullGroup].clear();
+		m->Model.OpaqueUnskinned.submissions[cullGroup].clear();
+		m->Model.TransparentUnskinned.submissions[cullGroup].clear();
+	}
 }
 
 void CSceneRenderer::DisplayFrustum(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
@@ -1017,21 +1093,25 @@ void CSceneRenderer::SubmitNonRecursive(CModel* model)
 		m->shadow.AddShadowCasterBound(cascade, model->GetWorldBounds());
 	}
 
-	bool requiresSkinning = (model->GetModelDef()->GetNumBones() != 0);
+	const bool requiresSkinning{model->GetModelDef()->GetNumBones() != 0};
+	ModelVertexRenderer& modelVertexSkinningRenderer{
+		g_RenderingOptions.GetGPUSkinning() ? *m->Model.VertexGPUSkinningShader : *m->Model.VertexCPUSkinningShader};
+	ModelVertexRenderer& modelVertexRenderer{
+		requiresSkinning ? modelVertexSkinningRenderer : *m->Model.VertexInstancingShader};
 
 	if (model->GetMaterial().UsesAlphaBlending())
 	{
 		if (requiresSkinning)
-			m->Model.TransparentSkinned->Submit(m_CurrentCullGroup, model);
+			m->Submit(m_CurrentCullGroup, modelVertexRenderer, m->Model.TransparentSkinned, model);
 		else
-			m->Model.TransparentUnskinned->Submit(m_CurrentCullGroup, model);
+			m->Submit(m_CurrentCullGroup, modelVertexRenderer, m->Model.TransparentUnskinned, model);
 	}
 	else
 	{
 		if (requiresSkinning)
-			m->Model.OpaqueSkinned->Submit(m_CurrentCullGroup, model);
+			m->Submit(m_CurrentCullGroup, modelVertexRenderer, m->Model.OpaqueSkinned, model);
 		else
-			m->Model.OpaqueUnskinned->Submit(m_CurrentCullGroup, model);
+			m->Submit(m_CurrentCullGroup, modelVertexRenderer, m->Model.OpaqueUnskinned, model);
 	}
 }
 

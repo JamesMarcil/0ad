@@ -217,89 +217,6 @@ void ModelRenderer::BuildIndices(
 	}
 }
 
-/**
- * Internal data of the ModelRenderer.
- *
- * Separated into the source file to increase implementation hiding (and to
- * avoid some causes of recompiles).
- */
-struct ModelRenderer::ModelRendererInternals
-{
-	/// ModelVertexRenderer used for vertex transformations
-	ModelVertexRendererPtr vertexRenderer;
-
-	/// List of submitted models for rendering in this frame
-	std::vector<CModel*> submissions[CSceneRenderer::CULL_MAX];
-};
-
-ModelRenderer::ModelRenderer(ModelVertexRendererPtr vertexrenderer)
-{
-	m = std::unique_ptr<ModelRendererInternals>(new ModelRendererInternals());
-	m->vertexRenderer = vertexrenderer;
-}
-
-ModelRenderer::~ModelRenderer() = default;
-
-// Submit one model.
-void ModelRenderer::Submit(int cullGroup, CModel* model)
-{
-	CModelRData* rdata = (CModelRData*)model->GetRenderData();
-
-	// Ensure model data is valid
-	const void* key = m->vertexRenderer.get();
-	if (!rdata || rdata->GetKey() != key)
-	{
-		model->InvalidatePosition();
-		rdata = m->vertexRenderer->CreateModelData(key, model);
-		model->SetRenderData(rdata);
-		model->SetDirty(~0u);
-	}
-
-	m->submissions[cullGroup].push_back(model);
-}
-
-
-// Call update for all submitted models and enter the rendering phase
-void ModelRenderer::PrepareModels(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
-{
-	for (int cullGroup = 0; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
-	{
-		for (CModel* model : m->submissions[cullGroup])
-		{
-			model->ValidatePosition();
-
-			CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
-			ENSURE(rdata->GetKey() == m->vertexRenderer.get());
-		}
-
-		m->vertexRenderer->UpdateModelsData(deviceCommandContext, m->submissions[cullGroup]);
-
-		for (CModel* model : m->submissions[cullGroup])
-		{
-			CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
-			rdata->m_UpdateFlags = 0;
-		}
-	}
-}
-
-void ModelRenderer::UploadModels(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
-{
-	for (int cullGroup = 0; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
-	{
-		m->vertexRenderer->UploadModelsData(deviceCommandContext, m->submissions[cullGroup]);
-	}
-}
-
-// Clear the submissions list
-void ModelRenderer::EndFrame()
-{
-	for (int cullGroup = 0; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
-		m->submissions[cullGroup].clear();
-}
-
-
 // Helper structs for ShaderModelRenderer::Render():
 
 struct SMRSortByDistItem
@@ -389,10 +306,10 @@ struct SMRCompareTechBucket
 
 void ModelRenderer::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const RenderModifierPtr& modifier, const CShaderDefines& context,
-	int cullGroup, int flags, const ERenderMode renderMode)
+	ModelVertexRenderer& modelVertexRenderer, const RenderModifierPtr& modifier, const CShaderDefines& context,
+	int cullGroup, int flags, const ERenderMode renderMode, std::span<CModel*> submissions)
 {
-	if (m->submissions[cullGroup].empty())
+	if (submissions.empty())
 		return;
 
 	CMatrix3D worldToCam;
@@ -403,7 +320,7 @@ void ModelRenderer::Render(
 	/*
 	 * Rendering approach:
 	 *
-	 * m->submissions contains the list of CModels to render.
+	 * submissions contains the list of CModels to render.
 	 *
 	 * The data we need to render a model is:
 	 *  - CShaderTechnique
@@ -471,9 +388,8 @@ void ModelRenderer::Render(
 	{
 		PROFILE3("bucketing by material");
 
-		for (size_t i = 0; i < m->submissions[cullGroup].size(); ++i)
+		for (CModel* model : submissions)
 		{
-			CModel* model = m->submissions[cullGroup][i];
 			const CMaterial material{model->GetMaterial()};
 			const CShaderDefines& defines{material.GetShaderDefines()};
 			const CStrIntern shaderEffect{material.GetShaderEffect(materialPass)};
@@ -727,7 +643,7 @@ void ModelRenderer::Render(
 						if (newModeldef != currentModeldef)
 						{
 							currentModeldef = newModeldef;
-							m->vertexRenderer->PrepareModelDef(deviceCommandContext, *currentModeldef);
+							modelVertexRenderer.PrepareModelDef(deviceCommandContext, *currentModeldef);
 						}
 
 						// Bind all uniforms when any change
@@ -790,9 +706,9 @@ void ModelRenderer::Render(
 						modifier->PrepareModel(deviceCommandContext, model);
 
 						CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
-						ENSURE(rdata->GetKey() == m->vertexRenderer.get());
+						ENSURE(rdata->GetKey() == &modelVertexRenderer);
 
-						m->vertexRenderer->RenderModel(deviceCommandContext, shader, model, rdata);
+						modelVertexRenderer.RenderModel(deviceCommandContext, shader, model, rdata);
 					}
 				}
 

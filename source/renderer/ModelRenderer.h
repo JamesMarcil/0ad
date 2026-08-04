@@ -30,6 +30,7 @@
 #include "lib/types.h"
 
 #include <memory>
+#include <span>
 #include <vector>
 
 class CModel;
@@ -80,7 +81,7 @@ private:
 
 
 /**
- * ModelRenderer manages a per-frame list of models. It loads the appropriate
+ * ModelRenderer renders a per-frame list of models. It loads the appropriate
  * shaders for rendering each model, and that batches by shader technique (and
  * by mesh and texture).
  *
@@ -93,46 +94,6 @@ private:
 class ModelRenderer
 {
 public:
-	ModelRenderer(ModelVertexRendererPtr vertexrenderer);
-	~ModelRenderer();
-
-	/**
-	 * Submit: Submit a model for rendering this frame.
-	 *
-	 * preconditions : The model must not have been submitted to any
-	 * ModelRenderer in this frame. Submit may only be called
-	 * after EndFrame and before PrepareModels.
-	 *
-	 * @param model The model that will be added to the list of models
-	 * submitted this frame.
-	 */
-	void Submit(int cullGroup, CModel* model);
-
-	/**
-	 * PrepareModels: Calculate renderer data for all previously
-	 * submitted models.
-	 *
-	 * Must be called before any rendering calls and after all models
-	 * for this frame have been submitted.
-	 */
-	void PrepareModels(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
-
-	/**
-	 * Upload renderer data for all previously submitted models to backend.
-	 *
-	 * Must be called before any rendering calls and after all models
-	 * for this frame have been prepared.
-	 */
-	void UploadModels(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
-
-	/**
-	 * EndFrame: Remove all models from the list of submitted
-	 * models.
-	 */
-	void EndFrame();
-
 	/**
 	 * Render: Render submitted models, using the given RenderModifier to setup
 	 * the fragment stage.
@@ -147,8 +108,8 @@ public:
 	 */
 	void Render(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const RenderModifierPtr& modifier, const CShaderDefines& context,
-		int cullGroup, int flags, const ERenderMode renderMode);
+		ModelVertexRenderer& modelVertexRenderer, const RenderModifierPtr& modifier, const CShaderDefines& context,
+		int cullGroup, int flags, const ERenderMode renderMode, std::span<CModel*> submissions);
 
 	/**
 	 * CopyPositionAndNormals: Copy unanimated object-space vertices and
@@ -233,10 +194,6 @@ public:
 	 * The new vertices cannot be used with existing face index and must be welded/reindexed.
 	 */
 	static void GenTangents(const CModelDefPtr& mdef, std::vector<float>& newVertices, bool gpuSkinning);
-
-private:
-	struct ModelRendererInternals;
-	std::unique_ptr<ModelRendererInternals> m;
 };
 
 #endif // INCLUDED_MODELRENDERER
