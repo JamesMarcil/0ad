@@ -131,14 +131,14 @@ public:
 		// Submitted models are split on two axes:
 		//  - Normal vs Transp[arent] - alpha-blended models are stored in a separate
 		//    list so we can draw them above/below the alpha-blended water plane correctly
-		//  - Skinned vs Unskinned - with hardware lighting we don't need to
-		//    duplicate mesh data per model instance (except for skinned models),
-		//    so non-skinned models get different ModelVertexRenderers
+		//  - Skinned vs Unskinned - we don't need to duplicate mesh data per
+		//    model instance (except for skinned models), so non-skinned models
+		//    get different ModelVertexRenderers
 
-		ModelRendererPtr NormalSkinned;
-		ModelRendererPtr NormalUnskinned; // == NormalSkinned if unskinned shader instancing not supported
-		ModelRendererPtr TranspSkinned;
-		ModelRendererPtr TranspUnskinned; // == TranspSkinned if unskinned shader instancing not supported
+		std::unique_ptr<ShaderModelRenderer> NormalSkinned;
+		std::unique_ptr<ShaderModelRenderer> NormalUnskinned;
+		std::unique_ptr<ShaderModelRenderer> TranspSkinned;
+		std::unique_ptr<ShaderModelRenderer> TranspUnskinned;
 
 		ModelVertexRendererPtr VertexRendererShader;
 		ModelVertexRendererPtr VertexInstancingShader;
@@ -161,12 +161,9 @@ public:
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
 		Model.NormalSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
 
-		if (Model.NormalUnskinned != Model.NormalSkinned)
-		{
-			CShaderDefines contextUnskinned = context;
-			contextUnskinned.Add(str_USE_INSTANCING, str_1);
-			Model.NormalUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
-		}
+		CShaderDefines contextUnskinned = context;
+		contextUnskinned.Add(str_USE_INSTANCING, str_1);
+		Model.NormalUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
 	}
 
 	/**
@@ -181,12 +178,9 @@ public:
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
 		Model.TranspSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
 
-		if (Model.TranspUnskinned != Model.TranspSkinned)
-		{
-			CShaderDefines contextUnskinned = context;
-			contextUnskinned.Add(str_USE_INSTANCING, str_1);
-			Model.TranspUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
-		}
+		CShaderDefines contextUnskinned = context;
+		contextUnskinned.Add(str_USE_INSTANCING, str_1);
+		Model.TranspUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
 	}
 };
 
@@ -247,18 +241,18 @@ void CSceneRenderer::ReloadShaders([[maybe_unused]] Renderer::Backend::IDevice* 
 	if (g_RenderingOptions.GetGPUSkinning())
 	{
 		m->Model.VertexGPUSkinningShader = ModelVertexRendererPtr(new GPUSkinnedModelModelRenderer());
-		m->Model.NormalSkinned = ModelRendererPtr(new ShaderModelRenderer(m->Model.VertexGPUSkinningShader));
-		m->Model.TranspSkinned = ModelRendererPtr(new ShaderModelRenderer(m->Model.VertexGPUSkinningShader));
+		m->Model.NormalSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexGPUSkinningShader);
+		m->Model.TranspSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexGPUSkinningShader);
 	}
 	else
 	{
 		m->Model.VertexGPUSkinningShader.reset();
-		m->Model.NormalSkinned = ModelRendererPtr(new ShaderModelRenderer(m->Model.VertexRendererShader));
-		m->Model.TranspSkinned = ModelRendererPtr(new ShaderModelRenderer(m->Model.VertexRendererShader));
+		m->Model.NormalSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexRendererShader);
+		m->Model.TranspSkinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexRendererShader);
 	}
 
-	m->Model.NormalUnskinned = ModelRendererPtr(new ShaderModelRenderer(m->Model.VertexInstancingShader));
-	m->Model.TranspUnskinned = ModelRendererPtr(new ShaderModelRenderer(m->Model.VertexInstancingShader));
+	m->Model.NormalUnskinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexInstancingShader);
+	m->Model.TranspUnskinned = std::make_unique<ShaderModelRenderer>(m->Model.VertexInstancingShader);
 }
 
 void CSceneRenderer::Initialize()
@@ -774,10 +768,8 @@ void CSceneRenderer::PrepareSubmissions(
 	PROFILE3("prepare models");
 	m->Model.NormalSkinned->PrepareModels(deviceCommandContext);
 	m->Model.TranspSkinned->PrepareModels(deviceCommandContext);
-	if (m->Model.NormalUnskinned != m->Model.NormalSkinned)
-		m->Model.NormalUnskinned->PrepareModels(deviceCommandContext);
-	if (m->Model.TranspUnskinned != m->Model.TranspSkinned)
-		m->Model.TranspUnskinned->PrepareModels(deviceCommandContext);
+	m->Model.NormalUnskinned->PrepareModels(deviceCommandContext);
+	m->Model.TranspUnskinned->PrepareModels(deviceCommandContext);
 	}
 
 	m->terrainRenderer.PrepareForRendering();
@@ -790,10 +782,8 @@ void CSceneRenderer::PrepareSubmissions(
 		PROFILE3("upload models");
 		m->Model.NormalSkinned->UploadModels(deviceCommandContext);
 		m->Model.TranspSkinned->UploadModels(deviceCommandContext);
-		if (m->Model.NormalUnskinned != m->Model.NormalSkinned)
-			m->Model.NormalUnskinned->UploadModels(deviceCommandContext);
-		if (m->Model.TranspUnskinned != m->Model.TranspSkinned)
-			m->Model.TranspUnskinned->UploadModels(deviceCommandContext);
+		m->Model.NormalUnskinned->UploadModels(deviceCommandContext);
+		m->Model.TranspUnskinned->UploadModels(deviceCommandContext);
 	}
 
 	m->overlayRenderer.Upload(deviceCommandContext);
@@ -911,10 +901,8 @@ void CSceneRenderer::EndFrame()
 	// Finish model renderers
 	m->Model.NormalSkinned->EndFrame();
 	m->Model.TranspSkinned->EndFrame();
-	if (m->Model.NormalUnskinned != m->Model.NormalSkinned)
-		m->Model.NormalUnskinned->EndFrame();
-	if (m->Model.TranspUnskinned != m->Model.TranspSkinned)
-		m->Model.TranspUnskinned->EndFrame();
+	m->Model.NormalUnskinned->EndFrame();
+	m->Model.TranspUnskinned->EndFrame();
 }
 
 void CSceneRenderer::DisplayFrustum(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)

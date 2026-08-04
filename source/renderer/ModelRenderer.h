@@ -48,9 +48,6 @@ typedef std::shared_ptr<LitRenderModifier> LitRenderModifierPtr;
 class ModelVertexRenderer;
 typedef std::shared_ptr<ModelVertexRenderer> ModelVertexRendererPtr;
 
-class ModelRenderer;
-typedef std::shared_ptr<ModelRenderer> ModelRendererPtr;
-
 /**
  * Class CModelRData: Render data that is maintained per CModel.
  * ModelRenderer implementations may derive from this class to store
