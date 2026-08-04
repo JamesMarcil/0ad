@@ -306,7 +306,7 @@ struct SMRCompareTechBucket
 
 void ModelRenderer::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	ModelVertexRenderer& modelVertexRenderer, const RenderModifierPtr& modifier, const CShaderDefines& context,
+	ModelVertexRenderer& modelVertexRenderer, RenderModifier& modifier, const CShaderDefines& context,
 	int cullGroup, int flags, const ERenderMode renderMode, std::span<CModel*> submissions)
 {
 	if (submissions.empty())
@@ -573,7 +573,7 @@ void ModelRenderer::Render(
 
 				Renderer::Backend::IShaderProgram* shader = currentTech->GetShader(pass);
 
-				modifier->BeginPass(deviceCommandContext, shader);
+				modifier.BeginPass(deviceCommandContext, shader);
 
 				// TODO: Use a more generic approach to handle bound queries.
 				bool boundTime = false;
@@ -703,7 +703,7 @@ void ModelRenderer::Render(
 							}
 						}
 
-						modifier->PrepareModel(deviceCommandContext, model);
+						modifier.PrepareModel(deviceCommandContext, model);
 
 						CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
 						ENSURE(rdata->GetKey() == &modelVertexRenderer);

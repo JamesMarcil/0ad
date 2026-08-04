@@ -34,7 +34,7 @@ struct InstancingModelRendererInternals;
  * This computes and binds per-vertex data; the modifier is responsible
  * for setting any shader uniforms etc (including the instancing transform).
  */
-class InstancingModelRenderer : public ModelVertexRenderer
+class InstancingModelRenderer final : public ModelVertexRenderer
 {
 public:
 	InstancingModelRenderer();

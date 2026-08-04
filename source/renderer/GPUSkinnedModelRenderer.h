@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ namespace Renderer::Backend { class IShaderProgram; }
  * This computes and binds per-vertex data; the modifier is responsible
  * for setting any shader uniforms etc.
  */
-class GPUSkinnedModelModelRenderer : public ModelVertexRenderer
+class GPUSkinnedModelModelRenderer final : public ModelVertexRenderer
 {
 public:
 	GPUSkinnedModelModelRenderer();

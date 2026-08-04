@@ -40,14 +40,8 @@ namespace Renderer::Backend { class IDeviceCommandContext; }
 struct SColor4ub;
 template <typename T> class VertexArrayIterator;
 
-class RenderModifier;
-typedef std::shared_ptr<RenderModifier> RenderModifierPtr;
-
-class LitRenderModifier;
-typedef std::shared_ptr<LitRenderModifier> LitRenderModifierPtr;
-
 class ModelVertexRenderer;
-typedef std::shared_ptr<ModelVertexRenderer> ModelVertexRendererPtr;
+class RenderModifier;
 
 /**
  * Class CModelRData: Render data that is maintained per CModel.
@@ -108,7 +102,7 @@ public:
 	 */
 	void Render(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		ModelVertexRenderer& modelVertexRenderer, const RenderModifierPtr& modifier, const CShaderDefines& context,
+		ModelVertexRenderer& modelVertexRenderer, RenderModifier& modifier, const CShaderDefines& context,
 		int cullGroup, int flags, const ERenderMode renderMode, std::span<CModel*> submissions);
 
 	/**

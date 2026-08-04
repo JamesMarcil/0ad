@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ namespace Renderer::Backend { class IDeviceCommandContext; }
  * This computes and binds per-vertex data; the modifier is responsible
  * for setting any shader uniforms etc.
  */
-class CPUSkinnedModelVertexRenderer : public ModelVertexRenderer
+class CPUSkinnedModelVertexRenderer final : public ModelVertexRenderer
 {
 public:
 	CPUSkinnedModelVertexRenderer();
