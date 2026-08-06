@@ -157,29 +157,6 @@ void ModelRenderer::BuildPositionAndNormals(
 }
 
 // static
-void ModelRenderer::BuildColor4ub(
-	CModel* model,
-	const VertexArrayIterator<CVector3D>& Normal,
-	const VertexArrayIterator<SColor4ub>& Color)
-{
-	PROFILE("lighting vertices");
-
-	CModelDefPtr mdef = model->GetModelDef();
-	size_t numVertices = mdef->GetNumVertices();
-	const CLightEnv& lightEnv = g_Renderer.GetSceneRenderer().GetLightEnv();
-	CColor shadingColor = model->GetShadingColor();
-
-	for (size_t j = 0; j < numVertices; ++j)
-	{
-		RGBColor tempcolor = lightEnv.EvaluateUnitScaled(Normal[j]);
-		tempcolor.X *= shadingColor.r;
-		tempcolor.Y *= shadingColor.g;
-		tempcolor.Z *= shadingColor.b;
-		Color[j] = ConvertRGBColorTo4ub(tempcolor);
-	}
-}
-
-// static
 void ModelRenderer::GenTangents(const CModelDefPtr& mdef, std::vector<float>& newVertices, bool gpuSkinning)
 {
 	MikkTSpace ms(mdef, newVertices, gpuSkinning);

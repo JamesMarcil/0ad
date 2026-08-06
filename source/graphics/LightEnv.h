@@ -53,25 +53,6 @@ public:
 	void SetElevation(float f);
 	void SetRotation(float f);
 
-	/**
-	 * Calculate brightness of a point of a unit with the given normal vector,
-	 * for rendering with CPU lighting.
-	 * The resulting color contains both ambient and diffuse light.
-	 * To cope with sun overbrightness, the color is scaled by 0.5.
-	 *
-	 * @param normal normal vector (must have length 1)
-	 */
-	RGBColor EvaluateUnitScaled(const CVector3D& normal) const
-	{
-		float dot = -normal.Dot(m_SunDir);
-
-		RGBColor color = m_AmbientColor;
-		if (dot > 0)
-			color += m_SunColor * dot;
-
-		return color * 0.5f;
-	}
-
 	// Comparison operators
 	bool operator==(const CLightEnv& o) const
 	{

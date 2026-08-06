@@ -142,22 +142,6 @@ public:
 		const VertexArrayIterator<CVector3D>& Normal);
 
 	/**
-	 * BuildColor4ub: Build lighting colors for the given model,
-	 * based on previously calculated world space normals.
-	 *
-	 * @param model The model that is to be lit.
-	 * @param Normal Array of the model's normal vectors, animated and
-	 * transformed into world space.
-	 * @param Color Points to the array that will receive the lit vertex color.
-	 * The array behind the iterator must large enough to hold
-	 * model->GetModelDef()->GetNumVertices() vertices.
-	 */
-	static void BuildColor4ub(
-		CModel* model,
-		const VertexArrayIterator<CVector3D>& Normal,
-		const VertexArrayIterator<SColor4ub>& Color);
-
-	/**
 	 * BuildUV: Copy UV coordinates into the given vertex array.
 	 *
 	 * @param mdef The model def.
