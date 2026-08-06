@@ -390,7 +390,7 @@ void ModelRenderer::Render(
 
 		for (CModel* model : submissions)
 		{
-			const CMaterial material{model->GetMaterial()};
+			const CMaterial& material{model->GetMaterial()};
 			const CShaderDefines& defines{material.GetShaderDefines()};
 			const CStrIntern shaderEffect{material.GetShaderEffect(materialPass)};
 			SMRMaterialBucketKey key(shaderEffect, defines);
