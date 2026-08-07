@@ -137,6 +137,7 @@ with open(BUNDLE_CONTENTS + "/Info.plist", "wb") as f:
             "CFBundleDevelopmentRegion": "English",
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundleIconFile": "0ad",
+            "LSApplicationCategoryType": "public.app-category.strategy-games",
             "LSHasLocalizedDisplayName": True,
             "LSMinimumSystemVersion": BUNDLE_MIN_OSX_VERSION,
             "NSHumanReadableCopyright": f"Copyright © {datetime.now(tz=UTC).year} Wildfire Games",
