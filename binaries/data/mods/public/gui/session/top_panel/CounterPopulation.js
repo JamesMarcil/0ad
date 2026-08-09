@@ -32,7 +32,8 @@ class CounterPopulation
 		this.isTrainingBlocked = playerState.trainingBlocked;
 
 		this.panel.tooltip =
-			setStringTags(translate(this.PopulationTooltip), CounterManager.ResourceTitleTags) +
+			setStringTags(translate(this.PopulationTooltipTitle), CounterManager.ResourceTitleTags) +
+			"\n" + sprintf(this.PopulationTooltip, state) +
 			getAllyStatTooltip(this.getTooltipData.bind(this)) + "\n" +
 			sprintf(this.CurrentGatherersTooltip, { "currentGatherers": colorizedTotal });
 	}
@@ -65,7 +66,9 @@ class CounterPopulation
 // Translation: Do not insert spaces around the slash symbol for this exact string. Keep only one space between popLimit and popMax.
 CounterPopulation.prototype.CounterCaption = markForTranslation("%(popCount)s/%(popLimit)s (%(popMax)s)");
 
-CounterPopulation.prototype.PopulationTooltip = markForTranslation("Population: current/limit (max)");
+CounterPopulation.prototype.PopulationTooltipTitle = markForTranslation("Population");
+CounterPopulation.prototype.PopulationTooltip =
+	translate("Current population: %(popCount)s\nPopulation limit: %(popLimit)s\nMaximum population: %(popMax)s");
 
 CounterPopulation.prototype.AllyPopulationTooltip = markForTranslation("%(popCount)s/%(popLimit)s (%(popMax)s)");
 
