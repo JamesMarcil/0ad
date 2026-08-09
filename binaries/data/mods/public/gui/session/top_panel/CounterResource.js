@@ -17,7 +17,9 @@ class CounterResource
 		this.count.caption = abbreviateLargeNumbers(Math.floor(playerState.resourceCounts[this.resCode]));
 
 		const gatherers = playerState.resourceGatherers[this.resCode];
-		this.stats.caption = coloredText(gatherers, gatherers ? this.DefaultResourceGatherersColor : this.DefaultResourceGatherersColorZero);
+		const colorizedGatherers = coloredText(gatherers,
+			gatherers ? this.DefaultResourceGatherersColor : this.DefaultResourceGatherersColorZero);
+		this.stats.caption = colorizedGatherers;
 
 
 		// TODO: Set the tooltip only if hovered?
@@ -28,7 +30,9 @@ class CounterResource
 		this.panel.tooltip =
 			setStringTags(resourceNameFirstWord(this.resCode), CounterManager.ResourceTitleTags) +
 			description +
-			getAllyStatTooltip(this.getTooltipData.bind(this));
+			getAllyStatTooltip(this.getTooltipData.bind(this)) + "\n" +
+			sprintf(CounterPopulation.prototype.CurrentGatherersTooltip,
+				{ "currentGatherers": colorizedGatherers });
 	}
 
 	getTooltipData(playerState, playername)

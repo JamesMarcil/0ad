@@ -25,13 +25,16 @@ class CounterPopulation
 		for (const resCode of g_ResourceData.GetCodes())
 			total += playerState.resourceGatherers[resCode];
 
-		this.stats.caption = coloredText(total, total ? this.DefaultTotalGatherersColor : this.DefaultTotalGatherersColorZero);
+		const colorizedTotal = coloredText(total,
+			total ? this.DefaultTotalGatherersColor : this.DefaultTotalGatherersColorZero);
+		this.stats.caption = colorizedTotal;
 
 		this.isTrainingBlocked = playerState.trainingBlocked;
 
 		this.panel.tooltip =
 			setStringTags(translate(this.PopulationTooltip), CounterManager.ResourceTitleTags) +
-			getAllyStatTooltip(this.getTooltipData.bind(this));
+			getAllyStatTooltip(this.getTooltipData.bind(this)) + "\n" +
+			sprintf(this.CurrentGatherersTooltip, { "currentGatherers": colorizedTotal });
 	}
 
 	getTooltipData(playerState, playername)
@@ -65,6 +68,14 @@ CounterPopulation.prototype.CounterCaption = markForTranslation("%(popCount)s/%(
 CounterPopulation.prototype.PopulationTooltip = markForTranslation("Population: current/limit (max)");
 
 CounterPopulation.prototype.AllyPopulationTooltip = markForTranslation("%(popCount)s/%(popLimit)s (%(popMax)s)");
+
+/**
+ * Storing the translated and formatted gatherer string in the prototype.
+ * Including the number might seem redundant but is required since the collor
+ * isn't enough to associate it with the number in the top panel.
+ */
+CounterPopulation.prototype.CurrentGatherersTooltip =
+	setStringTags(translate("Current gatherers: %(currentGatherers)s"), { "font": "sans-14" });
 
 /**
  * Color to highlight the total number of gatherers at zero.
