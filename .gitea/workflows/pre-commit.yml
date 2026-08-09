@@ -3,22 +3,27 @@ name: pre-commit
 on:
   - push
   - pull_request
+env:
+  PRE_COMMIT_VERSION: 4.6.0
 jobs:
-  build:
+  pre-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - id: restore-pip-cache
-        uses: actions/cache/restore@v6
+      - uses: actions/cache@v6
         with:
-          key: pip-cache-v1-${{ github.workflow }}
+          key: pip-cache-v1-${{github.workflow}}-${{env.pythonLocation}}-${{env.PRE_COMMIT_VERSION}}
           path: ~/.cache/pip
-      - uses: pre-commit/action@v3.0.1
-      - uses: actions/cache/save@v6
-        if: steps.restore-pip-cache.outcome == 'success'
+      - run: python -m pip install pre-commit=="${{ env.PRE_COMMIT_VERSION }}"
+        shell: bash
+      - run: python -m pip freeze --local
+        shell: bash
+      - uses: actions/cache@v6
         with:
-          key: pip-cache-v1-${{ github.workflow }}
-          path: ~/.cache/pip
+          path: ~/.cache/pre-commit
+          key: pre-commit-3|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+      - run: pre-commit run --show-diff-on-failure --color=always --all-files
+        shell: bash
