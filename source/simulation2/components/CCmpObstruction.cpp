@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -819,7 +819,7 @@ public:
 			for (const entity_id_t normalEnt : normalEnts)
 			{
 				CmpPtr<ICmpObstruction> cmpObstruction(GetSimContext(), normalEnt);
-				for (const entity_id_t persistent : normalEnts)
+				for (const entity_id_t persistent : persistentEnts)
 				{
 					entity_id_t group = cmpObstruction->GetControlGroup();
 
