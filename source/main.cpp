@@ -70,6 +70,7 @@ that of Atlas depending on commandline parameters.
 #include "ps/Mod.h"
 #include "ps/ModInstaller.h"
 #include "ps/Profile.h"
+#include "ps/ProfileTracy.h"
 #include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/Replay.h"
@@ -454,6 +455,8 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 
 	g_Profiler.Frame();
 
+	TRACY_FRAME_MARK();
+
 	LimitFPS();
 }
 
@@ -478,6 +481,8 @@ static void NonVisualFrame()
 	}
 
 	g_Profiler.Frame();
+
+	TRACY_FRAME_MARK();
 
 	if (g_Game->IsGameFinished())
 		QuitEngine(EXIT_SUCCESS);

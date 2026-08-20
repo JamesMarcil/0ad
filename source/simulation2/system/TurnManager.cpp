@@ -23,6 +23,7 @@
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/Profile.h"
+#include "ps/ProfileTracy.h"
 #include "ps/Profiler2.h"
 #include "ps/Replay.h"
 #include "scriptinterface/Object.h"
@@ -119,6 +120,7 @@ bool CTurnManager::Update(float simFrameLength, size_t maxTurns, const UpdateCal
 		// To avoid confusing the profiler, we need to trigger the new turn
 		// while we're not nested inside any PROFILE blocks
 		g_Profiler.Turn();
+		TRACY_FRAME_MARK_NAMED("SimulationTurn");
 
 		NotifyFinishedOwnCommands(m_CurrentTurn + m_CommandDelay);
 

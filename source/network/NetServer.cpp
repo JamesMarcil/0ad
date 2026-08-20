@@ -185,6 +185,7 @@ bool CNetServerWorker::CheckPassword(const std::string& password, const std::str
 void CNetServerWorker::SetupUPnP(const u16 port)
 {
 	debug_SetThreadName("UPnP");
+	g_Profiler2.RegisterCurrentThread("UPnP");
 
 	// Values we want to set.
 	char psPort[6];

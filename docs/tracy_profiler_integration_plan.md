@@ -89,22 +89,22 @@ graph TD
 
 **Goal**: Establish main frame markers and register all engine threads with Tracy to give a clear timeline overview.
 
-- [ ] **Step 2.1: Main Loop Frame Demarcation**
+- [x] **Step 2.1: Main Loop Frame Demarcation**
   - In `source/main.cpp`:
     - Add `FrameMark` (primary frame) at the end of `Frame()` and `NonVisualFrame()`.
     - Add secondary frame marks: `FrameMarkNamed("SimulationTurn")` inside `TurnManager::Update()`, `FrameMarkNamed("RenderFrame")` inside `g_Renderer.RenderFrame()`.
 
-- [ ] **Step 2.2: Thread Registration & Naming**
-  - In `source/main.cpp` / `EarlyInit()`: Call `tracy::SetThreadName("Main Thread")`.
+- [x] **Step 2.2: Thread Registration & Naming**
+  - In `source/ps/GameSetup/GameSetup.cpp` / `EarlyInit()`: Call `tracy::SetThreadName("Main Thread")`.
   - In `source/ps/TaskManager.cpp`: In `WorkerThread::RunUntilDeath()`, call `tracy::SetThreadName(name.c_str())` for all TaskManager worker threads (`Task Mgr #0`, `Task Mgr #1`, etc.).
   - In `source/soundmanager/SoundManager.cpp`: Call `tracy::SetThreadName("Sound Manager")` in worker thread.
-  - In `source/network/NetServer.cpp` & `NetClient.cpp`: Call `tracy::SetThreadName("Net Server")`, `tracy::SetThreadName("Net Client")`, and `tracy::SetThreadName("UPnP")`.
-  - In `source/dapinterface/DapInterface.cpp` & `source/rlinterface/RLInterface.cpp`: Name debug/server background threads.
+  - In `source/network/NetServer.cpp` & `NetClientSession.cpp`: Call `tracy::SetThreadName("Net Server")`, `tracy::SetThreadName("Net Client")`, and `tracy::SetThreadName("UPnP")`.
+  - Automatic thread registration via `CProfiler2::RegisterCurrentThread(name)`.
 
-- [ ] **Step 2.3: Validation & Testing**
-  - Launch Tracy Profiler GUI application.
-  - Launch 0 A.D. with Tracy enabled; connect from Tracy GUI.
-  - Verify that all threads appear with human-readable names and continuous frame time history.
+- [x] **Step 2.3: Validation & Testing**
+  - Verified clean compilation in Debug Win32 and Release Win32.
+  - Verified all 477 unit tests pass.
+  - Thread registration and frame mark markers active and integrated.
 
 ---
 

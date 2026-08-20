@@ -56,6 +56,7 @@
 #include "ps/memory/LinearAllocator.h"
 #include "ps/Hotkey.h"
 #include "ps/Profile.h"
+#include "ps/ProfileTracy.h"
 #include "ps/ProfileViewer.h"
 #include "ps/Profiler2.h"
 #include "ps/Util.h"
@@ -549,6 +550,8 @@ void CRenderer::RenderFrame(const bool needsPresent)
 		if (needsPresent)
 			swapChain->Present();
 	}
+
+	TRACY_FRAME_MARK_NAMED("RenderFrame");
 }
 
 void CRenderer::RenderFrameImpl(

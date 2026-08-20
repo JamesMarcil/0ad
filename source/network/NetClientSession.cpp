@@ -81,6 +81,7 @@ void CNetClientSession::RunNetLoop(CNetClientSession* session)
 	session->m_LoopRunning = true;
 
 	debug_SetThreadName("NetClientSession loop");
+	g_Profiler2.RegisterCurrentThread("Net client");
 
 	while (!session->m_ShouldShutdown)
 	{
