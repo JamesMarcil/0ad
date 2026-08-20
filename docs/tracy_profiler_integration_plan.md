@@ -1,0 +1,251 @@
+# Plan: Tracy Profiler Integration & Hot-Loop Profiling in 0 A.D.
+
+## Executive Summary
+
+The goal of this initiative is to integrate the **Tracy Profiler** (a real-time, nanosecond-resolution, frame-oriented hybrid profiler) into 0 A.D. (Pyrogenesis engine). This document defines a complete, atomic, and incremental roadmap for integrating Tracy into the build system, establishing core lifecycle and threading hooks, instrumenting critical hot loops across the simulation and rendering pipelines, and capturing memory, lock contention, and metric plots.
+
+The deliverable is a production-ready, zero-overhead-when-disabled profiling system that streams rich performance data to the Tracy GUI client during live gameplay and replays.
+
+---
+
+## Architecture & Integration Strategy
+
+```mermaid
+graph TD
+    subgraph BuildSystem ["Build System & Config"]
+        Premake["Premake5 (--with-tracy)"] --> Defines["TRACY_ENABLE / TRACY_ON_DEMAND"]
+        Premake --> Libs["Link ws2_32, dbghelp (Windows) / pthread, dl (POSIX)"]
+    end
+
+    subgraph TracyCore ["Tracy Profiler Subsystem"]
+        Vendor["source/third_party/tracy/"] --> Wrapper["source/ps/ProfileTracy.h"]
+        Wrapper --> ExistingMacros["Bridge PROFILE / PROFILE2 / PROFILE3"]
+    end
+
+    subgraph HotLoops ["Instrumentation Targets"]
+        Wrapper --> MainLoop["Main Loop & FrameMark (source/main.cpp)"]
+        Wrapper --> Threads["Thread Registration (Main, TaskMgr, Sound, Net)"]
+        Wrapper --> SimEngine["Simulation & Turns (TurnManager, RangeMgr, Motion)"]
+        Wrapper --> Pathfinding["Pathfinding (LongPath, ShortPath, Hierarchical)"]
+        Wrapper --> Renderer["Renderer Pipeline (Scene, Terrain, Models, DrawCalls)"]
+        Wrapper --> MemoryLocks["Allocators, Locks & Metric Plots"]
+    end
+
+    subgraph Visualization ["Telemetry Output"]
+        HotLoops --> Stream["TCP Socket Stream (Port 8086)"]
+        Stream --> TracyGUI["Tracy Profiler GUI (Timeline, Flamegraphs, Memory, Contention)"]
+    end
+```
+
+### Key Design Principles
+
+1. **Zero Runtime Overhead When Disabled**: When compiled without `--with-tracy` (or with `TRACY_ENABLE=0`), all macros expand to no-ops with zero runtime cost and zero binary bloat.
+2. **Coexistence with Existing Profilers**: 0 A.D. currently features `CProfileManager` (hierarchical text profiler) and `CProfiler2` (HTTP/JSON flamegraph). The Tracy integration will coexist cleanly and bridge into existing macro sites (`PROFILE`, `PROFILE2`, `PROFILE3`) to immediately leverage existing instrumentation points.
+3. **Atomic, Incremental Commits**: Each step in the plan represents an isolated, compilable, and verifiable milestone adhering to project guidelines (building Win32 Debug/Release and passing test suite at each stage).
+4. **Cross-Platform Compatibility**: Full support for Windows (MSVC 2022 / VS toolsets), Linux (GCC/Clang), and macOS.
+
+---
+
+## Phase Breakdown
+
+### Phase 1: Build System & Tracy Client Submodule/Vendor Setup
+
+**Goal**: Add Tracy source files to the codebase, configure Premake5 to support `--with-tracy`, and create the macro abstraction header.
+
+- [ ] **Step 1.1: Vendor Tracy Client Library**
+  - Place Tracy client sources (v0.11.x or latest stable) in `source/third_party/tracy/`.
+  - Include headers (`tracy/Tracy.hpp`, `tracy/TracyC.h`, `client/`, `common/`) and translation unit (`TracyClient.cpp`).
+  - Add `source/third_party/tracy/README.md` documenting upstream version and licensing (3-Clause BSD).
+
+- [ ] **Step 1.2: Premake Build System Configuration**
+  - Update `build/premake/premake5.lua`:
+    - Add new option: `newoption { category = "Pyrogenesis", trigger = "with-tracy", description = "Enable Tracy profiler support" }`.
+    - Conditionally define `TRACY_ENABLE=1`, `TRACY_ON_DEMAND=1`, `TRACY_CALLSTACK=1` when `--with-tracy` is specified.
+  - Update `build/premake/extern_libs5.lua`:
+    - Add `tracy` library definition with include path `source/third_party/tracy/`.
+    - Add platform-specific linking: Windows requires `ws2_32` and `dbghelp`; Linux/BSD requires `pthread` and `dl`.
+  - Add `tracy` to engine static libraries (`lowlevel`, `engine`, `graphics`, `simulation2`, `gui`, `network`) or include `TracyClient.cpp` in `lowlevel`.
+
+- [ ] **Step 1.3: Create Profiler Abstraction (`source/ps/ProfileTracy.h`)**
+  - Create wrapper macros:
+    - `TRACY_ZONE(name)` / `TRACY_ZONE_SCOPED()`
+    - `TRACY_ZONE_COLOR(name, color)`
+    - `TRACY_FRAME_MARK()` / `TRACY_FRAME_MARK_NAMED(name)`
+    - `TRACY_SET_THREAD_NAME(name)`
+    - `TRACY_PLOT(name, value)`
+    - `TRACY_ALLOC(ptr, size)` / `TRACY_FREE(ptr)`
+    - `TRACY_MESSAGE(msg)` / `TRACY_MESSAGE_FORMAT(fmt, ...)`
+  - Bridge existing macros in `source/ps/Profile.h` and `source/ps/Profiler2.h` so that `PROFILE(name)` and `PROFILE2(region)` automatically emit Tracy zones when `TRACY_ENABLE` is active.
+
+- [ ] **Step 1.4: Validation & Testing**
+  - Regenerate project files via `build/workspaces/update-workspaces.bat`.
+  - Build Win32 Debug and Win32 Release configurations without `--with-tracy` (verify baseline unaffected).
+  - Build Win32 Debug and Win32 Release configurations with `--with-tracy` (verify clean compilation).
+  - Run the test suite (`test_dbg.exe` / `test.exe`) to ensure zero regressions.
+
+---
+
+### Phase 2: Core Engine Lifecycle & Thread Instrumentation
+
+**Goal**: Establish main frame markers and register all engine threads with Tracy to give a clear timeline overview.
+
+- [ ] **Step 2.1: Main Loop Frame Demarcation**
+  - In `source/main.cpp`:
+    - Add `FrameMark` (primary frame) at the end of `Frame()` and `NonVisualFrame()`.
+    - Add secondary frame marks: `FrameMarkNamed("SimulationTurn")` inside `TurnManager::Update()`, `FrameMarkNamed("RenderFrame")` inside `g_Renderer.RenderFrame()`.
+
+- [ ] **Step 2.2: Thread Registration & Naming**
+  - In `source/main.cpp` / `EarlyInit()`: Call `tracy::SetThreadName("Main Thread")`.
+  - In `source/ps/TaskManager.cpp`: In `WorkerThread::RunUntilDeath()`, call `tracy::SetThreadName(name.c_str())` for all TaskManager worker threads (`Task Mgr #0`, `Task Mgr #1`, etc.).
+  - In `source/soundmanager/SoundManager.cpp`: Call `tracy::SetThreadName("Sound Manager")` in worker thread.
+  - In `source/network/NetServer.cpp` & `NetClient.cpp`: Call `tracy::SetThreadName("Net Server")`, `tracy::SetThreadName("Net Client")`, and `tracy::SetThreadName("UPnP")`.
+  - In `source/dapinterface/DapInterface.cpp` & `source/rlinterface/RLInterface.cpp`: Name debug/server background threads.
+
+- [ ] **Step 2.3: Validation & Testing**
+  - Launch Tracy Profiler GUI application.
+  - Launch 0 A.D. with Tracy enabled; connect from Tracy GUI.
+  - Verify that all threads appear with human-readable names and continuous frame time history.
+
+---
+
+### Phase 3: Hot-Loop Instrumentation — Simulation Subsystem
+
+**Goal**: Profile CPU bottlenecks in the turn simulation, spatial indexing, obstruction resolution, unit motion, and pathfinding.
+
+- [ ] **Step 3.1: Simulation & Turn Lifecycle**
+  - `source/simulation2/system/TurnManager.cpp` & `LocalTurnManager.cpp`:
+    - Instrument `TurnManager::Update`, `TurnManager::Interpolate`.
+    - Zone annotations for turn batching and command queue consumption.
+  - `source/simulation2/Simulation2.cpp`:
+    - Instrument `CSimulation2::Update`, `CSimulation2::Interpolate`, `CSimulation2::ProcessMessage`.
+    - Profile component message broadcasting (`BroadcastMessage`, `PostMessage`).
+
+- [ ] **Step 3.2: Spatial Partitioning & Range Management (`CCmpRangeManager.cpp`)**
+  - Instrument `GetEntitiesInRadius`, `GetEntitiesInRange`, `ExecuteQuery`.
+  - Profile line-of-sight (LOS) and fog-of-war (FOW) calculations: `UpdateLos`, `ExploreTile`, `RasterizeCircle`.
+  - Add zone values / text for queried entity count and active radius.
+
+- [ ] **Step 3.3: Obstruction & Collision Management (`CCmpObstructionManager.cpp`)**
+  - Instrument spatial grid updates: `UpdateGrid`, `RasterizeObstruction`.
+  - Instrument collision resolution: `TestMove`, `ResolveCollisions`, unit-unit push forces.
+
+- [ ] **Step 3.4: Unit Motion & Formations (`CCmpUnitMotion.cpp`, `CCmpUnitMotionManager.cpp`)**
+  - Instrument `CCmpUnitMotion::Move`, `UpdateTarget`, formation movement steps, flocking, and velocity clamping.
+  - Profile batch updates in `CCmpUnitMotionManager`.
+
+- [ ] **Step 3.5: Pathfinding Pipeline (`CCmpPathfinder.cpp` & helpers)**
+  - `CCmpPathfinder.cpp`: Instrument `UpdateGrid`, `MinimalTerrainUpdate`, `ComputePathImmediate`, `StartProcessingMoves`.
+  - `LongPathfinder.cpp`: Instrument Hierarchical A* search, tile cost evaluation, heuristic calculations, path reconstruction.
+  - `ShortPathfinder.cpp` & `VertexPathfinder.cpp`: Instrument fine-grained waypoint computation, local avoidance, and smoothing.
+  - `HierarchicalPathfinder.cpp`: Instrument region boundary transitions and passability graph caching.
+
+- [ ] **Step 3.6: AI & Scripting Component Calls (`CCmpAIManager.cpp`, `ICmp*Scripted.cpp`)**
+  - Instrument AI turn execution (`AIManager::Update`).
+  - Instrument script-to-C++ thunk boundaries and message serializations.
+
+- [ ] **Step 3.7: Validation & Testing**
+  - Run a 1000+ unit stress test or combat replay (e.g. `autostart="maps/skirmishes/..."`).
+  - Verify that simulation turn spikes, pathfinder stalls, and spatial queries are cleanly delineated in the Tracy flamegraph.
+
+---
+
+### Phase 4: Hot-Loop Instrumentation — Renderer & Graphics Pipeline
+
+**Goal**: Profile CPU submission overhead, culling, mesh transformations, terrain rendering, and draw call batching.
+
+- [ ] **Step 4.1: Render Frame Stages (`source/renderer/Renderer.cpp`)**
+  - Instrument `RenderFrameImpl`:
+    - Resource uploading (`UploadResourcesIfNeeded`, `MakeUploadProgress`).
+    - Scene camera configuration and culling setup.
+    - `RenderGameAndGUI` vs `RenderGameWithPostProcessingAndGUI`.
+    - `BeginFrame`, `EndFrame`, `m->linearAllocator.Release()`.
+
+- [ ] **Step 4.2: Scene Traversal & Frustum Culling (`source/renderer/SceneRenderer.cpp`, `GameView.cpp`)**
+  - Instrument `CGameView::EnumerateSceneObjects` (entity visibility determination).
+  - Instrument `CSceneRenderer::PrepareSubmissions` (sorting commands by shader/material, instancing).
+  - Instrument `CSceneRenderer::RenderSubmissions` (shadow pass, opaque pass, transparent pass).
+
+- [ ] **Step 4.3: Model & Skeletal Animation Pipeline (`source/renderer/ModelRenderer.cpp`)**
+  - Instrument skeletal matrix calculations and bone transforms (`ModelDef`, `SkeletonAnimDef`).
+  - Instrument vertex buffer allocations and draw call submission loops.
+
+- [ ] **Step 4.4: Terrain, Water & Environment (`source/renderer/TerrainRenderer.cpp`, `WaterRenderer.cpp`)**
+  - Instrument terrain patch culling, LOD selection, and splat texture blending.
+  - Instrument water surface rendering, reflection/refraction passes.
+
+- [ ] **Step 4.5: Particles, Decals & Overlays (`ParticleRenderer.cpp`, `OverlayRenderer.cpp`, `SilhouetteRenderer.cpp`)**
+  - Instrument particle simulation updates, quad generation, decal projection, and selection outlines.
+
+- [ ] **Step 4.6: 2D & GUI Rendering (`source/gui/GUIManager.cpp`, `source/graphics/FontManager.cpp`)**
+  - Instrument `CGUIManager::Draw`, window layout calculations, canvas 2D draws, font atlas lookups, and text rendering.
+
+- [ ] **Step 4.7: GPU Zone Profiling (Optional Extension)**
+  - Explore hooking Tracy GPU timestamp queries (`TracyGpuContext`, `TracyGpuZone`) into the modern rendering backends (`source/renderer/backend/gl/` and `source/renderer/backend/vulkan/`), complementing `CProfiler2GPU`.
+
+- [ ] **Step 4.8: Validation & Testing**
+  - Run high-density graphics scenarios (large maps, dynamic shadows, water reflections).
+  - Verify render pass breakdown and draw call counts in Tracy.
+
+---
+
+### Phase 5: Memory Allocations, Locks, Metric Plots & Script Engine
+
+**Goal**: Instrument memory allocators, lock contention on worker queues, live metric plots, and JavaScript engine cycles.
+
+- [ ] **Step 5.1: Memory Allocator Profiling**
+  - Instrument `PS::Memory::LinearAllocator` (`source/renderer/Renderer.cpp`, `source/ps/memory/`) with `TracyAlloc` / `TracyFree`.
+  - Instrument custom chunk/pool allocators in `source/lib/allocators/`.
+
+- [ ] **Step 5.2: Lock & Mutex Contention Profiling**
+  - Instrument `TaskManager` internal mutexes (`m_GlobalMutex`, `m_GlobalLowPriorityMutex`) with `TracyLockable(std::mutex, name)`.
+  - Profile worker thread wake-up latencies and queue wait times.
+
+- [ ] **Step 5.3: Real-Time Metric Plots**
+  - Emit periodic `TracyPlot` telemetry for engine metrics:
+    - `TracyPlot("FPS", currentFPS)`
+    - `TracyPlot("Simulation Entities", entityCount)`
+    - `TracyPlot("Active Path Requests", pendingPaths)`
+    - `TracyPlot("Draw Calls", stats.m_DrawCalls)`
+    - `TracyPlot("Terrain Tris", stats.m_TerrainTris)`
+    - `TracyPlot("Model Tris", stats.m_ModelTris)`
+    - `TracyPlot("Linear Allocator Memory (KB)", capacityKB)`
+
+- [ ] **Step 5.4: SpiderMonkey JS Engine & GC Tracking**
+  - In `source/scriptinterface/Context.cpp` & `source/scriptinterface/Engine.cpp`:
+    - Instrument JavaScript evaluation blocks and event dispatching.
+    - Instrument SpiderMonkey Garbage Collection (`JS_GC`, `JS_MaybeGC`, incremental GC steps).
+
+- [ ] **Step 5.5: Validation & Testing**
+  - Review Tracy Memory view, Contention view, and Plot telemetry graphs during long gameplay runs.
+  - Verify no memory leaks or lock tracking distortions.
+
+---
+
+### Phase 6: Documentation, Developer Guide & CI/Validation
+
+**Goal**: Document the developer workflow, verify multi-platform build compliance, and finalize integration.
+
+- [ ] **Step 6.1: Developer Documentation**
+  - Create `docs/tracy_profiler_guide.md` explaining:
+    - How to build with Tracy (`update-workspaces.bat --with-tracy` or `./update-workspaces.sh --with-tracy`).
+    - How to obtain/build the Tracy Profiler GUI.
+    - Connecting to a local or remote 0 A.D. instance.
+    - Macro usage cheatsheet (`TRACY_ZONE`, `TRACY_PLOT`, etc.).
+  - Update `docs/README.md` to reference the new profiler guide.
+
+- [ ] **Step 6.2: Build & Test Verification**
+  - Verify clean compilation on:
+    - Windows: VS2022 (Win32 & x64, Debug & Release).
+    - Linux: GCC / Clang (Debug & Release).
+    - macOS: Clang (Debug & Release).
+  - Execute test suite (`test_dbg.exe` / `test.exe`) across all configurations.
+
+---
+
+## Review & Approval Protocol
+
+In accordance with project guidelines:
+1. This plan **must be formally reviewed and approved** before enacting code changes.
+2. Once approved, changes will be implemented in incremental, atomic commits following the 6 phases outlined above.
+3. Every commit will include a descriptive message detailing *what* was changed and *why*.
+4. Win32 Debug, Win32 Release, and the test suite will be validated before submitting each phase.
