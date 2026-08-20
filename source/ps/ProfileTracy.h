@@ -43,6 +43,8 @@
 #define TRACY_MESSAGE(msg, len) TracyMessage(msg, len)
 #define TRACY_MESSAGE_L(literal) TracyMessageL(literal)
 #define TRACY_LOCKABLE(type, name) TracyLockable(type, name)
+#define TRACY_SECTION_ENTER(name) TracySectionEnter(name)
+#define TRACY_SECTION_LEAVE(id) TracySectionLeave(id)
 
 #else // !TRACY_ENABLE
 
@@ -62,6 +64,8 @@
 #define TRACY_MESSAGE(msg, len)
 #define TRACY_MESSAGE_L(literal)
 #define TRACY_LOCKABLE(type, name) type name
+#define TRACY_SECTION_ENTER(name) (0)
+#define TRACY_SECTION_LEAVE(id) ((void)0)
 
 #endif // TRACY_ENABLE
 

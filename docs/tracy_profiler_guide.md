@@ -1,8 +1,8 @@
-﻿# Tracy Profiler Integration Guide for 0 A.D.
+# Tracy Profiler Integration Guide for 0 A.D.
 
 ## Introduction
 
-0 A.D. integrates the **Tracy Profiler** (v0.11.x) — a real-time, nanosecond-resolution, frame-oriented hybrid profiler capable of capturing CPU timelines, multi-thread execution, GPU workload demarcation, memory allocations, lock contention, and real-time numerical telemetry.
+0 A.D. integrates the **Tracy Profiler** (v0.14.x) — a real-time, nanosecond-resolution, frame-oriented hybrid profiler capable of capturing CPU timelines, multi-thread execution, GPU workload demarcation, memory allocations, lock contention, and real-time numerical telemetry.
 
 This guide explains how to configure, build, run, and instrument 0 A.D. with Tracy support.
 
@@ -40,7 +40,7 @@ Tracy integration is opt-in via Premake build flags so that release binaries bui
 
 ## 2. Connecting to Tracy GUI
 
-1. Download or build the Tracy Profiler GUI application matching the vendored client version (v0.11.x). Pre-built GUI executables (`Tracy.exe`) can be obtained from the official [Tracy releases](https://github.com/wolfpld/tracy/releases).
+1. Download or build the Tracy Profiler GUI application matching the vendored client version (v0.14.x). Pre-built GUI executables (`Tracy.exe`) can be obtained from the official [Tracy releases](https://github.com/wolfpld/tracy/releases).
 2. Launch `Tracy.exe`.
 3. Launch 0 A.D. (e.g. `binaries/system/pyrogenesis.exe` or `test.exe`).
 4. In the Tracy GUI, click **Connect** (or enter `127.0.0.1` / your target IP address if profiling remotely).

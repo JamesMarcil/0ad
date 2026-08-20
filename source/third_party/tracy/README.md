@@ -1,6 +1,6 @@
 # Tracy Profiler Client Library
 
-This directory contains the client runtime of the [Tracy Profiler](https://github.com/wolfpld/tracy) (version 0.11.1).
+This directory contains the client runtime of the [Tracy Profiler](https://github.com/wolfpld/tracy) (version 0.14.0).
 
 ## License
 
