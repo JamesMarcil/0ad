@@ -61,7 +61,7 @@ static inline Status AllocateAligned(std::shared_ptr<T>& p, size_t size, size_t 
 	void* mem = rtl_AllocateAligned(size, alignment);
 	if(!mem)
 		WARN_RETURN(ERR::NO_MEM);
-	p.reset((T*)mem, AlignedDeleter());
+	p.reset(static_cast<T*>(mem), AlignedDeleter());
 	return INFO::OK;
 }
 
