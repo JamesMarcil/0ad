@@ -272,6 +272,7 @@ void Context::MaybeIncrementalGC()
 
 void Context::ShrinkingGC()
 {
+	PROFILE2("ShrinkingGC");
 	JS_SetGCParameter(m_cx, JSGC_INCREMENTAL_GC_ENABLED, false);
 	JS_SetGCParameter(m_cx, JSGC_PER_ZONE_GC_ENABLED, true);
 	JS::PrepareForFullGC(m_cx);
@@ -282,6 +283,7 @@ void Context::ShrinkingGC()
 
 void Context::RunJobs()
 {
+	PROFILE2("RunJobs");
 	m_JobQueue->runJobs(m_cx);
 }
 

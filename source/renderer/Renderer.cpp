@@ -616,6 +616,14 @@ void CRenderer::RenderFrameImpl(
 	PROFILE2_ATTR("blend splats: %zu", stats.m_BlendSplats);
 	PROFILE2_ATTR("particles: %zu", stats.m_Particles);
 
+	TRACY_PLOT("Draw Calls", (int64_t)stats.m_DrawCalls);
+	TRACY_PLOT("Terrain Tris", (int64_t)stats.m_TerrainTris);
+	TRACY_PLOT("Water Tris", (int64_t)stats.m_WaterTris);
+	TRACY_PLOT("Model Tris", (int64_t)stats.m_ModelTris);
+	TRACY_PLOT("Overlay Tris", (int64_t)stats.m_OverlayTris);
+	TRACY_PLOT("Blend Splats", (int64_t)stats.m_BlendSplats);
+	TRACY_PLOT("Particles", (int64_t)stats.m_Particles);
+
 	g_Profiler2.RecordGPUFrameEnd(m->deviceCommandContext.get());
 
 	m->linearAllocator.Release();
