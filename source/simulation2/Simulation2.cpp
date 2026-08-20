@@ -550,7 +550,8 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 		cmpPathfinder->SendRequestedPaths();
 
 	{
-		PROFILE2("Sim - Update Start");
+		CProfile2Region profile2__("Sim - Update Start");
+		TRACY_ZONE_COLOR("Sim - Update Start", TRACY_COLOR_SIMULATION);
 		CMessageTurnStart msgTurnStart;
 		componentManager.BroadcastMessage(msgTurnStart);
 	}
@@ -568,13 +569,15 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 	}
 	// Send all the update phases
 	{
-		PROFILE2("Sim - Update");
+		CProfile2Region profile2__("Sim - Update");
+		TRACY_ZONE_COLOR("Sim - Update", TRACY_COLOR_SIMULATION);
 		CMessageUpdate msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}
 
 	{
-		PROFILE2("Sim - Motion Formation");
+		CProfile2Region profile2__("Sim - Motion Formation");
+		TRACY_ZONE_COLOR("Sim - Motion Formation", TRACY_COLOR_SIMULATION);
 		CMessageUpdate_MotionFormation msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}
@@ -587,12 +590,14 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 	}
 
 	{
-		PROFILE2("Sim - Motion Unit");
+		CProfile2Region profile2__("Sim - Motion Unit");
+		TRACY_ZONE_COLOR("Sim - Motion Unit", TRACY_COLOR_SIMULATION);
 		CMessageUpdate_MotionUnit msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}
 	{
-		PROFILE2("Sim - Update Final");
+		CProfile2Region profile2__("Sim - Update Final");
+		TRACY_ZONE_COLOR("Sim - Update Final", TRACY_COLOR_SIMULATION);
 		CMessageUpdate_Final msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}

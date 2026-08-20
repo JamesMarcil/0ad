@@ -818,7 +818,8 @@ void CCmpPathfinder::PathRequests<T>::Compute(const CCmpPathfinder& cmpPathfinde
 
 void CCmpPathfinder::SendRequestedPaths()
 {
-	PROFILE2("SendRequestedPaths");
+	CProfile2Region profile2__("SendRequestedPaths");
+	TRACY_ZONE_COLOR("SendRequestedPaths", TRACY_COLOR_PATHFINDING);
 
 	if (!m_LongPathRequests.m_ComputeDone || !m_ShortPathRequests.m_ComputeDone)
 	{
@@ -832,7 +833,8 @@ void CCmpPathfinder::SendRequestedPaths()
 			future.Get();
 
 	{
-		PROFILE2("PostMessages");
+		CProfile2Region profile2__("PostMessages");
+		TRACY_ZONE_COLOR("PostMessages", TRACY_COLOR_PATHFINDING);
 		for (PathResult& path : m_ShortPathRequests.m_Results)
 		{
 			CMessagePathResult msg(path.ticket, path.path);
@@ -851,6 +853,9 @@ void CCmpPathfinder::SendRequestedPaths()
 
 void CCmpPathfinder::StartProcessingMoves(bool useMax)
 {
+	TRACY_PLOT("Path Requests Long", (int64_t)m_LongPathRequests.m_Requests.size());
+	TRACY_PLOT("Path Requests Short", (int64_t)m_ShortPathRequests.m_Requests.size());
+
 	m_ShortPathRequests.PrepareForComputation(useMax ? m_MaxSameTurnMoves : 0);
 	m_LongPathRequests.PrepareForComputation(useMax ? m_MaxSameTurnMoves : 0);
 
@@ -864,7 +869,8 @@ void CCmpPathfinder::StartProcessingMoves(bool useMax)
 		m_Futures[i] = {g_TaskManager,
 			[&pathfinder=*this, &vertexPfr=m_VertexPathfinders[i + 1]]()
 			{
-				PROFILE2("Async pathfinding");
+				CProfile2Region profile2__("Async pathfinding");
+				TRACY_ZONE_COLOR("Async pathfinding", TRACY_COLOR_PATHFINDING);
 				pathfinder.m_ShortPathRequests.Compute(pathfinder, vertexPfr);
 				pathfinder.m_LongPathRequests.Compute(pathfinder, *pathfinder.m_LongPathfinder);
 			}};

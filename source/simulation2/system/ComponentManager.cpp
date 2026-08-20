@@ -937,7 +937,9 @@ void CComponentManager::DestroyComponentsSoon(entity_id_t ent)
 
 void CComponentManager::FlushDestroyedComponents()
 {
-	PROFILE2("Flush Destroyed Components");
+	CProfile2Region profile2__("Flush Destroyed Components");
+	TRACY_ZONE_COLOR("Flush Destroyed Components", TRACY_COLOR_SIMULATION);
+	TRACY_ZONE_VALUE(m_DestructionQueue.size());
 	while (!m_DestructionQueue.empty())
 	{
 		// Make a copy of the destruction queue, so that the iterators won't be invalidated if the
@@ -1073,6 +1075,12 @@ void CComponentManager::PostMessage(entity_id_t ent, const CMessage& msg)
 
 void CComponentManager::BroadcastMessage(const CMessage& msg)
 {
+	TRACY_ZONE_COLOR("BroadcastMessage", TRACY_COLOR_SIMULATION);
+	if (msg.GetType() >= 0 && (size_t)msg.GetType() < m_MessageTypeNamesById.size())
+	{
+		TRACY_ZONE_TEXT(m_MessageTypeNamesById[msg.GetType()].c_str(), m_MessageTypeNamesById[msg.GetType()].length());
+	}
+
 	// Send the message to components of all entities that subscribed locally to this message
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_LocalMessageSubscriptions.find(msg.GetType());

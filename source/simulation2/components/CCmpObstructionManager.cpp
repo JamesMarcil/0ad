@@ -971,7 +971,8 @@ bool CCmpObstructionManager::TestStaticShape(const IObstructionTestFilter& filte
 	entity_pos_t x, entity_pos_t z, entity_pos_t a, entity_pos_t w, entity_pos_t h,
 	std::vector<entity_id_t>* out) const
 {
-	PROFILE("TestStaticShape");
+	CProfileSample __profile("TestStaticShape");
+	TRACY_ZONE_COLOR("TestStaticShape", TRACY_COLOR_SPATIAL);
 
 	if (out)
 		out->clear();
@@ -1052,7 +1053,8 @@ bool CCmpObstructionManager::TestUnitShape(const IObstructionTestFilter& filter,
 	entity_pos_t x, entity_pos_t z, entity_pos_t clearance,
 	std::vector<entity_id_t>* out) const
 {
-	PROFILE("TestUnitShape");
+	CProfileSample __profile("TestUnitShape");
+	TRACY_ZONE_COLOR("TestUnitShape", TRACY_COLOR_SPATIAL);
 
 	// Check that the shape is within the world
 	if (!IsInWorld(x, z, clearance))
@@ -1120,7 +1122,10 @@ bool CCmpObstructionManager::TestUnitShape(const IObstructionTestFilter& filter,
 
 void CCmpObstructionManager::Rasterize(Grid<NavcellData>& grid, const std::vector<PathfinderPassability>& passClasses, bool fullUpdate)
 {
-	PROFILE3("Rasterize Obstructions");
+	CProfileSample __profile("Rasterize Obstructions");
+	CProfile2Region profile2__("Rasterize Obstructions");
+	TRACY_ZONE_COLOR("Rasterize Obstructions", TRACY_COLOR_SPATIAL);
+	TRACY_ZONE_VALUE(m_StaticShapes.size() + m_UnitShapes.size());
 
 	// Cells are only marked as blocked if the whole cell is strictly inside the shape.
 	// (That ensures the shape's geometric border is always reachable.)
@@ -1217,7 +1222,8 @@ void CCmpObstructionManager::GetObstructionsInRange(const IObstructionTestFilter
 
 void CCmpObstructionManager::GetUnitObstructionsInRange(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, std::vector<ObstructionSquare>& squares) const
 {
-	PROFILE("GetObstructionsInRange");
+	CProfileSample __profile("GetObstructionsInRange");
+	TRACY_ZONE_COLOR("GetUnitObstructionsInRange", TRACY_COLOR_SPATIAL);
 
 	ENSURE(x0 <= x1 && z0 <= z1);
 
@@ -1245,7 +1251,8 @@ void CCmpObstructionManager::GetUnitObstructionsInRange(const IObstructionTestFi
 
 void CCmpObstructionManager::GetStaticObstructionsInRange(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, std::vector<ObstructionSquare>& squares) const
 {
-	PROFILE("GetObstructionsInRange");
+	CProfileSample __profile("GetObstructionsInRange");
+	TRACY_ZONE_COLOR("GetStaticObstructionsInRange", TRACY_COLOR_SPATIAL);
 
 	ENSURE(x0 <= x1 && z0 <= z1);
 
@@ -1273,7 +1280,8 @@ void CCmpObstructionManager::GetStaticObstructionsInRange(const IObstructionTest
 
 void CCmpObstructionManager::GetUnitsOnObstruction(const ObstructionSquare& square, std::vector<entity_id_t>& out, const IObstructionTestFilter& filter, bool strict) const
 {
-	PROFILE("GetUnitsOnObstruction");
+	CProfileSample __profile("GetUnitsOnObstruction");
+	TRACY_ZONE_COLOR("GetUnitsOnObstruction", TRACY_COLOR_SPATIAL);
 
 	// In order to avoid getting units on impassable cells, we want to find all
 	// units subject to the RasterizeRectWithClearance of the building's shape with the
@@ -1334,7 +1342,8 @@ void CCmpObstructionManager::GetUnitsOnObstruction(const ObstructionSquare& squa
 
 void CCmpObstructionManager::GetStaticObstructionsOnObstruction(const ObstructionSquare& square, std::vector<entity_id_t>& out, const IObstructionTestFilter& filter) const
 {
-	PROFILE("GetStaticObstructionsOnObstruction");
+	CProfileSample __profile("GetStaticObstructionsOnObstruction");
+	TRACY_ZONE_COLOR("GetStaticObstructionsOnObstruction", TRACY_COLOR_SPATIAL);
 
 	std::vector<entity_id_t> staticShapes;
 	CFixedVector2D center(square.x, square.z);

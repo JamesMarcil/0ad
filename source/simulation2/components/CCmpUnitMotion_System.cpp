@@ -441,7 +441,9 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	double start = timer_Time();
 #endif
 
-	PROFILE2("MotionMgr_Move");
+	CProfile2Region profile2__("MotionMgr_Move");
+	TRACY_ZONE_COLOR("MotionMgr_Move", TRACY_COLOR_SIMULATION);
+	TRACY_ZONE_VALUE(ents.size());
 	std::unordered_set<std::vector<EntityMap<MotionState>::iterator>*> assigned;
 	for (EntityMap<MotionState>::iterator it = ents.begin(); it != ents.end(); ++it)
 	{
@@ -504,7 +506,9 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	// Skip pushing entirely if the radius is 0
 	if (&ents == &m_Units && IsPushingActivated())
 	{
-		PROFILE2("MotionMgr_Pushing");
+		CProfile2Region profile2__("MotionMgr_Pushing");
+		TRACY_ZONE_COLOR("MotionMgr_Pushing", TRACY_COLOR_SIMULATION);
+		TRACY_ZONE_VALUE(assigned.size());
 		for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
 		{
 			ENSURE(!vec->empty());
@@ -536,15 +540,6 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 					sph.m_Color = CColor(it->second.pushingPressure / static_cast<float>(MAX_PRESSURE), 0, 0, 1);
 					debugDataMotionMgr.m_Spheres.push_back(sph);
 				}
-				/* Show the pushing sphere, kinda unreadable.
-				{
-					SOverlaySphere sph;
-					sph.m_Center = CVector3D(it->second.pos.X.ToDouble(), it->second.cmpPosition->GetHeightFixed().ToDouble() + 13.f, it->second.pos.Y.ToDouble());
-					sph.m_Radius = (it->second.cmpUnitMotion->m_Clearance.Multiply(PUSHING_CORRECTION).Multiply(m_PushingRadiusMultiplier) + (it->second.isMoving ? m_StaticPushExtension : m_MovingPushExtension)).ToDouble();
-					// Color the sphere: the redder, the more 'bogged down' it is.
-					sph.m_Color = CColor(it->second.pushingPressure / static_cast<float>(MAX_PRESSURE), 0, 0, 0.1);
-					debugDataMotionMgr.m_Spheres.push_back(sph);
-				}*/
 				// Show the travel over this turn.
 				SOverlayLine line;
 				line.PushCoords(CVector3D(it->second.initialPos.X.ToDouble(),
@@ -571,7 +566,9 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 
 	if (IsPushingActivated())
 	{
-		PROFILE2("MotionMgr_PushAdjust");
+		CProfile2Region profile2__("MotionMgr_PushAdjust");
+		TRACY_ZONE_COLOR("MotionMgr_PushAdjust", TRACY_COLOR_SIMULATION);
+		TRACY_ZONE_VALUE(assigned.size());
 		CmpPtr<ICmpPathfinder> cmpPathfinder(GetSystemEntity());
 		for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
 		{
@@ -647,7 +644,9 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		}
 	}
 	{
-		PROFILE2("MotionMgr_PostMove");
+		CProfile2Region profile2__("MotionMgr_PostMove");
+		TRACY_ZONE_COLOR("MotionMgr_PostMove", TRACY_COLOR_SIMULATION);
+		TRACY_ZONE_VALUE(ents.size());
 		for (EntityMap<MotionState>::value_type& data : ents)
 		{
 			if (!data.second.needUpdate)

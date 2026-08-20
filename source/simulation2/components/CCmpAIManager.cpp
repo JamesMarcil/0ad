@@ -797,7 +797,9 @@ private:
 		// Deserialize the game state, to pass to the AI's HandleMessage
 		Script::Request rq(m_ScriptInterface);
 		{
-			PROFILE3("AI compute read state");
+			CProfileSample __profile("AI compute read state");
+			CProfile2Region profile2__("AI compute read state");
+			TRACY_ZONE_COLOR("AI compute read state", TRACY_COLOR_AI);
 			Script::SetProperty(rq, m_GameState, "passabilityMap", m_PassabilityMapVal, true);
 			Script::SetProperty(rq, m_GameState, "territoryMap", m_TerritoryMapVal, true);
 		}
@@ -811,13 +813,18 @@ private:
 
 		if (m_HasSharedComponent)
 		{
-			PROFILE3("AI run shared component");
+			CProfileSample __profile("AI run shared component");
+			CProfile2Region profile2__("AI run shared component");
+			TRACY_ZONE_COLOR("AI run shared component", TRACY_COLOR_AI);
 			Script::Function::CallVoid(rq, m_SharedAIObj, "onUpdate", m_GameState);
 		}
 
 		for (size_t i = 0; i < m_Players.size(); ++i)
 		{
-			PROFILE3("AI script");
+			CProfileSample __profile("AI script");
+			CProfile2Region profile2__("AI script");
+			TRACY_ZONE_COLOR("AI script", TRACY_COLOR_AI);
+			TRACY_ZONE_TEXT_F("Player %d: %ls", m_Players[i]->m_Player, m_Players[i]->m_AIName.c_str());
 			PROFILE2_ATTR("player: %d", m_Players[i]->m_Player);
 			PROFILE2_ATTR("script: %ls", m_Players[i]->m_AIName.c_str());
 
