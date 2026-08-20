@@ -21,6 +21,7 @@
 
 #include "lib/debug.h"
 #include "maths/MathUtil.h"
+#include "ps/ProfileTracy.h"
 #include "ps/Profiler2.h"
 #include "ps/Threading.h"
 
@@ -123,11 +124,11 @@ public:
 	~Impl()
 	{
 		{
-			std::lock_guard<std::mutex> lock(m_GlobalMutex);
+			std::lock_guard lock(m_GlobalMutex);
 			ENSURE(m_GlobalQueue.empty());
 		}
 		{
-			std::lock_guard<std::mutex> lock(m_GlobalLowPriorityMutex);
+			std::lock_guard lock(m_GlobalLowPriorityMutex);
 			ENSURE(m_GlobalLowPriorityQueue.empty());
 		}
 	}
@@ -152,8 +153,8 @@ protected:
 
 	std::atomic<bool> m_HasWork = false;
 	std::atomic<bool> m_HasLowPriorityWork = false;
-	std::mutex m_GlobalMutex;
-	std::mutex m_GlobalLowPriorityMutex;
+	TRACY_LOCKABLE_N(std::mutex, m_GlobalMutex, "TaskManager NormalQueue");
+	TRACY_LOCKABLE_N(std::mutex, m_GlobalLowPriorityMutex, "TaskManager LowPriorityQueue");
 	std::deque<QueueItem> m_GlobalQueue;
 	std::deque<QueueItem> m_GlobalLowPriorityQueue;
 
@@ -192,13 +193,17 @@ void TaskManager::PushTask(std::function<void()> task, TaskPriority priority)
 
 void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority priority)
 {
-	std::mutex& mutex = priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
+	auto& mutex = priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
 	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 	std::atomic<bool>& hasWork = priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 	{
-		std::lock_guard<std::mutex> lock(mutex);
+		std::lock_guard lock(mutex);
 		queue.emplace_back(std::move(task));
 		hasWork = true;
+		if (priority == TaskPriority::NORMAL)
+			TRACY_PLOT("Task Queue Normal", (int64_t)queue.size());
+		else
+			TRACY_PLOT("Task Queue Low", (int64_t)queue.size());
 	}
 
 	for (WorkerThread& worker : m_Workers)
@@ -208,17 +213,21 @@ void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority prio
 template<TaskPriority Priority>
 bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
 {
-	std::mutex& mutex = Priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
+	auto& mutex = Priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
 	std::deque<QueueItem>& queue = Priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 	std::atomic<bool>& hasWork = Priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 
 	// Particularly critical section since we're locking the global queue.
-	std::lock_guard<std::mutex> globalLock(mutex);
+	std::lock_guard globalLock(mutex);
 	if (!queue.empty())
 	{
 		taskOut = std::move(queue.front());
 		queue.pop_front();
 		hasWork = !queue.empty();
+		if (Priority == TaskPriority::NORMAL)
+			TRACY_PLOT("Task Queue Normal", (int64_t)queue.size());
+		else
+			TRACY_PLOT("Task Queue Low", (int64_t)queue.size());
 		return true;
 	}
 	return false;
@@ -251,6 +260,7 @@ void WorkerThread::RunUntilDeath()
 	static std::atomic<int> n = 0;
 	std::string name = "Task Mgr #" + std::to_string(n++);
 	debug_SetThreadName(name.c_str());
+	TRACY_SET_THREAD_NAME(name.c_str());
 	g_Profiler2.RegisterCurrentThread(name);
 
 
@@ -273,7 +283,10 @@ void WorkerThread::RunUntilDeath()
 		if (!hasTask)
 			hasTask = m_TaskManager.PopTask<TaskPriority::LOW>(task);
 		if (hasTask)
+		{
+			TRACY_ZONE_COLOR("Task Execution", TRACY_COLOR_TASK);
 			task();
+		}
 	}
 }
 
