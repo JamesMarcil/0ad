@@ -26,6 +26,7 @@
 #include "lib/bits.h"
 #include "lib/code_annotation.h"
 #include "lib/debug.h"
+#include "ps/ProfileTracy.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -59,10 +60,21 @@ protected:
 				debug_warn("DynamicArena failed to allocate chunk");
 				throw std::bad_alloc();
 			}
+			// Chunks are tracked, not the individual sub-allocations handed out by
+			// Allocate(): those are never freed individually, and a bump allocator
+			// reissues the same addresses after clear(). Chunk malloc/free pairs
+			// exactly, so this pool never needs TracyMemoryDiscard - which would be
+			// unsafe here anyway, because every DynamicArena instance shares one
+			// pool name and a discard is global to that name.
+			TRACY_ALLOC_NAMED(m_Data, BLOCK_SIZE * sizeof(uint8_t), PS::Tracy::MemoryPool::DynamicArena);
 		}
 
 		~Block()
 		{
+			// A moved-from Block has m_Data == nullptr and owns no chunk; reporting
+			// a free for it would be a free without a matching allocation.
+			if (m_Data)
+				TRACY_FREE_NAMED(m_Data, PS::Tracy::MemoryPool::DynamicArena);
 			std::free(static_cast<void*>(m_Data));
 		}
 

@@ -31,6 +31,7 @@
 #include "lib/alignment.h"
 #include "lib/allocators/freelist.h"
 #include "lib/types.h"
+#include "ps/ProfileTracy.h"
 
 #include <algorithm>
 
@@ -136,6 +137,7 @@ void* pool_alloc(Pool* p, size_t size)
 	}
 
 	ASSERT(pool_contains(p, el));	// paranoia
+	TRACY_ALLOC_NAMED(el, el_size, PS::Tracy::MemoryPool::Pool);
 	return el;
 }
 
@@ -152,7 +154,10 @@ void pool_free(Pool* p, void* el)
 	}
 
 	if(pool_contains(p, el))
+	{
+		TRACY_FREE_NAMED(el, PS::Tracy::MemoryPool::Pool);
 		mem_freelist_AddToFront(p->freelist, el);
+	}
 	else
 		DEBUG_WARN_ERR(ERR::LOGIC);	// invalid pointer (not in pool)
 }
@@ -160,6 +165,12 @@ void pool_free(Pool* p, void* el)
 
 void pool_free_all(Pool* p)
 {
+	// Mandatory, not cosmetic: resetting da.pos makes pool_alloc hand out the
+	// same addresses again, and Tracy terminates the capture if an address is
+	// allocated twice without an intervening free. Note that the discard is
+	// global to the pool *name*, so it also drops Tracy's view of any other
+	// live Pool instance - see the caveat in docs/tracy_profiler_guide.md.
+	TRACY_MEMORY_DISCARD(PS::Tracy::MemoryPool::Pool);
 	p->freelist = mem_freelist_Sentinel();
 
 	// must be reset before da_set_size or CHECK_DA will complain.

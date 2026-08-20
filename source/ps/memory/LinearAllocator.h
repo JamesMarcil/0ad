@@ -19,6 +19,7 @@
 #define INCLUDED_PS_LINEARALLOCATOR
 
 #include "lib/bits.h"
+#include "ps/ProfileTracy.h"
 #include "ps/containers/StaticVector.h"
 
 #include <cstddef>
@@ -76,6 +77,10 @@ public:
 		void* ptr{m_Buffer.get() + m_Size};
 		m_Size += n;
 		++m_AllocationCount;
+		// Zero-sized requests would hand out the same address twice without an
+		// intervening free, which Tracy treats as a fatal instrumentation error.
+		if (n > 0)
+			TRACY_ALLOC_NAMED(ptr, n, PS::Tracy::MemoryPool::LinearAllocator);
 		return ptr;
 	}
 
@@ -84,6 +89,8 @@ public:
 		// Do nothing. All allocations will be removed in Release.
 		ENSURE(m_AllocationCount > 0);
 		--m_AllocationCount;
+		if (n > 0)
+			TRACY_FREE_NAMED(ptr, PS::Tracy::MemoryPool::LinearAllocator);
 	}
 
 	std::size_t GetSize() const { return m_Size; }
@@ -93,6 +100,10 @@ public:
 	void Release()
 	{
 		ENSURE(m_AllocationCount == 0);
+		// The ENSURE above guarantees every allocation was already matched by a
+		// deallocate, so the discard is only a belt-and-braces reset that keeps
+		// the pool empty if a caller ever suppresses that assertion.
+		TRACY_MEMORY_DISCARD(PS::Tracy::MemoryPool::LinearAllocator);
 		m_Size = 0u;
 		m_BuffersToFree.clear();
 	}

@@ -46,6 +46,17 @@ namespace Allocators {
  * - support for deallocating all objects;
  * - consecutive allocations are back-to-back;
  * - objects are aligned to the pointer size.
+ *
+ * Deliberately not instrumented for Tracy memory profiling. Storage_Reallocate
+ * expands by allocating a larger block and copying, so StorageAppend documents
+ * that Expand "may change storage.Address()". Every object address reported so
+ * far would then be stale, and the relocated objects can land on addresses that
+ * Tracy still considers live - an allocation of an already-allocated address,
+ * which terminates the capture (unlike a free without an allocation, that is
+ * not relaxed by TRACY_ON_DEMAND). Tracking the backing storage region instead
+ * of individual objects would be sound, but this template has no users outside
+ * its own self-test. The C API below has stable addresses (da_alloc reserves the
+ * address space up front) and is instrumented in pool.cpp.
  **/
 template<typename T, class Storage = Storage_Fixed<> >
 class Pool
