@@ -27,10 +27,55 @@
 #ifndef INCLUDED_TEX_INTERNAL
 #define INCLUDED_TEX_INTERNAL
 
+#include "lib/alignment.h"
 #include "lib/allocators/dynarray.h"
+#include "lib/allocators/shared_ptr.h"
+#include "lib/debug.h"
 #include "lib/status.h"
+#include "lib/sysdep/rtl.h"
+#include "ps/ProfileTracy.h"
 
 #include <cstddef>
+#include <memory>
+
+/**
+ * allocate an aligned buffer of decoded texture pixel data and report it to
+ * Tracy's "Renderer Textures" memory pool.
+ *
+ * as AllocateAligned, except that the returned shared_ptr's deleter reports the
+ * matching free. these buffers end up in Tex::m_Data, a shared_ptr whose
+ * lifetime belongs to whoever still holds a reference - a decoded image can be
+ * released long after, and far from, the codec that produced it - so the free
+ * cannot be reported from any one call site.
+ *
+ * AllocateAligned itself is deliberately left untouched: it is shared with
+ * unrelated buffers (VFS writes, archive I/O) that must not be counted as
+ * texture data.
+ *
+ * @param p receives the buffer
+ * @param size bytes to allocate
+ * @param alignment as AllocateAligned
+ * @return Status
+ **/
+template<class T>
+static inline Status tex_AllocateAligned(std::shared_ptr<T>& p, size_t size,
+	size_t alignment = cacheLineSize)
+{
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+	void* mem = rtl_AllocateAligned(size, alignment);
+	if(!mem)
+		WARN_RETURN(ERR::NO_MEM);
+	TRACY_ALLOC_NAMED(mem, size, PS::Tracy::MemoryPool::RendererTextures);
+	p.reset(static_cast<T*>(mem), [](T* t)
+	{
+		TRACY_FREE_NAMED(t, PS::Tracy::MemoryPool::RendererTextures);
+		rtl_FreeAligned(t);
+	});
+	return INFO::OK;
+#else
+	return AllocateAligned(p, size, alignment);
+#endif
+}
 
 /**
  * check if the given texture format is acceptable: 8bpp grey,

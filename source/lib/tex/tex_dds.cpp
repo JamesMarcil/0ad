@@ -296,7 +296,7 @@ static Status s3tc_decompress(Tex* t)
 	const size_t out_bpp = (dxt != 1)? 32 : 24;
 	const size_t out_size = t->img_size() * out_bpp / t->m_Bpp;
 	std::shared_ptr<u8> decompressedData;
-	AllocateAligned(decompressedData, out_size, g_PageSize);
+	tex_AllocateAligned(decompressedData, out_size, g_PageSize);
 
 	const size_t s3tc_block_size = (dxt == 3 || dxt == 5)? 16 : 8;
 	S3tcDecompressInfo di = { dxt, s3tc_block_size, out_bpp/8, decompressedData.get() };

@@ -33,6 +33,7 @@
 #include "ps/CStr.h"
 #include "ps/Errors.h"
 #include "ps/Future.h"
+#include "ps/ProfileTracy.h"
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
 #include "ps/Util.h"
@@ -461,6 +462,7 @@ bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath
 		// NVTT requires 32-bit input data, so convert
 		const u8* input = tex.get_data();
 		u8* rgba = new u8[tex.m_Width * tex.m_Height * 4];
+		TRACY_ALLOC_NAMED(rgba, tex.m_Width * tex.m_Height * 4, PS::Tracy::MemoryPool::RendererTextures);
 		u8* p = rgba;
 		for (size_t i = 0; i < tex.m_Width * tex.m_Height; i++)
 		{
@@ -468,6 +470,7 @@ bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath
 			p += 4;
 		}
 		request->inputOptions.setMipmapData(rgba, tex.m_Width, tex.m_Height);
+		TRACY_FREE_NAMED(rgba, PS::Tracy::MemoryPool::RendererTextures);
 		delete[] rgba;
 	}
 

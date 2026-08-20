@@ -31,6 +31,7 @@
 #include "lib/debug.h"
 #include "lib/posix/posix_types.h"
 #include "lib/tex/tex_codec.h"
+#include "lib/tex/tex_internal.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -258,7 +259,7 @@ static Status add_mipmaps(Tex* t, size_t w, size_t h, size_t bpp, void* newData,
 	t->m_Flags |= TEX_MIPMAPS;	// must come before tex_img_size!
 	const size_t mipmap_size = t->img_size();
 	std::shared_ptr<u8> mipmapData;
-	AllocateAligned(mipmapData, mipmap_size);
+	tex_AllocateAligned(mipmapData, mipmap_size);
 	CreateLevelData cld = { bpp/8, w, h, (const u8*)newData, dataSize };
 	tex_util_foreach_mipmap(w, h, bpp, mipmapData.get(), 0, 1, create_level, &cld);
 	t->m_Data = mipmapData;
@@ -330,7 +331,7 @@ static Status plain_transform(Tex* t, size_t transforms)
 	// this is necessary even when not flipping because the initial data
 	// is read-only.
 	std::shared_ptr<u8> dstStorage;
-	AllocateAligned(dstStorage, dstSize);
+	tex_AllocateAligned(dstStorage, dstSize);
 
 	// setup row source/destination pointers (simplifies outer loop)
 	u8* dst = (u8*)dstStorage.get();
@@ -647,7 +648,7 @@ u32 Tex::get_average_color() const
 	// do this so that we can use the general conversion methods for the pixel data
 	Tex basetex;
 	std::shared_ptr<uint8_t> data;
-	WARN_IF_ERR(AllocateAligned(data, last_level_size));
+	WARN_IF_ERR(tex_AllocateAligned(data, last_level_size));
 	memcpy(data.get(), m_Data.get() + m_Ofs + size - last_level_size, last_level_size);
 	basetex.wrap(1, 1, m_Bpp, m_Flags, data, 0);
 

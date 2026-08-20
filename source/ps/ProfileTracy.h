@@ -54,6 +54,8 @@ inline constexpr const char* DynamicArena{"Allocators::DynamicArena"};
 inline constexpr const char* Pool{"Allocators::Pool"};
 inline constexpr const char* VfsFileBuffer{"VFS FileBuffer"};
 inline constexpr const char* RendererGeometry{"Renderer Geometry"};
+inline constexpr const char* RendererTextures{"Renderer Textures"};
+inline constexpr const char* AudioBuffers{"Audio Buffers"};
 } // namespace PS::Tracy::MemoryPool
 
 #if defined(TRACY_ENABLE) && TRACY_ENABLE

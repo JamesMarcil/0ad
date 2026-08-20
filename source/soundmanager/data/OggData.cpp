@@ -25,6 +25,7 @@
 #include "lib/types.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
+#include "ps/ProfileTracy.h"
 #include "soundmanager/SoundManager.h"
 #include "soundmanager/data/ogg.h"
 
@@ -54,6 +55,14 @@ COggData::~COggData()
 
 	AL_CHECK;
 	m_BuffersCount = 0;
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+	// Every remaining entry, not just [0, m_BuffersCount): a buffer that was
+	// filled but left outside that range (FetchDataIntoBuffer skips chunks that
+	// decode to nothing, so the written indices need not be contiguous) is
+	// leaked by the alDeleteBuffers above, and must still be released here so
+	// that no pool entry outlives the m_Buffer slot it is keyed on.
+	TracyUntrackBuffers(0, OGG_DEFAULT_BUFFER_COUNT);
+#endif
 }
 
 void COggData::SetFormatAndFreq(ALenum form, ALsizei freq)
@@ -92,7 +101,12 @@ bool COggData::InitOggFile(const VfsPath& itemPath)
 	{
 		m_OneShot = true;
 		if (m_BuffersCount < OGG_DEFAULT_BUFFER_COUNT)
+		{
 			alDeleteBuffers(OGG_DEFAULT_BUFFER_COUNT - m_BuffersCount, &m_Buffer.at(m_BuffersCount));
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+			TracyUntrackBuffers(m_BuffersCount, OGG_DEFAULT_BUFFER_COUNT);
+#endif
+		}
 	}
 	AL_CHECK;
 
@@ -135,10 +149,47 @@ int COggData::FetchDataIntoBuffer(int count, ALuint* buffers)
 
 		++buffersWritten;
 		alBufferData(buffers[i], m_Format, PCMOut.data(), static_cast<ALsizei>(totalRet), m_Frequency);
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+		TracyTrackBuffer(buffers[i], static_cast<ALsizei>(totalRet));
+#endif
 	}
 	return buffersWritten;
 }
 
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+void COggData::TracyTrackBuffer(const ALuint name, const ALsizei bytes)
+{
+	for (size_t i{0}; i < m_Buffer.size(); ++i)
+	{
+		if (m_Buffer[i] != name)
+			continue;
+		// The pool is keyed on the address of the m_Buffer slot rather than on
+		// the ALuint it holds: an OpenAL buffer name is a handle, not a pointer,
+		// and OpenAL is free to hand the same name out again once
+		// alDeleteBuffers releases it, which would collide with a name Tracy
+		// still holds live for another COggData.
+		if (m_TracyBufferBytes[i] != 0)
+			TRACY_FREE_NAMED(&m_Buffer[i], PS::Tracy::MemoryPool::AudioBuffers);
+		TRACY_ALLOC_NAMED(&m_Buffer[i], static_cast<size_t>(bytes), PS::Tracy::MemoryPool::AudioBuffers);
+		m_TracyBufferBytes[i] = bytes;
+		return;
+	}
+	// Not one of our buffers; leaving it untracked is preferable to reporting
+	// an allocation we would have no way of ever matching with a free.
+}
+
+void COggData::TracyUntrackBuffers(const int first, const int last)
+{
+	for (int i{first}; i < last; ++i)
+	{
+		const size_t index{static_cast<size_t>(i)};
+		if (m_TracyBufferBytes.at(index) == 0)
+			continue;
+		TRACY_FREE_NAMED(&m_Buffer.at(index), PS::Tracy::MemoryPool::AudioBuffers);
+		m_TracyBufferBytes.at(index) = 0;
+	}
+}
+#endif
 
 ALuint COggData::GetBuffer()
 {

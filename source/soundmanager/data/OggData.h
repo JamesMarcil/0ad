@@ -59,6 +59,36 @@ protected:
 	std::array<ALuint, OGG_DEFAULT_BUFFER_COUNT> m_Buffer{};
 	int m_BuffersCount;
 
+// TRACY_ENABLE is defined project-wide by premake (--with-tracy), so this
+// member is either present in every translation unit or in none of them.
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+	/**
+	 * Decoded PCM bytes currently reported to Tracy's "Audio Buffers" pool for
+	 * the AL buffer named by the m_Buffer entry at the same index, or 0 if that
+	 * entry has no live allocation there. Needed because a streaming item
+	 * refills a buffer many times over its life and Tracy has no realloc: each
+	 * refill has to free the previous size before reporting the new one, and the
+	 * first fill must not report a free of something never allocated.
+	 */
+	std::array<ALsizei, OGG_DEFAULT_BUFFER_COUNT> m_TracyBufferBytes{};
+
+	/**
+	 * Reports @p bytes of decoded PCM for AL buffer @p name - which must be one
+	 * of m_Buffer's entries - replacing whatever that buffer held before.
+	 */
+	void TracyTrackBuffer(ALuint name, ALsizei bytes);
+
+	/**
+	 * Reports the frees matching every live allocation in m_Buffer's index range
+	 * [@p first, @p last). Called alongside each alDeleteBuffers over the same
+	 * range, and again for everything left over in the destructor: the pool is
+	 * keyed on the addresses of m_Buffer's slots, so no entry may outlive the
+	 * COggData that owns it, or a later instance reusing that heap address would
+	 * report an allocation Tracy still considers live.
+	 */
+	void TracyUntrackBuffers(int first, int last);
+#endif
+
 	void SetFormatAndFreq(ALenum form, ALsizei freq);
 	int GetBufferCount() override;
 	unsigned int GetBuffer() override;
