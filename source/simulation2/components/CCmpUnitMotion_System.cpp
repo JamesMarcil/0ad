@@ -441,8 +441,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	double start = timer_Time();
 #endif
 
-	CProfile2Region profile2__("MotionMgr_Move");
-	TRACY_ZONE_COLOR("MotionMgr_Move", TRACY_COLOR_SIMULATION);
+	PROFILE2_COLOR("MotionMgr_Move", TRACY_COLOR_SIMULATION);
 	TRACY_ZONE_VALUE(ents.size());
 	std::unordered_set<std::vector<EntityMap<MotionState>::iterator>*> assigned;
 	for (EntityMap<MotionState>::iterator it = ents.begin(); it != ents.end(); ++it)
@@ -506,8 +505,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	// Skip pushing entirely if the radius is 0
 	if (&ents == &m_Units && IsPushingActivated())
 	{
-		CProfile2Region profile2__("MotionMgr_Pushing");
-		TRACY_ZONE_COLOR("MotionMgr_Pushing", TRACY_COLOR_SIMULATION);
+		PROFILE2_COLOR("MotionMgr_Pushing", TRACY_COLOR_SIMULATION);
 		TRACY_ZONE_VALUE(assigned.size());
 		for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
 		{
@@ -566,8 +564,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 
 	if (IsPushingActivated())
 	{
-		CProfile2Region profile2__("MotionMgr_PushAdjust");
-		TRACY_ZONE_COLOR("MotionMgr_PushAdjust", TRACY_COLOR_SIMULATION);
+		PROFILE2_COLOR("MotionMgr_PushAdjust", TRACY_COLOR_SIMULATION);
 		TRACY_ZONE_VALUE(assigned.size());
 		CmpPtr<ICmpPathfinder> cmpPathfinder(GetSystemEntity());
 		for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
@@ -644,8 +641,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		}
 	}
 	{
-		CProfile2Region profile2__("MotionMgr_PostMove");
-		TRACY_ZONE_COLOR("MotionMgr_PostMove", TRACY_COLOR_SIMULATION);
+		PROFILE2_COLOR("MotionMgr_PostMove", TRACY_COLOR_SIMULATION);
 		TRACY_ZONE_VALUE(ents.size());
 		for (EntityMap<MotionState>::value_type& data : ents)
 		{

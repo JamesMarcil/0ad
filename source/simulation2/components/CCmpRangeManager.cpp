@@ -1089,8 +1089,7 @@ public:
 		entity_pos_t minRange, entity_pos_t maxRange,
 		const std::vector<int>& owners, int requiredInterface, bool accountForSize) override
 	{
-		CProfileSample __profile("ExecuteQuery");
-		TRACY_ZONE_COLOR("ExecuteQuery", TRACY_COLOR_SPATIAL);
+		PROFILE_COLOR("ExecuteQuery", TRACY_COLOR_SPATIAL);
 		TRACY_ZONE_TEXT_F("Source: %u | Range: [%.1f, %.1f] | Interface: %d", source, minRange.ToDouble(), maxRange.ToDouble(), requiredInterface);
 
 		Query q = ConstructQuery(source, minRange, maxRange, owners, requiredInterface, GetEntityFlagMask("normal"), accountForSize);
@@ -1115,8 +1114,7 @@ public:
 
 	std::vector<entity_id_t> ResetActiveQuery(tag_t tag) override
 	{
-		CProfileSample __profile("ResetActiveQuery");
-		TRACY_ZONE_COLOR("ResetActiveQuery", TRACY_COLOR_SPATIAL);
+		PROFILE_COLOR("ResetActiveQuery", TRACY_COLOR_SPATIAL);
 
 		std::vector<entity_id_t> r;
 
@@ -1191,9 +1189,7 @@ public:
 	 */
 	void ExecuteActiveQueries()
 	{
-		CProfileSample __profile("ExecuteActiveQueries");
-		CProfile2Region profile2__("ExecuteActiveQueries");
-		TRACY_ZONE_COLOR("ExecuteActiveQueries", TRACY_COLOR_SPATIAL);
+		PROFILE3_COLOR("ExecuteActiveQueries", TRACY_COLOR_SPATIAL);
 		TRACY_ZONE_VALUE(m_Queries.size());
 
 		// Points to the first unexecuted query (to be processed next).
@@ -1208,8 +1204,7 @@ public:
 		size_t messageIdx = 0;
 
 		const auto ProcessQueriesAsync = [&](std::vector<entity_id_t>& subdivisionResultsBuffer) {
-				CProfile2Region profile2__("Async range query execution");
-				TRACY_ZONE_COLOR("Async range query execution", TRACY_COLOR_SPATIAL);
+				PROFILE2_COLOR("Async range query execution", TRACY_COLOR_SPATIAL);
 
 				std::vector<entity_id_t> results;
 				std::vector<entity_id_t> added;
@@ -2070,8 +2065,7 @@ public:
 
 	void UpdateVisibilityData()
 	{
-		CProfileSample __profile("UpdateVisibilityData");
-		TRACY_ZONE_COLOR("UpdateVisibilityData", TRACY_COLOR_SPATIAL);
+		PROFILE_COLOR("UpdateVisibilityData", TRACY_COLOR_SPATIAL);
 
 		for (u16 i = 0; i < m_LosRegionsPerSide; ++i)
 			for (u16 j = 0; j < m_LosRegionsPerSide; ++j)
@@ -2493,8 +2487,7 @@ public:
 		if (m_LosVerticesPerSide == 0) // do nothing if not initialised yet
 			return;
 
-		CProfileSample __profile("LosUpdateHelper");
-		TRACY_ZONE_COLOR("LosUpdateHelper", TRACY_COLOR_SPATIAL);
+		PROFILE_COLOR("LosUpdateHelper", TRACY_COLOR_SPATIAL);
 
 		Grid<u16>& counts = m_LosPlayerCounts.at(owner);
 
@@ -2581,8 +2574,7 @@ public:
 		if (m_LosVerticesPerSide == 0) // do nothing if not initialised yet
 			return;
 
-		CProfileSample __profile("LosUpdateHelperIncremental");
-		TRACY_ZONE_COLOR("LosUpdateHelperIncremental", TRACY_COLOR_SPATIAL);
+		PROFILE_COLOR("LosUpdateHelperIncremental", TRACY_COLOR_SPATIAL);
 
 		Grid<u16>& counts = m_LosPlayerCounts.at(owner);
 

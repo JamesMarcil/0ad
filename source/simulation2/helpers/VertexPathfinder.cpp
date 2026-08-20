@@ -558,8 +558,7 @@ struct UnalignedEdgesSort
 
 WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request, CmpPtr<ICmpObstructionManager> cmpObstructionManager) const
 {
-	CProfile2Region profile2__("ComputeShortPath");
-	TRACY_ZONE_COLOR("ComputeShortPath", TRACY_COLOR_PATHFINDING);
+	PROFILE2_COLOR("ComputeShortPath", TRACY_COLOR_PATHFINDING);
 	TRACY_ZONE_TEXT_F("From (%.1f,%.1f) | Range: %.1f", request.x0.ToDouble(), request.z0.ToDouble(), request.range.ToDouble());
 
 	g_VertexPathfinderDebugOverlay.DebugRenderGoal(cmpObstructionManager->GetSimContext(), request.goal);

@@ -155,16 +155,22 @@ public:
 
 #if defined(TRACY_ENABLE) && TRACY_ENABLE
 #define PROFILE(name) CProfileSample __profile(name); TRACY_ZONE(name)
+#define PROFILE_COLOR(name, color) CProfileSample __profile(name); TRACY_ZONE_COLOR(name, color)
 #define PROFILE_START(name) { PROFILE(name)
 #define PROFILE_END(name) }
 #define PROFILE3(name) CProfileSample __profile(name); CProfile2Region profile2__(name); TRACY_ZONE(name)
+#define PROFILE3_COLOR(name, color) CProfileSample __profile(name); CProfile2Region profile2__(name); TRACY_ZONE_COLOR(name, color)
 #define PROFILE3_GPU(deviceCommandContext, name) CProfileSample __profile(name); CProfile2Region profile2__(name); PROFILE2_GPU(deviceCommandContext, name); TRACY_ZONE(name)
+#define PROFILE3_GPU_COLOR(deviceCommandContext, name, color) CProfileSample __profile(name); CProfile2Region profile2__(name); PROFILE2_GPU(deviceCommandContext, name); TRACY_ZONE_COLOR(name, color)
 #else
 #define PROFILE(name) CProfileSample __profile(name)
+#define PROFILE_COLOR(name, color) CProfileSample __profile(name)
 #define PROFILE_START(name) { CProfileSample __profile(name)
 #define PROFILE_END(name) }
 #define PROFILE3(name) PROFILE(name); PROFILE2(name)
+#define PROFILE3_COLOR(name, color) PROFILE(name); PROFILE2(name)
 #define PROFILE3_GPU(deviceCommandContext, name) PROFILE(name); PROFILE2(name); PROFILE2_GPU(deviceCommandContext, name)
+#define PROFILE3_GPU_COLOR(deviceCommandContext, name, color) PROFILE(name); PROFILE2(name); PROFILE2_GPU(deviceCommandContext, name)
 #endif
 
 #endif // INCLUDED_PROFILE

@@ -452,6 +452,7 @@ private:
  * it hurts the visualisation.
  */
 #define PROFILE2(region) CProfile2Region profile2__(region); TRACY_ZONE(region)
+#define PROFILE2_COLOR(region, color) CProfile2Region profile2__(region); TRACY_ZONE_COLOR(region, color)
 
 #define PROFILE2_GPU(deviceCommandContext, region) CProfile2GPURegion profile2gpu__(deviceCommandContext, region)
 

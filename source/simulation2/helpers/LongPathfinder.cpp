@@ -724,8 +724,7 @@ void LongPathfinder::AddJumpedDiag(int i, int j, int di, int dj, PathCost g, Pat
 
 void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, entity_pos_t x0, entity_pos_t z0, const PathGoal& origGoal, pass_class_t passClass, WaypointPath& path) const
 {
-	CProfile2Region profile2__("ComputePathJPS");
-	TRACY_ZONE_COLOR("ComputePathJPS", TRACY_COLOR_PATHFINDING);
+	PROFILE2_COLOR("ComputePathJPS", TRACY_COLOR_PATHFINDING);
 	TRACY_ZONE_TEXT_F("From (%.1f,%.1f) | PassClass: %u", x0.ToDouble(), z0.ToDouble(), (unsigned)passClass);
 	PathfinderState state = { 0 };
 

@@ -937,8 +937,7 @@ void CComponentManager::DestroyComponentsSoon(entity_id_t ent)
 
 void CComponentManager::FlushDestroyedComponents()
 {
-	CProfile2Region profile2__("Flush Destroyed Components");
-	TRACY_ZONE_COLOR("Flush Destroyed Components", TRACY_COLOR_SIMULATION);
+	PROFILE2_COLOR("Flush Destroyed Components", TRACY_COLOR_SIMULATION);
 	TRACY_ZONE_VALUE(m_DestructionQueue.size());
 	while (!m_DestructionQueue.empty())
 	{

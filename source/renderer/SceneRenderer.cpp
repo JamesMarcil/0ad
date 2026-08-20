@@ -432,9 +432,7 @@ void CSceneRenderer::RenderPatches(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	const CShaderDefines& context, int cullGroup)
 {
-	CProfileSample __profile("patches");
-	CProfile2Region profile2__("patches");
-	TRACY_ZONE_COLOR("patches", TRACY_COLOR_RENDER);
+	PROFILE3_COLOR("patches", TRACY_COLOR_RENDER);
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render patches");
 
 	// Render all the patches, including blend pass.
@@ -458,9 +456,7 @@ void CSceneRenderer::RenderModels(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	const CShaderDefines& context, int cullGroup)
 {
-	CProfileSample __profile("models");
-	CProfile2Region profile2__("models");
-	TRACY_ZONE_COLOR("models", TRACY_COLOR_RENDER);
+	PROFILE3_COLOR("models", TRACY_COLOR_RENDER);
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render models");
 
 	int flags = 0;
@@ -478,9 +474,7 @@ void CSceneRenderer::RenderTransparentModels(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	const CShaderDefines& context, int cullGroup, ETransparentMode transparentMode)
 {
-	CProfileSample __profile("transparent models");
-	CProfile2Region profile2__("transparent models");
-	TRACY_ZONE_COLOR("transparent models", TRACY_COLOR_RENDER);
+	PROFILE3_COLOR("transparent models", TRACY_COLOR_RENDER);
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render transparent models");
 
 	int flags = 0;
@@ -793,9 +787,7 @@ void CSceneRenderer::RenderRefractions(
 void CSceneRenderer::RenderSilhouettes(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	CProfileSample __profile("silhouettes");
-	CProfile2Region profile2__("silhouettes");
-	TRACY_ZONE_COLOR("silhouettes", TRACY_COLOR_RENDER);
+	PROFILE3_COLOR("silhouettes", TRACY_COLOR_RENDER);
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render silhouettes");
 
 	// Render silhouettes of units hidden behind terrain or occluders.
@@ -811,35 +803,30 @@ void CSceneRenderer::RenderSilhouettes(
 	// Render occluders:
 
 	{
-		CProfileSample __profile("render patches");
-		TRACY_ZONE_COLOR("render patches occluder", TRACY_COLOR_RENDER);
+		PROFILE_COLOR("render patches occluder", TRACY_COLOR_RENDER);
 		m->terrainRenderer.RenderPatches(
 			deviceCommandContext, CULL_SILHOUETTE_OCCLUDER, {}, CColor(0.0f, 0.0f, 0.0f, 1.0f), false);
 	}
 
 	{
-		CProfileSample __profile("render model occluders");
-		TRACY_ZONE_COLOR("render model occluders", TRACY_COLOR_RENDER);
+		PROFILE_COLOR("render model occluders", TRACY_COLOR_RENDER);
 		m->CallOpaqueModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_OCCLUDER, 0, ERenderMode::SOLID);
 	}
 
 	{
-		CProfileSample __profile("render transparent occluders");
-		TRACY_ZONE_COLOR("render transparent occluders", TRACY_COLOR_RENDER);
+		PROFILE_COLOR("render transparent occluders", TRACY_COLOR_RENDER);
 		m->CallTransparentModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_OCCLUDER, 0, ERenderMode::SOLID);
 	}
 
 	// Since we can't sort, we'll use the stencil buffer to ensure we only draw
 	// a pixel once (using the color of whatever model happens to be drawn first).
 	{
-		CProfileSample __profile("render model casters");
-		TRACY_ZONE_COLOR("render model casters", TRACY_COLOR_RENDER);
+		PROFILE_COLOR("render model casters", TRACY_COLOR_RENDER);
 		m->CallOpaqueModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_CASTER, 0, ERenderMode::SOLID);
 	}
 
 	{
-		CProfileSample __profile("render transparent casters");
-		TRACY_ZONE_COLOR("render transparent casters", TRACY_COLOR_RENDER);
+		PROFILE_COLOR("render transparent casters", TRACY_COLOR_RENDER);
 		m->CallTransparentModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_CASTER, 0, ERenderMode::SOLID);
 	}
 }
@@ -848,9 +835,7 @@ void CSceneRenderer::RenderParticles(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	int cullGroup)
 {
-	CProfileSample __profile("particles");
-	CProfile2Region profile2__("particles");
-	TRACY_ZONE_COLOR("particles", TRACY_COLOR_RENDER);
+	PROFILE3_COLOR("particles", TRACY_COLOR_RENDER);
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render particles");
 
 	m->particleRenderer.RenderParticles(
@@ -927,9 +912,7 @@ void CSceneRenderer::PrepareSubmissions(
 void CSceneRenderer::RenderSubmissions(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	CProfileSample __profile("render submissions");
-	CProfile2Region profile2__("render submissions");
-	TRACY_ZONE_COLOR("render submissions", TRACY_COLOR_RENDER);
+	PROFILE3_COLOR("render submissions", TRACY_COLOR_RENDER);
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render submissions");
 
 	ENSURE(m_CurrentScene);
@@ -1028,9 +1011,7 @@ void CSceneRenderer::DisplayFrustum(Renderer::Backend::IDeviceCommandContext& de
 // Text overlay rendering
 void CSceneRenderer::RenderTextOverlays(CCanvas2D& canvas)
 {
-	CProfileSample __profile("text overlays");
-	CProfile2Region profile2__("text overlays");
-	TRACY_ZONE_COLOR("text overlays", TRACY_COLOR_RENDER);
+	PROFILE3_COLOR("text overlays", TRACY_COLOR_RENDER);
 
 	if (m_DisplayTerrainPriorities)
 		m->terrainRenderer.RenderPriorities(canvas, CULL_DEFAULT);
