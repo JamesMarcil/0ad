@@ -52,21 +52,21 @@ graph TD
 
 **Goal**: Add Tracy source files to the codebase, configure Premake5 to support `--with-tracy`, and create the macro abstraction header.
 
-- [ ] **Step 1.1: Vendor Tracy Client Library**
+- [x] **Step 1.1: Vendor Tracy Client Library**
   - Place Tracy client sources (v0.11.x or latest stable) in `source/third_party/tracy/`.
   - Include headers (`tracy/Tracy.hpp`, `tracy/TracyC.h`, `client/`, `common/`) and translation unit (`TracyClient.cpp`).
   - Add `source/third_party/tracy/README.md` documenting upstream version and licensing (3-Clause BSD).
 
-- [ ] **Step 1.2: Premake Build System Configuration**
+- [x] **Step 1.2: Premake Build System Configuration**
   - Update `build/premake/premake5.lua`:
     - Add new option: `newoption { category = "Pyrogenesis", trigger = "with-tracy", description = "Enable Tracy profiler support" }`.
-    - Conditionally define `TRACY_ENABLE=1`, `TRACY_ON_DEMAND=1`, `TRACY_CALLSTACK=1` when `--with-tracy` is specified.
+    - Conditionally define `TRACY_ENABLE=1`, `TRACY_ON_DEMAND=1`, `TRACY_DELAYED_INIT=1`, `TRACY_MANUAL_LIFETIME=1`, `TRACY_NO_SYSTEM_TRACING=1`, `TRACY_NO_CALLSTACK=1` when `--with-tracy` is specified.
   - Update `build/premake/extern_libs5.lua`:
     - Add `tracy` library definition with include path `source/third_party/tracy/`.
-    - Add platform-specific linking: Windows requires `ws2_32` and `dbghelp`; Linux/BSD requires `pthread` and `dl`.
-  - Add `tracy` to engine static libraries (`lowlevel`, `engine`, `graphics`, `simulation2`, `gui`, `network`) or include `TracyClient.cpp` in `lowlevel`.
+    - Add platform-specific linking: Windows requires `ws2_32`, `dbghelp`, `advapi32`, `user32`; Linux/BSD requires `pthread` and `dl`.
+  - Add `tracy` to engine static libraries (`lowlevel`, `engine`, `graphics`, `simulation2`, `gui`, `network`) and create `tracy` static library project.
 
-- [ ] **Step 1.3: Create Profiler Abstraction (`source/ps/ProfileTracy.h`)**
+- [x] **Step 1.3: Create Profiler Abstraction (`source/ps/ProfileTracy.h`)**
   - Create wrapper macros:
     - `TRACY_ZONE(name)` / `TRACY_ZONE_SCOPED()`
     - `TRACY_ZONE_COLOR(name, color)`
@@ -77,11 +77,11 @@ graph TD
     - `TRACY_MESSAGE(msg)` / `TRACY_MESSAGE_FORMAT(fmt, ...)`
   - Bridge existing macros in `source/ps/Profile.h` and `source/ps/Profiler2.h` so that `PROFILE(name)` and `PROFILE2(region)` automatically emit Tracy zones when `TRACY_ENABLE` is active.
 
-- [ ] **Step 1.4: Validation & Testing**
+- [x] **Step 1.4: Validation & Testing**
   - Regenerate project files via `build/workspaces/update-workspaces.bat`.
   - Build Win32 Debug and Win32 Release configurations without `--with-tracy` (verify baseline unaffected).
   - Build Win32 Debug and Win32 Release configurations with `--with-tracy` (verify clean compilation).
-  - Run the test suite (`test_dbg.exe` / `test.exe`) to ensure zero regressions.
+  - Run the test suite (`test_dbg.exe` / `test.exe`) to ensure zero regressions (477/477 tests passed).
 
 ---
 

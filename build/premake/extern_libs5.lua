@@ -694,6 +694,20 @@ extern_lib_defs = {
 			add_third_party_include_paths("tinygettext")
 		end,
 	},
+	tracy = {
+		compile_settings = function()
+			add_third_party_include_paths("tracy")
+		end,
+		link_settings = function()
+			if _OPTIONS["with-tracy"] then
+				if os.istarget("windows") then
+					links { "ws2_32", "dbghelp", "advapi32", "user32" }
+				elseif os.istarget("linux") or os.istarget("bsd") then
+					links { "pthread", "dl" }
+				end
+			end
+		end,
+	},
 	valgrind = {
 		compile_settings = function()
 			-- Optional dependency

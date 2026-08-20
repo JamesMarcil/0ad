@@ -82,6 +82,7 @@
 #include "lib/debug.h"
 #include "lib/timer.h"
 #include "lib/types.h"
+#include "ps/ProfileTracy.h"
 #include "ps/ThreadUtil.h"
 
 #include <atomic>
@@ -450,7 +451,7 @@ private:
  * Regions may be nested, but preferably shouldn't be nested deeply since
  * it hurts the visualisation.
  */
-#define PROFILE2(region) CProfile2Region profile2__(region)
+#define PROFILE2(region) CProfile2Region profile2__(region); TRACY_ZONE(region)
 
 #define PROFILE2_GPU(deviceCommandContext, region) CProfile2GPURegion profile2gpu__(deviceCommandContext, region)
 

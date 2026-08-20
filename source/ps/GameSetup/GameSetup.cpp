@@ -61,6 +61,7 @@
 #include "ps/Mod.h"
 #include "ps/ModIo.h"
 #include "ps/Profile.h"
+#include "ps/ProfileTracy.h"
 #include "ps/ProfileViewer.h"
 #include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"	// psSetLogDir
@@ -466,6 +467,8 @@ void EarlyInit()
 	debug_filter_add("FILES");
 
 	timer_Init();
+
+	TRACY_STARTUP();
 
 	// initialise profiler early so it can profile startup,
 	// but only after LatchStartTime

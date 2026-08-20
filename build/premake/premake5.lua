@@ -53,6 +53,7 @@ newoption { category = "Pyrogenesis", trigger = "with-system-cxxtest", descripti
 newoption { category = "Pyrogenesis", trigger = "with-lto", description = "Enable Link Time Optimization (LTO)" }
 newoption { category = "Pyrogenesis", trigger = "with-system-mozjs", description = "Search standard paths for libmozjs128, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-nvtt", description = "Search standard paths for nvidia-texture-tools library, instead of using bundled copy" }
+newoption { category = "Pyrogenesis", trigger = "with-tracy", description = "Enable Tracy profiler support" }
 newoption { category = "Pyrogenesis", trigger = "with-valgrind", description = "Enable Valgrind support (non-Windows only)" }
 newoption { category = "Pyrogenesis", trigger = "without-audio", description = "Disable use of OpenAL/Ogg/Vorbis APIs" }
 newoption { category = "Pyrogenesis", trigger = "without-atlas", description = "Disable Atlas scenario/map editor and ActorEditor" }
@@ -274,6 +275,11 @@ function project_set_build_flags()
 
 	if _OPTIONS["gles"] then
 		defines { "CONFIG2_GLES=1" }
+	end
+
+	if _OPTIONS["with-tracy"] then
+		defines { "TRACY_ENABLE=1", "TRACY_ON_DEMAND=1", "TRACY_DELAYED_INIT=1", "TRACY_MANUAL_LIFETIME=1", "TRACY_NO_SYSTEM_TRACING=1", "TRACY_NO_CALLSTACK=1" }
+		includedirs { rootdir .. "/source/third_party/tracy/include" }
 	end
 
 	if _OPTIONS["without-audio"] then
@@ -736,6 +742,7 @@ function setup_all_libs ()
 		"fmt",
 		"libxml2",
 		"iconv",
+		"tracy",
 	}
 	if not _OPTIONS["without-miniupnpc"] then
 		table.insert(extern_libs, "miniupnpc")
@@ -786,6 +793,25 @@ function setup_all_libs ()
 			"/wd4996",
 			"/wd4099",
 			"/wd4503"
+		}
+	filter {}
+
+	source_dirs = {
+		"third_party/tracy/src",
+	}
+	extern_libs = {
+		"tracy",
+	}
+	setup_third_party_static_lib_project("tracy", source_dirs, extern_libs, { no_pch = 1 })
+
+	filter "action:vs*"
+		buildoptions {
+			"/wd4100",
+			"/wd4127",
+			"/wd4244",
+			"/wd4267",
+			"/wd4324",
+			"/wd4996",
 		}
 	filter {}
 
@@ -842,6 +868,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"cxxtest",
+		"tracy",
 	}
 	setup_static_lib_project("simulation2", source_dirs, extern_libs, {})
 
@@ -856,6 +883,7 @@ function setup_all_libs ()
 		"valgrind",
 		"sdl",
 		"fmt",
+		"tracy",
 	}
 	setup_static_lib_project("scriptinterface", source_dirs, extern_libs, {})
 
@@ -892,6 +920,7 @@ function setup_all_libs ()
 		"fmt",
 		"freetype",
 		"cpp_httplib",
+		"tracy",
 	}
 
 	if not _OPTIONS["without-lobby"] then
@@ -935,6 +964,7 @@ function setup_all_libs ()
 		"icu",
 		"libxml2",
 		"iconv",
+		"tracy",
 	}
 	if not _OPTIONS["without-nvtt"] then
 		table.insert(extern_libs, "nvtt")
@@ -975,6 +1005,7 @@ function setup_all_libs ()
 		"iconv",
 		"fmt",
 		"libxml2",
+		"tracy",
 	}
 	if not _OPTIONS["without-audio"] then
 		table.insert(extern_libs, "openal")
@@ -1008,6 +1039,7 @@ function setup_all_libs ()
 		"valgrind",
 		"cxxtest",
 		"fmt",
+		"tracy",
 	}
 
 	-- CPU architecture-specific
@@ -1116,6 +1148,7 @@ used_extern_libs = {
 	"valgrind",
 
 	"oleaut32",
+	"tracy",
 }
 
 if not _OPTIONS["without-audio"] then

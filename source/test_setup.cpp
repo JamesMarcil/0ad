@@ -36,6 +36,7 @@
 #include "lib/timer.h"
 #include "lib/utf8.h"
 #include "ps/Profiler2.h"
+#include "ps/ProfileTracy.h"
 #include "ps/TaskManager.h"
 #include "ps/ThreadUtil.h"
 #include "scriptinterface/FunctionWrapper.h"
