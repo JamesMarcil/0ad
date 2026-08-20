@@ -4,6 +4,8 @@
 
 - Doxygen documentation is published at https://docs.wildfiregames.com/pyrogenesis/
 
+- Tracy Profiler integration guide: [tracy_profiler_guide.md](tracy_profiler_guide.md)
+
 ## Building the Doxygen documentation
 
 To generate the Doxygen documentation: run "cmake -S . -B output && cmake --build output".

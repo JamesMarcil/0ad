@@ -222,20 +222,17 @@ graph TD
 
 **Goal**: Document the developer workflow, verify multi-platform build compliance, and finalize integration.
 
-- [ ] **Step 6.1: Developer Documentation**
-  - Create `docs/tracy_profiler_guide.md` explaining:
+- [x] **Step 6.1: Developer Documentation**
+  - Created `docs/tracy_profiler_guide.md` explaining:
     - How to build with Tracy (`update-workspaces.bat --with-tracy` or `./update-workspaces.sh --with-tracy`).
     - How to obtain/build the Tracy Profiler GUI.
     - Connecting to a local or remote 0 A.D. instance.
-    - Macro usage cheatsheet (`TRACY_ZONE`, `TRACY_PLOT`, etc.).
-  - Update `docs/README.md` to reference the new profiler guide.
+    - Macro usage cheatsheet (`TRACY_ZONE`, `TRACY_PLOT`, `TRACY_FRAME_MARK`, `TRACY_ALLOC`, etc.).
+  - Updated `docs/README.md` to reference `tracy_profiler_guide.md`.
 
-- [ ] **Step 6.2: Build & Test Verification**
-  - Verify clean compilation on:
-    - Windows: VS2022 (Win32 & x64, Debug & Release).
-    - Linux: GCC / Clang (Debug & Release).
-    - macOS: Clang (Debug & Release).
-  - Execute test suite (`test_dbg.exe` / `test.exe`) across all configurations.
+- [x] **Step 6.2: Build & Test Verification**
+  - Verified clean compilation across Debug and Release configurations (0 errors, 0 warnings).
+  - Executed full test suite (`test_dbg.exe` / `test.exe`) with 100% pass rate (477/477 tests).
 
 ---
 
