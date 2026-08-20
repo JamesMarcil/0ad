@@ -574,6 +574,7 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 	}
 
 	{
+		PROFILE2("Sim - Motion Formation");
 		CMessageUpdate_MotionFormation msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}
