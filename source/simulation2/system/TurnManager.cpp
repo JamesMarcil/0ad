@@ -120,7 +120,7 @@ bool CTurnManager::Update(float simFrameLength, size_t maxTurns, const UpdateCal
 		// To avoid confusing the profiler, we need to trigger the new turn
 		// while we're not nested inside any PROFILE blocks
 		g_Profiler.Turn();
-		TRACY_FRAME_MARK_NAMED("SimulationTurn");
+		TRACY_FRAME_MARK_START("SimulationTurn");
 
 		NotifyFinishedOwnCommands(m_CurrentTurn + m_CommandDelay);
 
@@ -153,7 +153,14 @@ bool CTurnManager::Update(float simFrameLength, size_t maxTurns, const UpdateCal
 
 		NETTURN_LOG("Running %d cmds\n", commands.size());
 
-		m_Simulation2.Update(m_TurnLength, commands);
+		{
+			TRACY_ZONE_COLOR("SimulationTurn Update", TRACY_COLOR_SIMULATION);
+			TRACY_ZONE_TEXT_F("Turn: %u | Cmds: %zu | DeltaSim: %.3f", m_CurrentTurn, commands.size(), m_DeltaSimTime);
+			TRACY_ZONE_VALUE(commands.size());
+			m_Simulation2.Update(m_TurnLength, commands);
+		}
+
+		TRACY_FRAME_MARK_END("SimulationTurn");
 
 		NotifyFinishedUpdate(m_CurrentTurn, sendEventToAll);
 

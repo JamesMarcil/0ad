@@ -249,6 +249,10 @@ JS::Value deepfreeze(const Script::Interface& scriptInterface, JS::HandleValue v
 	return val;
 }
 
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+static thread_local std::vector<TracyCZoneCtx> s_TracyScriptStack;
+#endif
+
 void ProfileStart(const std::string& regionName)
 {
 	const char* name = "(ProfileStart)";
@@ -266,6 +270,12 @@ void ProfileStart(const std::string& regionName)
 		g_Profiler.StartScript(name);
 
 	g_Profiler2.RecordRegionEnter(name);
+
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+	uint64_t srcloc = ___tracy_alloc_srcloc_name(0, "Script", 6, "Script", 6, name, strlen(name), TRACY_COLOR_SCRIPT);
+	TracyCZoneCtx ctx = ___tracy_emit_zone_begin_alloc(srcloc, 1);
+	s_TracyScriptStack.push_back(ctx);
+#endif
 }
 
 void ProfileStop()
@@ -274,6 +284,14 @@ void ProfileStop()
 		g_Profiler.Stop();
 
 	g_Profiler2.RecordRegionLeave();
+
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+	if (!s_TracyScriptStack.empty())
+	{
+		___tracy_emit_zone_end(s_TracyScriptStack.back());
+		s_TracyScriptStack.pop_back();
+	}
+#endif
 }
 
 void ProfileAttribute(const std::string& attr)
@@ -290,6 +308,13 @@ void ProfileAttribute(const std::string& attr)
 		name = StringFlyweight(attr).get().c_str();
 
 	g_Profiler2.RecordAttribute("%s", name);
+
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+	if (!s_TracyScriptStack.empty() && !attr.empty())
+	{
+		___tracy_emit_zone_text(s_TracyScriptStack.back(), attr.c_str(), attr.length());
+	}
+#endif
 }
 
 // Math override functions:

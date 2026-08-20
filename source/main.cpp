@@ -525,6 +525,9 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 	g_CmdLineArgs = args;
 
+	TRACY_SET_PROGRAM_NAME("0 A.D. (Pyrogenesis)");
+	TRACY_APP_INFO(PS_VERSION, strlen(PS_VERSION));
+
 	if (args.Has("version"))
 	{
 		debug_printf("Pyrogenesis %s\n", PS_VERSION);
