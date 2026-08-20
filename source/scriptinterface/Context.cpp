@@ -25,6 +25,7 @@
 #include "lib/debug.h"
 #include "ps/Profile.h"
 #include "ps/Profiler2.h"
+#include "ps/ProfileTracy.h"
 #include "ps/ThreadUtil.h"
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Promises.h"
@@ -43,7 +44,7 @@ namespace JS { class Realm; }
 struct JSContext;
 struct JSRuntime;
 
-void GCSliceCallbackHook(JSContext*, JS::GCProgress progress, const JS::GCDescription&)
+void GCSliceCallbackHook(JSContext* cx, JS::GCProgress progress, const JS::GCDescription&)
 {
 	/**
 	 * From the GCAPI.h file:
@@ -65,6 +66,13 @@ void GCSliceCallbackHook(JSContext*, JS::GCProgress progress, const JS::GCDescri
 		if (CProfileManager::IsInitialised() && Threading::IsMainThread())
 			g_Profiler.Stop();
 		g_Profiler2.RecordRegionLeave();
+		if (cx)
+		{
+			// Queried inside the macro so that a build without Tracy neither calls
+			// into SpiderMonkey nor leaves an unreferenced local behind.
+			TRACY_PLOT("JS Heap Size", static_cast<int64_t>(JS_GetGCParameter(cx, JSGC_BYTES)));
+			TRACY_PLOT("JS GC Chunk Bytes", static_cast<int64_t>(JS_GetGCParameter(cx, JSGC_CHUNK_BYTES)));
+		}
 	}
 
 	// The following code can be used to print some information aobut garbage collection
@@ -111,6 +119,9 @@ Context::Context(int contextSize, uint32_t heapGrowthBytesGCTrigger):
 	m_HeapGrowthBytesGCTrigger{heapGrowthBytesGCTrigger}
 {
 	ENSURE(Engine::IsInitialised() && "The Script::Engine must be initialized before constructing any ScriptContexts!");
+
+	TRACY_PLOT_CONFIG("JS Heap Size", TRACY_PLOT_TYPE_MEMORY, false, false, TRACY_COLOR_SCRIPT);
+	TRACY_PLOT_CONFIG("JS GC Chunk Bytes", TRACY_PLOT_TYPE_MEMORY, false, false, TRACY_COLOR_SCRIPT);
 
 	m_cx = JS_NewContext(contextSize);
 	ENSURE(m_cx); // TODO: error handling
