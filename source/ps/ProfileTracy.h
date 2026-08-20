@@ -52,6 +52,8 @@ namespace PS::Tracy::MemoryPool
 inline constexpr const char* LinearAllocator{"PS::Memory::LinearAllocator"};
 inline constexpr const char* DynamicArena{"Allocators::DynamicArena"};
 inline constexpr const char* Pool{"Allocators::Pool"};
+inline constexpr const char* VfsFileBuffer{"VFS FileBuffer"};
+inline constexpr const char* RendererGeometry{"Renderer Geometry"};
 } // namespace PS::Tracy::MemoryPool
 
 #if defined(TRACY_ENABLE) && TRACY_ENABLE

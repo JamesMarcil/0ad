@@ -38,7 +38,9 @@
 #include "lib/file/vfs/vfs_populate.h"
 #include "lib/file/vfs/vfs_tree.h"
 #include "lib/path.h"
+#include "ps/ProfileTracy.h"
 
+#include <atomic>
 #include <ctime>
 #include <map>
 #include <mutex>
@@ -58,11 +60,18 @@ STATUS_ADD_DEFINITIONS(vfsStatusDefinitions);
 // if that runs before StartupProfiler(). See CLogger::m_Mutex for the same hazard.
 static std::mutex vfs_mutex;
 
+// Running total of bytes loaded via VFS::LoadFile since process start, for
+// the "VFS Loaded Bytes" plot; distinct from the "VFS FileBuffer" pool in
+// the Memory window, which reflects currently-live bytes rather than a
+// cumulative count.
+static std::atomic<int64_t> s_VfsBytesLoaded{0};
+
 class VFS : public IVFS
 {
 public:
 	VFS() : m_trace(CreateDummyTrace(8*MiB))
 	{
+		TRACY_PLOT_CONFIG("VFS Loaded Bytes", TRACY_PLOT_TYPE_MEMORY, true, true, TRACY_COLOR_TASK);
 	}
 
 	virtual Status Mount(const VfsPath& mountPoint, const OsPath& path, size_t flags /* = 0 */, size_t priority /* = 0 */)
@@ -174,7 +183,23 @@ public:
 		fileContents = DummySharedPtr((u8*)0);
 		size = file->Size();
 
-		RETURN_STATUS_IF_ERR(AllocateAligned(fileContents, size, maxSectorSize));
+		// Not using AllocateAligned directly: it hands fileContents a plain
+		// AlignedDeleter, and that helper is shared by unrelated buffers (see
+		// WriteBuffer/UnalignedWriter) that must not be tagged "VFS FileBuffer".
+		// A custom deleter reports the matching free exactly once, whenever the
+		// last fileContents reference is dropped - which may be long after this
+		// call returns - rather than never, which would let a later allocation
+		// reuse the address while Tracy still considers it live (fatal).
+		void* mem = rtl_AllocateAligned(size, maxSectorSize);
+		if (!mem)
+			WARN_RETURN(ERR::NO_MEM);
+		TRACY_ALLOC_NAMED(mem, size, PS::Tracy::MemoryPool::VfsFileBuffer);
+		fileContents.reset(static_cast<u8*>(mem), [](u8* p)
+		{
+			TRACY_FREE_NAMED(p, PS::Tracy::MemoryPool::VfsFileBuffer);
+			rtl_FreeAligned(p);
+		});
+		TRACY_PLOT("VFS Loaded Bytes", s_VfsBytesLoaded.fetch_add((int64_t)size, std::memory_order_relaxed) + (int64_t)size);
 		RETURN_STATUS_IF_ERR(file->Loader()->Load(file->Name(), fileContents, file->Size()));
 
 		stats_io_user_request(size);

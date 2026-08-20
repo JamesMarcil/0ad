@@ -25,6 +25,7 @@
 #include "lib/sysdep/compiler.h"
 #include "maths/Vector2D.h"
 #include "ps/FileIo.h"
+#include "ps/ProfileTracy.h"
 #include "renderer/VertexArray.h"
 
 #include <algorithm>
@@ -296,6 +297,10 @@ CModelDef::~CModelDef()
 {
 	for(RenderDataMap::iterator it = m_RenderData.begin(); it != m_RenderData.end(); ++it)
 		delete it->second;
+	if (m_pVertices)
+		TRACY_FREE_NAMED(m_pVertices, PS::Tracy::MemoryPool::RendererGeometry);
+	if (m_pFaces)
+		TRACY_FREE_NAMED(m_pFaces, PS::Tracy::MemoryPool::RendererGeometry);
 	delete[] m_pVertices;
 	delete[] m_pFaces;
 	delete[] m_Bones;
@@ -345,6 +350,7 @@ CModelDef* CModelDef::Load(const VfsPath& filename, const VfsPath& name)
 	}
 
 	mdef->m_pVertices = new SModelVertex[mdef->m_NumVertices];
+	TRACY_ALLOC_NAMED(mdef->m_pVertices, mdef->m_NumVertices * sizeof(SModelVertex), PS::Tracy::MemoryPool::RendererGeometry);
 	mdef->m_UVCoordinates.reserve(mdef->m_NumVertices * mdef->m_NumUVsPerVertex);
 
 	for (size_t i = 0; i < mdef->m_NumVertices; ++i)
@@ -364,6 +370,7 @@ CModelDef* CModelDef::Load(const VfsPath& filename, const VfsPath& name)
 
 	mdef->m_NumFaces = unpacker.UnpackSize();
 	mdef->m_pFaces=new SModelFace[mdef->m_NumFaces];
+	TRACY_ALLOC_NAMED(mdef->m_pFaces, mdef->m_NumFaces * sizeof(SModelFace), PS::Tracy::MemoryPool::RendererGeometry);
 	unpacker.UnpackRaw(mdef->m_pFaces,sizeof(SModelFace)*mdef->m_NumFaces);
 
 	mdef->m_NumBones = unpacker.UnpackSize();
