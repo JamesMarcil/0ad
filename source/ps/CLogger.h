@@ -106,7 +106,11 @@ private:
 	// so we'll fill in the initial value later
 	double m_RenderLastEraseTime{-1.0};
 
-	// Lock for all state modified by logging commands
+	// Lock for all state modified by logging commands.
+	// Not instrumented with TRACY_LOCKABLE: CLogger.cpp constructs a namespace-scope
+	// static `nullLogger` (the default g_Logger) before main() calls TRACY_STARTUP().
+	// tracy::Lockable's constructor unconditionally touches the profiler singleton,
+	// which asserts under TRACY_MANUAL_LIFETIME if that runs before StartupProfiler().
 	std::mutex m_Mutex;
 };
 

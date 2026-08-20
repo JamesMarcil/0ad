@@ -158,7 +158,7 @@ CNetServerWorker::~CNetServerWorker()
 {
 	// Tell the thread to shut down
 	{
-		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+		std::lock_guard lock(m_WorkerMutex);
 		m_Shutdown = true;
 	}
 
@@ -423,7 +423,7 @@ bool CNetServerWorker::RunStep()
 	std::vector<u32> newTurnLength;
 
 	{
-		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+		std::lock_guard lock(m_WorkerMutex);
 
 		if (m_Shutdown)
 			return false;
@@ -1672,7 +1672,7 @@ CNetServer::CNetServer(const bool continueSavedGame, std::uint16_t port, const b
 
 	// In lobby, we send our public ip and port on request to the players who want to connect.
 	// Thus we need to know our public IP and use STUN to get it.
-	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	std::lock_guard lock(m_Worker.m_WorkerMutex);
 	if (!m_Worker.m_Host || !StunClient::FindPublicIP(*m_Worker.m_Host, m_PublicIp, m_PublicPort))
 		throw std::runtime_error{"Failed to resolve public IP-address."};
 }
@@ -1694,7 +1694,7 @@ u16 CNetServer::GetPublicPort() const
 
 u16 CNetServer::GetLocalPort() const
 {
-	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	std::lock_guard lock(m_Worker.m_WorkerMutex);
 	if (!m_Worker.m_Host)
 		return 0;
 	return m_Worker.m_Host->address.port;
@@ -1724,19 +1724,19 @@ bool CNetServer::IsBanned(const std::string& username) const
 
 void CNetServer::StartGame()
 {
-	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	std::lock_guard lock(m_Worker.m_WorkerMutex);
 	m_Worker.m_StartGameQueue.push_back(true);
 }
 
 void CNetServer::OnLobbyAuth(const CStr& name, const CStr& token)
 {
-	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	std::lock_guard lock(m_Worker.m_WorkerMutex);
 	m_Worker.m_LobbyAuthQueue.push_back(std::make_pair(name, token));
 }
 
 void CNetServer::SetTurnLength(u32 msecs)
 {
-	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	std::lock_guard lock(m_Worker.m_WorkerMutex);
 	m_Worker.m_TurnLengthQueue.push_back(msecs);
 }
 

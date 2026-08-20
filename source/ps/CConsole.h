@@ -25,6 +25,7 @@
 #include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
 #include "ps/Input.h"
+#include "ps/ProfileTracy.h"
 
 #include <cstddef>
 #include <deque>
@@ -73,7 +74,7 @@ public:
 
 private:
 	// Lock for all state modified by InsertMessage
-	std::mutex m_Mutex;
+	TRACY_LOCKABLE_N(std::mutex, m_Mutex, "Console Mutex");
 
 	float m_FontHeight;
 	float m_FontWidth;

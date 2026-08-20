@@ -28,6 +28,7 @@
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/status.h"
 #include "ps/CStr.h"
+#include "ps/ProfileTracy.h"
 #include "scripting/SoundGroup.h"
 #include "simulation2/system/Entity.h"
 
@@ -67,7 +68,7 @@ protected:
 	ISoundItem* m_CurrentTune;
 	ISoundItem* m_CurrentEnvirons;
 	CSoundManagerWorker* m_Worker;
-	std::mutex m_DistressMutex;
+	TRACY_LOCKABLE_N(std::mutex, m_DistressMutex, "SoundManager DistressMutex");
 	PlayList* m_PlayListItems;
 	SoundGroupMap m_SoundGroups;
 

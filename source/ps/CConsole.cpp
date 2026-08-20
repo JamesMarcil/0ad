@@ -276,7 +276,7 @@ void CConsole::DrawHistory(CTextRenderer& textRenderer)
 
 	std::deque<std::wstring>::iterator it; //History iterator
 
-	std::lock_guard<std::mutex> lock(m_Mutex); // needed for safe access to m_deqMsgHistory
+	std::lock_guard lock(m_Mutex); // needed for safe access to m_deqMsgHistory
 
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 1.0f, 1.0f));
 
@@ -444,7 +444,7 @@ void CConsole::InsertChar(const int szChar, const wchar_t cooked)
 	case SDLK_HOME:
 		if (g_scancodes[SDL_SCANCODE_LCTRL] || g_scancodes[SDL_SCANCODE_RCTRL])
 		{
-			std::lock_guard<std::mutex> lock(m_Mutex); // needed for safe access to m_deqMsgHistory
+			std::lock_guard lock(m_Mutex); // needed for safe access to m_deqMsgHistory
 
 			const int linesShown = static_cast<int>(std::ceil(m_Height / m_FontHeight)) - 4;
 			m_MsgHistPos = Clamp(static_cast<int>(m_MsgHistory.size()) - linesShown, 1, static_cast<int>(m_MsgHistory.size()));
@@ -507,7 +507,7 @@ void CConsole::InsertChar(const int szChar, const wchar_t cooked)
 	// BEGIN: Message History Lookup
 	case SDLK_PAGEUP:
 	{
-		std::lock_guard<std::mutex> lock(m_Mutex); // needed for safe access to m_deqMsgHistory
+		std::lock_guard lock(m_Mutex); // needed for safe access to m_deqMsgHistory
 
 		if (m_MsgHistPos != static_cast<int>(m_MsgHistory.size()))
 			m_MsgHistPos++;
@@ -571,7 +571,7 @@ void CConsole::InsertMessage(const std::string& message)
 	oldNewline = 0;
 
 	{
-		std::lock_guard<std::mutex> lock(m_Mutex); // needed for safe access to m_deqMsgHistory
+		std::lock_guard lock(m_Mutex); // needed for safe access to m_deqMsgHistory
 
 		while ( (distance = wrapAround.find(newline, oldNewline)) != wrapAround.npos)
 		{

@@ -124,7 +124,7 @@ void CSoundBase::SetGain(ALfloat gain)
 
 	if ( m_ALSource )
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 		alSourcef(m_ALSource, AL_GAIN, gain);
 		AL_CHECK;
 	}
@@ -134,7 +134,7 @@ void CSoundBase::SetRollOff(float rolls, float minDist, float maxDist)
 {
 	if ( m_ALSource )
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 		alSourcef(m_ALSource, AL_REFERENCE_DISTANCE, minDist);
 		AL_CHECK;
 		alSourcef(m_ALSource, AL_MAX_DISTANCE, maxDist);
@@ -154,7 +154,7 @@ void CSoundBase::SetCone(ALfloat innerCone, ALfloat outerCone, ALfloat coneGain)
 {
 	if ( m_ALSource )
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 		AL_CHECK;
 		alSourcef(m_ALSource, AL_CONE_INNER_ANGLE, innerCone);
 		AL_CHECK;
@@ -169,7 +169,7 @@ void CSoundBase::SetPitch(ALfloat pitch)
 {
 	if ( m_ALSource )
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 		alSourcef(m_ALSource, AL_PITCH, pitch);
 		AL_CHECK;
 	}
@@ -179,7 +179,7 @@ void CSoundBase::SetDirection(const CVector3D& direction)
 {
 	if ( m_ALSource )
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 		alSourcefv(m_ALSource, AL_DIRECTION, direction.AsFloatArray().data());
 		AL_CHECK;
 	}
@@ -190,7 +190,7 @@ bool CSoundBase::IsPlaying()
 {
 	if ( m_ALSource )
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 		int proc_state;
 		alGetSourcei(m_ALSource, AL_SOURCE_STATE, &proc_state);
 		AL_CHECK;
@@ -214,7 +214,7 @@ void CSoundBase::SetLocation (const CVector3D& position)
 {
 	if ( m_ALSource != 0 )
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 		alSourcefv(m_ALSource,AL_POSITION, position.AsFloatArray().data());
 		AL_CHECK;
 	}
@@ -277,7 +277,7 @@ void CSoundBase::SetLooping(bool loops)
 
 void CSoundBase::Play()
 {
-	std::lock_guard<std::mutex> lock(m_ItemMutex);
+	std::lock_guard lock(m_ItemMutex);
 
 	m_ShouldBePlaying = true;
 	m_IsPaused = false;
@@ -352,7 +352,7 @@ void CSoundBase::Stop()
 	m_ShouldBePlaying = false;
 	if (m_ALSource != 0)
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 
 		AL_CHECK;
 		alSourcei(m_ALSource, AL_LOOPING, AL_FALSE);

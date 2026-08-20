@@ -55,7 +55,7 @@ bool CSoundItem::IdleTask()
 
 	if (m_LastPlay && m_ALSource)
 	{
-		std::lock_guard<std::mutex> lock(m_ItemMutex);
+		std::lock_guard lock(m_ItemMutex);
 		int proc_state;
 		alGetSourcei(m_ALSource, AL_SOURCE_STATE, &proc_state);
 		AL_CHECK;

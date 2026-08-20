@@ -76,7 +76,7 @@ public:
 	bool Shutdown()
 	{
 		{
-			std::lock_guard<std::mutex> lock(m_WorkerMutex);
+			std::lock_guard lock(m_WorkerMutex);
 
 			m_Shutdown = true;
 
@@ -96,13 +96,13 @@ public:
 
 	void addItem(ISoundItem* anItem)
 	{
-		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+		std::lock_guard lock(m_WorkerMutex);
 		m_Items->push_back(anItem);
 	}
 
 	void CleanupItems()
 	{
-		std::lock_guard<std::mutex> lock(m_DeadItemsMutex);
+		std::lock_guard lock(m_DeadItemsMutex);
 		AL_CHECK;
 		ItemsList::iterator deadItems = m_DeadItems->begin();
 		while (deadItems != m_DeadItems->end())
@@ -137,7 +137,7 @@ private:
 				pauseTime = 50;
 
 			{
-				std::lock_guard<std::mutex> workerLock(m_WorkerMutex);
+				std::lock_guard workerLock(m_WorkerMutex);
 
 				ItemsList::iterator lstr = m_Items->begin();
 				ItemsList* nextItemList = new ItemsList;
@@ -154,7 +154,7 @@ private:
 					}
 					else
 					{
-						std::lock_guard<std::mutex> deadItemsLock(m_DeadItemsMutex);
+						std::lock_guard deadItemsLock(m_DeadItemsMutex);
 						m_DeadItems->push_back(*lstr);
 					}
 					++lstr;
@@ -173,15 +173,15 @@ private:
 
 	bool GetShutdown()
 	{
-		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+		std::lock_guard lock(m_WorkerMutex);
 		return m_Shutdown;
 	}
 
 private:
 	// Thread-related members:
 	std::thread m_WorkerThread;
-	std::mutex m_WorkerMutex;
-	std::mutex m_DeadItemsMutex;
+	TRACY_LOCKABLE_N(std::mutex, m_WorkerMutex, "SoundManager WorkerMutex");
+	TRACY_LOCKABLE_N(std::mutex, m_DeadItemsMutex, "SoundManager DeadItemsMutex");
 
 	// Shared by main thread and worker thread:
 	// These variables are all protected by a mutexes
@@ -248,7 +248,7 @@ Status CSoundManager::ReloadChangedFiles(const VfsPath&)
 CSoundManager::CSoundManager(ALCdevice* device)
 	: m_Context(nullptr), m_Device(device), m_ALSourceBuffer(nullptr),
 	m_CurrentTune(nullptr), m_CurrentEnvirons(nullptr),
-	m_Worker(nullptr), m_DistressMutex(), m_PlayListItems(nullptr), m_SoundGroups(),
+	m_Worker(nullptr), m_PlayListItems(nullptr), m_SoundGroups(),
 	m_Gain{g_ConfigDB.Get("sound.mastergain", 0.5f)},
 	m_MusicGain{g_ConfigDB.Get("sound.musicgain", 0.5f)},
 	m_AmbientGain{g_ConfigDB.Get("sound.ambientgain", 0.5f)},
@@ -379,7 +379,7 @@ Status CSoundManager::AlcInit()
 
 bool CSoundManager::InDistress()
 {
-	std::lock_guard<std::mutex> lock(m_DistressMutex);
+	std::lock_guard lock(m_DistressMutex);
 
 	if (m_DistressTime == 0)
 		return false;
@@ -396,7 +396,7 @@ bool CSoundManager::InDistress()
 
 void CSoundManager::SetDistressThroughShortage()
 {
-	std::lock_guard<std::mutex> lock(m_DistressMutex);
+	std::lock_guard lock(m_DistressMutex);
 
 // Going into distress for normal reasons
 
@@ -405,7 +405,7 @@ void CSoundManager::SetDistressThroughShortage()
 
 void CSoundManager::SetDistressThroughError()
 {
-	std::lock_guard<std::mutex> lock(m_DistressMutex);
+	std::lock_guard lock(m_DistressMutex);
 
 // Going into distress due to unknown error
 

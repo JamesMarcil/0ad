@@ -30,6 +30,7 @@
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/types.h"
 #include "ps/CStr.h"
+#include "ps/ProfileTracy.h"
 
 #include <array>
 #include <functional>
@@ -223,7 +224,7 @@ private:
 	std::array<VfsPath, CFG_LAST> m_ConfigFile;
 	std::array<bool, CFG_LAST> m_HasChanges;
 
-	mutable std::recursive_mutex m_Mutex;
+	mutable TRACY_LOCKABLE_N(std::recursive_mutex, m_Mutex, "ConfigDB Mutex");
 };
 
 class CConfigDBHook

@@ -23,6 +23,7 @@
 #if CONFIG2_AUDIO
 
 #include "lib/file/vfs/vfs_path.h"
+#include "ps/ProfileTracy.h"
 #include "soundmanager/items/ISoundItem.h"
 
 #include <AL/al.h>
@@ -49,7 +50,7 @@ protected:
 
 	ALfloat	m_StartVolume;
 	ALfloat	m_EndVolume;
-	std::mutex m_ItemMutex;
+	TRACY_LOCKABLE_N(std::mutex, m_ItemMutex, "SoundItem Mutex");
 
 public:
 	CSoundBase();

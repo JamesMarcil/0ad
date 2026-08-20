@@ -51,6 +51,11 @@ static const StatusDefinition vfsStatusDefinitions[] = {
 };
 STATUS_ADD_DEFINITIONS(vfsStatusDefinitions);
 
+// Not instrumented with TRACY_LOCKABLE: this is a namespace-scope static,
+// constructed during static initialization, before main() calls TRACY_STARTUP().
+// tracy::Lockable's constructor unconditionally touches the profiler singleton,
+// which asserts (or is UB in a build without assertions) under TRACY_MANUAL_LIFETIME
+// if that runs before StartupProfiler(). See CLogger::m_Mutex for the same hazard.
 static std::mutex vfs_mutex;
 
 class VFS : public IVFS
@@ -64,7 +69,7 @@ public:
 	{
 		ENSURE(path.IsDirectory());
 
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		if(!DirectoryExists(path))
 		{
 			if(flags & VFS_MOUNT_MUST_EXIST)
@@ -83,7 +88,7 @@ public:
 
 	virtual Status GetFileInfo(const VfsPath& pathname, CFileInfo* pfileInfo) const
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		VfsDirectory* directory;
 		VfsFile* file;
 
@@ -97,7 +102,7 @@ public:
 
 	virtual Status GetFilePriority(const VfsPath& pathname, size_t* ppriority) const
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		VfsDirectory* directory; VfsFile* file;
 		RETURN_STATUS_IF_ERR(vfs_Lookup(pathname, &m_rootDirectory, directory, &file));
 		*ppriority = file->Priority();
@@ -106,7 +111,7 @@ public:
 
 	virtual Status GetDirectoryEntries(const VfsPath& path, CFileInfos* fileInfos, DirectoryNames* subdirectoryNames) const
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		VfsDirectory* directory;
 		RETURN_STATUS_IF_ERR(vfs_Lookup(path, &m_rootDirectory, directory, 0));
 
@@ -136,7 +141,7 @@ public:
 
 	virtual Status CreateFile(const VfsPath& pathname, const std::shared_ptr<u8>& fileContents, size_t size)
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		VfsDirectory* directory;
 		Status st;
 		st = vfs_Lookup(pathname, &m_rootDirectory, directory, 0, VFS_LOOKUP_ADD|VFS_LOOKUP_REAL_PATH);
@@ -158,7 +163,7 @@ public:
 
 	virtual Status LoadFile(const VfsPath& pathname, std::shared_ptr<u8>& fileContents, size_t& size)
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 
 		VfsDirectory* directory; VfsFile* file;
 		// per 2010-05-01 meeting, this shouldn't raise 'scary error
@@ -180,7 +185,7 @@ public:
 
 	virtual std::wstring TextRepresentation() const
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		std::wstring textRepresentation;
 		textRepresentation.reserve(100*KiB);
 		DirectoryDescriptionR(textRepresentation, m_rootDirectory, 0);
@@ -189,7 +194,7 @@ public:
 
 	virtual Status GetOriginalPath(const VfsPath& pathname, OsPath& realPathname)
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		VfsDirectory* directory; VfsFile* file;
 		WARN_RETURN_STATUS_IF_ERR(vfs_Lookup(pathname, &m_rootDirectory, directory, &file));
 		realPathname = file->Loader()->Path() / pathname.Filename();
@@ -198,7 +203,7 @@ public:
 
 	virtual Status GetRealPath(const VfsPath& pathname, OsPath& realPathname, bool createMissingDirectories)
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		VfsDirectory* directory; VfsFile* file;
 		size_t flags = VFS_LOOKUP_REAL_PATH | (createMissingDirectories ? VFS_LOOKUP_ADD : 0);
 		WARN_RETURN_STATUS_IF_ERR(vfs_Lookup(pathname, &m_rootDirectory, directory, &file, flags));
@@ -209,7 +214,7 @@ public:
 
 	virtual Status GetDirectoryRealPath(const VfsPath& pathname, OsPath& realPathname, bool createMissingDirectories)
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		VfsDirectory* directory;
 		size_t flags = VFS_LOOKUP_REAL_PATH | (createMissingDirectories ? VFS_LOOKUP_ADD : 0);
 		WARN_RETURN_STATUS_IF_ERR(vfs_Lookup(pathname, &m_rootDirectory, directory, NULL, flags));
@@ -220,7 +225,7 @@ public:
 
 	virtual Status GetVirtualPath(const OsPath& realPathname, VfsPath& pathname)
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		const OsPath realPath = realPathname.Parent()/"";
 		VfsPath path;
 		RETURN_STATUS_IF_ERR(FindRealPathR(realPath, m_rootDirectory, L"", path));
@@ -230,7 +235,7 @@ public:
 
 	virtual Status RemoveFile(const VfsPath& pathname)
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 
 		VfsDirectory* directory; VfsFile* file;
 		RETURN_STATUS_IF_ERR(vfs_Lookup(pathname, &m_rootDirectory, directory, &file));
@@ -241,7 +246,7 @@ public:
 
 	virtual Status RepopulateDirectory(const VfsPath& path)
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 
 		VfsDirectory* directory;
 		RETURN_STATUS_IF_ERR(vfs_Lookup(path, &m_rootDirectory, directory, 0));
@@ -252,7 +257,7 @@ public:
 
 	virtual void Clear()
 	{
-		std::lock_guard<std::mutex> lock(vfs_mutex);
+		std::lock_guard lock(vfs_mutex);
 		m_rootDirectory.Clear();
 	}
 

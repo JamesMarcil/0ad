@@ -75,7 +75,7 @@ const std::vector<ProfileColumn>& CNetStatsTable::GetColumns()
 		m_ColumnDescriptions.push_back(ProfileColumn("Value", 80));
 	else
 	{
-		std::lock_guard<std::mutex> lock(m_Mutex);
+		std::lock_guard lock(m_Mutex);
 
 		for (size_t i = 0; i < m_LatchedData.size(); ++i)
 			m_ColumnDescriptions.push_back(ProfileColumn(fmt::format("Peer {}", i), 80));
@@ -88,7 +88,7 @@ CStr CNetStatsTable::GetCellText(size_t row, size_t col)
 {
 	// Return latched data, if we have any
 	{
-		std::lock_guard<std::mutex> lock(m_Mutex);
+		std::lock_guard lock(m_Mutex);
 		if (col > 0 && m_LatchedData.size() > col-1 && m_LatchedData[col-1].size() > row)
 			return m_LatchedData[col-1][row];
 	}
@@ -127,7 +127,7 @@ AbstractProfileTable* CNetStatsTable::GetChild(size_t /*row*/)
 
 void CNetStatsTable::LatchHostState(const ENetHost& host)
 {
-	std::lock_guard<std::mutex> lock(m_Mutex);
+	std::lock_guard lock(m_Mutex);
 
 #define ROW(id, title, member) \
 	m_LatchedData[i].push_back(std::to_string(host.peers[i].member));

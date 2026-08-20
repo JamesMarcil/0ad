@@ -114,7 +114,7 @@ void CLogger::WriteMessage(const char* message, bool doRender = false)
 {
 	std::string cmessage = ToHTML(message);
 
-	std::lock_guard<std::mutex> lock(m_Mutex);
+	std::lock_guard lock(m_Mutex);
 
 	++m_NumberOfMessages;
 //	if (m_UseDebugPrintf)
@@ -135,7 +135,7 @@ void CLogger::WriteError(const char* message)
 {
 	std::string cmessage = ToHTML(message);
 
-	std::lock_guard<std::mutex> lock(m_Mutex);
+	std::lock_guard lock(m_Mutex);
 
 	++m_NumberOfErrors;
 	if (m_UseDebugPrintf)
@@ -155,7 +155,7 @@ void CLogger::WriteWarning(const char* message)
 {
 	std::string cmessage = ToHTML(message);
 
-	std::lock_guard<std::mutex> lock(m_Mutex);
+	std::lock_guard lock(m_Mutex);
 
 	++m_NumberOfWarnings;
 	if (m_UseDebugPrintf)
@@ -190,7 +190,7 @@ void CLogger::Render(CCanvas2D& canvas)
 
 	// (Lock must come after loading the CFont, since that might log error messages
 	// and attempt to lock the mutex recursively which is forbidden)
-	std::lock_guard<std::mutex> lock(m_Mutex);
+	std::lock_guard lock(m_Mutex);
 
 	for (const RenderedMessage& msg : m_RenderMessages)
 	{
@@ -252,7 +252,7 @@ void CLogger::PushRenderMessage(ELogMethod method, const char* message)
 
 void CLogger::CleanupRenderQueue()
 {
-	std::lock_guard<std::mutex> lock(m_Mutex);
+	std::lock_guard lock(m_Mutex);
 
 	if (m_RenderMessages.empty())
 		return;

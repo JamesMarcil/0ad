@@ -31,6 +31,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include "ps/ProfileTracy.h"
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -335,7 +336,7 @@ private:
 	bool RunStep();
 
 	std::thread m_WorkerThread;
-	mutable std::mutex m_WorkerMutex;
+	mutable TRACY_LOCKABLE_N(std::mutex, m_WorkerMutex, "NetServer WorkerMutex");
 
 	// protected by m_WorkerMutex
 	bool m_Shutdown{false};

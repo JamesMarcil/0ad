@@ -22,6 +22,7 @@
 #include "lib/external_libraries/enet.h"
 #include "ps/CStr.h"
 #include "ps/ProfileViewer.h"
+#include "ps/ProfileTracy.h"
 
 #include <cstddef>
 #include <mutex>
@@ -59,7 +60,7 @@ private:
 	const ENetPeer* m_Peer;
 	std::vector<ProfileColumn> m_ColumnDescriptions;
 
-	std::mutex m_Mutex;
+	TRACY_LOCKABLE_N(std::mutex, m_Mutex, "NetStats Mutex");
 	std::vector<std::vector<CStr>> m_LatchedData; // protected by m_Mutex
 };
 
