@@ -19,6 +19,7 @@
 #define INCLUDED_DAPINTERFACE
 
 #include "lib/code_annotation.h"
+#include "ps/ProfileTracy.h"
 
 #include <condition_variable>
 #include <js/RootingAPI.h>
@@ -75,8 +76,11 @@ namespace DAP
 		std::string m_DapRequest;
 		std::string m_DapResponse;
 
+		// m_MsgLock is not instrumented: m_MsgApplied waits on it, and
+		// std::condition_variable only accepts a std::unique_lock<std::mutex>,
+		// which tracy::Lockable<std::mutex> is not. See RL::Interface::m_MsgLock.
 		std::mutex m_MsgLock;
-		std::mutex m_WaitingLock;
+		TRACY_LOCKABLE_N(std::mutex, m_WaitingLock, "DAP WaitingLock");
 		std::condition_variable m_MsgApplied;
 
 		bool m_IsWaiting{false};

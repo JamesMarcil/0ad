@@ -203,27 +203,27 @@ std::string Interface::SendGameMessage(GameMessage&& msg)
 
 std::string Interface::Step(std::vector<GameCommand>&& commands)
 {
-	std::lock_guard<std::mutex> lock(m_Lock);
+	std::lock_guard lock(m_Lock);
 	return SendGameMessage({ GameMessageType::Commands, std::move(commands) });
 }
 
 std::string Interface::Reset(ScenarioConfig&& scenario)
 {
-	std::lock_guard<std::mutex> lock(m_Lock);
+	std::lock_guard lock(m_Lock);
 	m_ScenarioConfig = std::move(scenario);
 	return SendGameMessage({ GameMessageType::Reset });
 }
 
 std::string Interface::Evaluate(std::string&& code)
 {
-	std::lock_guard<std::mutex> lock(m_Lock);
+	std::lock_guard lock(m_Lock);
 	m_Code = std::move(code);
 	return SendGameMessage({ GameMessageType::Evaluate });
 }
 
 std::vector<std::string> Interface::GetTemplates(const std::vector<std::string>& names) const
 {
-	std::lock_guard<std::mutex> lock(m_Lock);
+	std::lock_guard lock(m_Lock);
 	CSimulation2& simulation = *g_Game->GetSimulation2();
 	CmpPtr<ICmpTemplateManager> cmpTemplateManager(simulation.GetSimContext().GetSystemEntity());
 

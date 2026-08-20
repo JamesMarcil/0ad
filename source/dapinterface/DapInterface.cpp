@@ -161,7 +161,7 @@ namespace DAP
 				}
 
 				LOGMESSAGE("Accepted connection from %s", inet_ntoa(clientAddr.sin_addr));
-				std::lock_guard<std::mutex> lock{m_ConnectionLock};
+				std::lock_guard lock{m_ConnectionLock};
 				this->HandleClient();
 				LOGMESSAGE("Client Disconnected");
 			}
@@ -281,7 +281,7 @@ namespace DAP
 #endif
 
 		std::thread m_ServerThread;
-		std::mutex m_ConnectionLock;
+		TRACY_LOCKABLE_N(std::mutex, m_ConnectionLock, "DAP ConnectionLock");
 		Interface* m_CallbackData{nullptr};
 		bool m_Running{true};
 	};
@@ -413,7 +413,7 @@ namespace DAP
 
 	void Interface::TryHandleMessage()
 	{
-		std::lock_guard<std::mutex> waitingLock{m_WaitingLock};
+		std::lock_guard waitingLock{m_WaitingLock};
 		if (!m_DapRequest.empty())
 		{
 			m_DapResponse = OnMessage(m_DapRequest);
@@ -446,7 +446,7 @@ namespace DAP
 	{
 		if (!m_IsWaiting)
 			return;
-		std::lock_guard<std::mutex> waitingLock{m_WaitingLock};
+		std::lock_guard waitingLock{m_WaitingLock};
 		m_IsWaiting = false;
 	}
 }

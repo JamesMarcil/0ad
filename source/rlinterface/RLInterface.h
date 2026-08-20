@@ -19,6 +19,7 @@
 #define INCLUDED_RLINTERFACE
 
 #include "lib/code_annotation.h"
+#include "ps/ProfileTracy.h"
 #include "simulation2/helpers/Player.h"
 
 #include <condition_variable>
@@ -162,7 +163,12 @@ private:
 	std::string m_ReturnValue;
 	bool m_NeedsGameState = false;
 
-	mutable std::mutex m_Lock;
+	mutable TRACY_LOCKABLE_N(std::mutex, m_Lock, "RLInterface StateMutex");
+	// Not instrumented: m_MsgApplied waits on this one, and std::condition_variable
+	// only accepts a std::unique_lock<std::mutex>, which tracy::Lockable<std::mutex>
+	// is not. Instrumenting it would mean moving the handshake to
+	// std::condition_variable_any - a change to the interface's threading, not to
+	// its profiling - so it stays a plain mutex.
 	std::mutex m_MsgLock;
 	std::condition_variable m_MsgApplied;
 	std::string m_Code;
