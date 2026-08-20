@@ -27,6 +27,7 @@
 #include "ps/Profiler2.h"
 #include "renderer/TerrainOverlay.h"
 #include "simulation2/helpers/HierarchicalPathfinder.h"
+#include "ps/ProfileTracy.h"
 #include "simulation2/helpers/Pathfinding.h"
 
 #include <algorithm>
@@ -37,6 +38,8 @@
 
 namespace
 {
+// Not instrumented with TRACY_LOCKABLE: see the comment on vfs_mutex in vfs.cpp.
+// This is a namespace-scope static, constructed before TRACY_STARTUP() runs.
 static std::mutex g_DebugMutex;
 }
 
@@ -721,14 +724,16 @@ void LongPathfinder::AddJumpedDiag(int i, int j, int di, int dj, PathCost g, Pat
 
 void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, entity_pos_t x0, entity_pos_t z0, const PathGoal& origGoal, pass_class_t passClass, WaypointPath& path) const
 {
-	PROFILE2("ComputePathJPS");
+	CProfile2Region profile2__("ComputePathJPS");
+	TRACY_ZONE_COLOR("ComputePathJPS", TRACY_COLOR_PATHFINDING);
+	TRACY_ZONE_TEXT_F("From (%.1f,%.1f) | PassClass: %u", x0.ToDouble(), z0.ToDouble(), (unsigned)passClass);
 	PathfinderState state = { 0 };
 
 	if (m_UseJPSCache)
 	{
 		// Needs to lock for construction, or several threads might try doing that at the same time.
-		static std::mutex JPCMutex;
-		std::unique_lock<std::mutex> lock(JPCMutex);
+		static TRACY_LOCKABLE_N(std::mutex, JPCMutex, "Pathfinder JPCMutex");
+		std::unique_lock lock(JPCMutex);
 		std::map<pass_class_t, std::shared_ptr<JumpPointCache>>::const_iterator it = m_JumpPointCache.find(passClass);
 		if (it != m_JumpPointCache.end())
 			state.jpc = it->second.get();
@@ -914,7 +919,7 @@ void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, enti
 	// Save this grid for debug display
 	if (m_Debug.Overlay)
 	{
-		std::lock_guard<std::mutex> lock(g_DebugMutex);
+		std::lock_guard lock(g_DebugMutex);
 		delete m_Debug.Grid;
 		m_Debug.Grid = state.tiles;
 		m_Debug.Steps = state.steps;
@@ -986,7 +991,7 @@ void LongPathfinder::GetDebugDataJPS(u32& steps, double& time, Grid<u8>& grid) c
 	if (!m_Debug.Grid)
 		return;
 
-	std::lock_guard<std::mutex> lock(g_DebugMutex);
+	std::lock_guard lock(g_DebugMutex);
 
 	u16 iGoal, jGoal;
 	Pathfinding::NearestNavcell(m_Debug.Goal.x, m_Debug.Goal.z, iGoal, jGoal, m_GridSize, m_GridSize);

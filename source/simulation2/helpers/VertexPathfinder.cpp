@@ -39,6 +39,7 @@
 #include "lib/debug.h"
 #include "maths/MathUtil.h"
 #include "ps/Profiler2.h"
+#include "ps/ProfileTracy.h"
 #include "renderer/Scene.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/helpers/Grid.h"
@@ -56,6 +57,8 @@
 
 namespace
 {
+// Not instrumented with TRACY_LOCKABLE: see the comment on vfs_mutex in vfs.cpp.
+// This is a namespace-scope static, constructed before TRACY_STARTUP() runs.
 static std::mutex g_DebugMutex;
 }
 
@@ -555,7 +558,9 @@ struct UnalignedEdgesSort
 
 WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request, CmpPtr<ICmpObstructionManager> cmpObstructionManager) const
 {
-	PROFILE2("ComputeShortPath");
+	CProfile2Region profile2__("ComputeShortPath");
+	TRACY_ZONE_COLOR("ComputeShortPath", TRACY_COLOR_PATHFINDING);
+	TRACY_ZONE_TEXT_F("From (%.1f,%.1f) | Range: %.1f", request.x0.ToDouble(), request.z0.ToDouble(), request.range.ToDouble());
 
 	g_VertexPathfinderDebugOverlay.DebugRenderGoal(cmpObstructionManager->GetSimContext(), request.goal);
 
@@ -917,7 +922,7 @@ void VertexPathfinderDebugOverlay::DebugRenderGoal(const CSimContext& simContext
 	if (!m_DebugOverlay)
 		return;
 
-	std::lock_guard<std::mutex> lock(g_DebugMutex);
+	std::lock_guard lock(g_DebugMutex);
 
 	g_VertexPathfinderDebugOverlay.m_DebugOverlayShortPathLines.clear();
 
@@ -952,7 +957,7 @@ void VertexPathfinderDebugOverlay::DebugRenderGraph(const CSimContext& simContex
 	if (!m_DebugOverlay)
 		return;
 
-	std::lock_guard<std::mutex> lock(g_DebugMutex);
+	std::lock_guard lock(g_DebugMutex);
 
 #define PUSH_POINT(p) STMT(xz.push_back(p.X.ToFloat()); xz.push_back(p.Y.ToFloat()))
 	// Render the vertexes as little Pac-Man shapes to indicate quadrant direction
@@ -1031,7 +1036,7 @@ void VertexPathfinderDebugOverlay::DebugRenderEdges(const CSimContext&, bool /*v
 	if (!m_DebugOverlay)
 		return;
 
-	std::lock_guard<std::mutex> lock(g_DebugMutex);
+	std::lock_guard lock(g_DebugMutex);
 
 	// Disabled by default.
 	/*
@@ -1054,7 +1059,7 @@ void VertexPathfinderDebugOverlay::RenderSubmit(SceneCollector& collector)
 	if (!m_DebugOverlay)
 		return;
 
-	std::lock_guard<std::mutex> lock(g_DebugMutex);
+	std::lock_guard lock(g_DebugMutex);
 	m_DebugOverlayShortPathLines.swap(m_DebugOverlayShortPathLinesSubmitted);
 	for (size_t i = 0; i < m_DebugOverlayShortPathLinesSubmitted.size(); ++i)
 		collector.Submit(&m_DebugOverlayShortPathLinesSubmitted[i]);
