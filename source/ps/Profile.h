@@ -24,6 +24,7 @@
 
 #include "lib/adts/ring_buf.h"
 #include "lib/code_annotation.h"
+#include "ps/ProfileTracy.h"
 #include "ps/Profiler2.h"
 #include "ps/Singleton.h"
 
@@ -152,17 +153,18 @@ public:
 	~CProfileSample();
 };
 
-// Put a PROFILE("xyz") block at the start of all code to be profiled.
-// Profile blocks last until the end of the containing scope.
+#if defined(TRACY_ENABLE) && TRACY_ENABLE
+#define PROFILE(name) CProfileSample __profile(name); TRACY_ZONE(name)
+#define PROFILE_START(name) { PROFILE(name)
+#define PROFILE_END(name) }
+#define PROFILE3(name) CProfileSample __profile(name); CProfile2Region profile2__(name); TRACY_ZONE(name)
+#define PROFILE3_GPU(deviceCommandContext, name) CProfileSample __profile(name); CProfile2Region profile2__(name); PROFILE2_GPU(deviceCommandContext, name); TRACY_ZONE(name)
+#else
 #define PROFILE(name) CProfileSample __profile(name)
-// Cheat a bit to make things slightly easier on the user
 #define PROFILE_START(name) { CProfileSample __profile(name)
 #define PROFILE_END(name) }
-
-// Do both old and new profilers simultaneously (1+2=3), for convenience.
 #define PROFILE3(name) PROFILE(name); PROFILE2(name)
-
-// Also do GPU
 #define PROFILE3_GPU(deviceCommandContext, name) PROFILE(name); PROFILE2(name); PROFILE2_GPU(deviceCommandContext, name)
+#endif
 
 #endif // INCLUDED_PROFILE
