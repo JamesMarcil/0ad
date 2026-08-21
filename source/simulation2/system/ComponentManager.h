@@ -169,6 +169,14 @@ public:
 	 */
 	CEntityHandle GetSystemEntity() { ASSERT(m_SystemEntity.GetId() == SYSTEM_ENTITY); return m_SystemEntity; }
 
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	/**
+	 * Access the underlying EnTT ECS registry backing the component manager.
+	 */
+	entt::registry& GetRegistry() { return m_Registry; }
+	const entt::registry& GetRegistry() const { return m_Registry; }
+#endif
+
 	/**
 	 * Returns a CEntityHandle with id @p ent.
 	 * If @p allowCreate is true and there is no existing CEntityHandle, a new handle will be allocated.
@@ -333,6 +341,10 @@ private:
 	CSimContext& m_SimContext;
 
 	CEntityHandle m_SystemEntity;
+
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	entt::registry m_Registry;
+#endif
 
 	ComponentTypeId m_CurrentComponent; // used when loading component types
 	bool m_CurrentlyHotloading;

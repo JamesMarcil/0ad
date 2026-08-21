@@ -537,6 +537,10 @@ void CComponentManager::ResetState()
 	// Reset IDs
 	m_NextEntityId = SYSTEM_ENTITY + 1;
 	m_NextLocalEntityId = FIRST_LOCAL_ENTITY;
+
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	m_Registry.clear();
+#endif
 }
 
 void CComponentManager::SetRNGSeed(u32 seed)
@@ -689,6 +693,9 @@ CComponentManager::ComponentTypeId CComponentManager::GetScriptWrapper(Interface
 entity_id_t CComponentManager::AllocateNewEntity()
 {
 	entity_id_t id = m_NextEntityId++;
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	m_Registry.create(static_cast<entt::entity>(id));
+#endif
 	// TODO: check for overflow
 	return id;
 }
@@ -696,6 +703,9 @@ entity_id_t CComponentManager::AllocateNewEntity()
 entity_id_t CComponentManager::AllocateNewLocalEntity()
 {
 	entity_id_t id = m_NextLocalEntityId++;
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	m_Registry.create(static_cast<entt::entity>(id));
+#endif
 	// TODO: check for overflow
 	return id;
 }
@@ -711,6 +721,10 @@ entity_id_t CComponentManager::AllocateNewEntity(entity_id_t preferredId)
 	if (id >= m_NextEntityId)
 		m_NextEntityId = id+1;
 	// TODO: check for overflow
+
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	m_Registry.create(static_cast<entt::entity>(id));
+#endif
 
 	return id;
 }
@@ -875,6 +889,9 @@ CEntityHandle CComponentManager::LookupEntityHandle(entity_id_t ent, bool allowC
 void CComponentManager::InitSystemEntity()
 {
 	ENSURE(m_SystemEntity.GetId() == INVALID_ENTITY);
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	m_Registry.create(static_cast<entt::entity>(SYSTEM_ENTITY));
+#endif
 	m_SystemEntity = AllocateEntityHandle(SYSTEM_ENTITY);
 	m_SimContext.SetSystemEntity(m_SystemEntity);
 }
@@ -992,6 +1009,12 @@ void CComponentManager::FlushDestroyedComponents()
 			{
 				ifcit->erase(ent);
 			}
+
+#if CONFIG_ENTT_ENTITY_REGISTRY
+			entt::entity enttEntity = static_cast<entt::entity>(ent);
+			if (m_Registry.valid(enttEntity))
+				m_Registry.destroy(enttEntity);
+#endif
 		}
 	}
 }

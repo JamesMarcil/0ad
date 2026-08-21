@@ -17,8 +17,11 @@
 
 #include "lib/self_test.h"
 
+#include "scriptinterface/Interface.h"
+#include "simulation2/system/ComponentManager.h"
 #include "simulation2/system/EnTTConfig.h"
 #include "simulation2/system/Entity.h"
+#include "simulation2/system/SimContext.h"
 
 #include <entt/entt.hpp>
 #include <type_traits>
@@ -101,5 +104,30 @@ public:
 
 		registry.destroy(e);
 		TS_ASSERT(!registry.valid(e));
+	}
+
+	void test_component_manager_entity_registry()
+	{
+		CSimContext context;
+		CComponentManager man(context, *g_ScriptContext, true);
+
+		entity_id_t e1 = man.AllocateNewEntity();
+		entity_id_t e2 = man.AllocateNewEntity();
+		entity_id_t elocal = man.AllocateNewLocalEntity();
+
+		TS_ASSERT_EQUALS(e1, 2u);
+		TS_ASSERT_EQUALS(e2, 3u);
+		TS_ASSERT_EQUALS(elocal, static_cast<entity_id_t>(FIRST_LOCAL_ENTITY));
+
+#if CONFIG_ENTT_ENTITY_REGISTRY
+		TS_ASSERT(man.GetRegistry().valid(static_cast<entt::entity>(e1)));
+		TS_ASSERT(man.GetRegistry().valid(static_cast<entt::entity>(e2)));
+		TS_ASSERT(man.GetRegistry().valid(static_cast<entt::entity>(elocal)));
+
+		man.ResetState();
+		TS_ASSERT(!man.GetRegistry().valid(static_cast<entt::entity>(e1)));
+#else
+		man.ResetState();
+#endif
 	}
 };
