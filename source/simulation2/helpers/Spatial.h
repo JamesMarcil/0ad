@@ -18,12 +18,12 @@
 #ifndef INCLUDED_SPATIAL
 #define INCLUDED_SPATIAL
 
-#include "lib/debug.h"
-#include "lib/types.h"
+#include "maths/BoundingSphere.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
+#include "maths/Vector3D.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/system/Component.h"
@@ -87,6 +87,28 @@ struct SFlockingState
 	fixed separationWeight;
 	fixed cohesionWeight;
 	fixed alignmentWeight;
+};
+
+/**
+ * Modernized POD data structs for contiguous EnTT render-state views.
+ */
+struct SRenderTransform
+{
+	CVector3D position;
+	CVector3D rotation;
+	float scale{1.0f};
+	CBoundingSphere sweptBounds;
+	bool culled{false};
+	bool inWorld{true};
+	bool visibilityDirty{false};
+};
+
+struct SRenderModelKey
+{
+	entity_id_t entity;
+	u32 modelIndex;
+	u32 materialId;
+	u32 flags;
 };
 
 /**

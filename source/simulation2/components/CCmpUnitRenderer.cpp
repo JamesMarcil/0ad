@@ -41,6 +41,7 @@
 #include "simulation2/components/ICmpVisual.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
+#include "simulation2/system/EnTTConfig.h"
 #include "simulation2/system/Message.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
@@ -360,12 +361,21 @@ void CCmpUnitRenderer::Interpolate(float frameTime, float frameOffset)
 	// TODO: we shouldn't update all the animations etc for units that are off-screen
 	// (but need to be careful about e.g. sounds triggered by animations of off-screen
 	// units)
+#if CONFIG_ENTT_RENDER_SUBMIT
 	for (size_t i = 0; i < m_Units.size(); i++)
 	{
 		SUnit& unit = m_Units[i];
 		if (unit.actor)
 			unit.actor->UpdateModel(frameTime);
 	}
+#else
+	for (size_t i = 0; i < m_Units.size(); i++)
+	{
+		SUnit& unit = m_Units[i];
+		if (unit.actor)
+			unit.actor->UpdateModel(frameTime);
+	}
+#endif
 
 	m_DebugSpheres.clear();
 	if (m_EnableDebugOverlays)
@@ -398,6 +408,7 @@ void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& f
 
 	PROFILE3("UnitRenderer::RenderSubmit");
 
+#if CONFIG_ENTT_RENDER_SUBMIT
 	for (size_t i = 0; i < m_Units.size(); ++i)
 	{
 		SUnit& unit = m_Units[i];
@@ -444,6 +455,54 @@ void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& f
 
 		collector.SubmitRecursive(&unitModel);
 	}
+#else
+	for (size_t i = 0; i < m_Units.size(); ++i)
+	{
+		SUnit& unit = m_Units[i];
+
+		unit.culled = true;
+
+		if (!unit.actor)
+			continue;
+
+		if (unit.visibilityDirty)
+			UpdateVisibility(unit);
+
+		if (unit.visibility == LosVisibility::HIDDEN)
+			continue;
+
+		if (!g_AtlasGameLoop->running && !g_RenderingOptions.GetRenderActors() && (unit.flags & ACTOR_ONLY))
+			continue;
+
+		if (!g_AtlasGameLoop->running && (unit.flags & VISIBLE_IN_ATLAS_ONLY))
+			continue;
+
+		if (culling && !frustum.IsSphereVisible(unit.sweptBounds.GetCenter(), unit.sweptBounds.GetRadius()))
+			continue;
+
+		unit.culled = false;
+
+		CModelAbstract& unitModel = unit.actor->GetModel();
+
+		if (unit.lastTransformFrame != m_FrameNumber)
+		{
+			CmpPtr<ICmpPosition> cmpPosition(unit.entity);
+			if (!cmpPosition)
+				continue;
+
+			CMatrix3D transform(cmpPosition->GetInterpolatedTransform(m_FrameOffset));
+
+			unitModel.SetTransform(transform);
+
+			unit.lastTransformFrame = m_FrameNumber;
+		}
+
+		if (culling && !frustum.IsBoxVisible(unitModel.GetWorldBoundsRec()))
+			continue;
+
+		collector.SubmitRecursive(&unitModel);
+	}
+#endif
 
 	for (size_t i = 0; i < m_DebugSpheres.size(); ++i)
 		collector.Submit(&m_DebugSpheres[i]);

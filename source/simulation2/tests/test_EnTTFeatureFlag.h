@@ -306,4 +306,38 @@ public:
 		TS_ASSERT(registry.get<SMotionState>(e1).pos.X > fixed::FromInt(10));
 		TS_ASSERT(registry.get<SPositionComponent>(e1).position.X > fixed::FromInt(10));
 	}
+
+	void test_entt_render_submit()
+	{
+		entt::registry registry;
+
+		auto e1 = registry.create();
+		auto e2 = registry.create();
+
+		SRenderTransform transform1{ CVector3D(10.0f, 0.0f, 20.0f), CVector3D(0.0f, 0.0f, 0.0f), 1.0f, CBoundingSphere(CVector3D(10.0f, 0.0f, 20.0f), 2.0f), false, true, false };
+		SRenderTransform transform2{ CVector3D(30.0f, 0.0f, 40.0f), CVector3D(0.0f, 0.0f, 0.0f), 1.0f, CBoundingSphere(CVector3D(30.0f, 0.0f, 40.0f), 2.0f), false, true, false };
+
+		SRenderModelKey model1{ 1u, 100u, 1u, 0u };
+		SRenderModelKey model2{ 2u, 200u, 2u, 0u };
+
+		registry.emplace<SRenderTransform>(e1, transform1);
+		registry.emplace<SRenderTransform>(e2, transform2);
+		registry.emplace<SRenderModelKey>(e1, model1);
+		registry.emplace<SRenderModelKey>(e2, model2);
+
+		auto view = registry.view<SRenderTransform, SRenderModelKey>();
+		size_t submitCount = 0;
+		for (auto entity : view)
+		{
+			auto& t = view.get<SRenderTransform>(entity);
+			auto& m = view.get<SRenderModelKey>(entity);
+			if (!t.culled && t.inWorld)
+			{
+				submitCount++;
+				TS_ASSERT(m.modelIndex > 0);
+			}
+		}
+
+		TS_ASSERT_EQUALS(submitCount, 2u);
+	}
 };
