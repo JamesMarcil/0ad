@@ -822,7 +822,8 @@ function setup_all_libs ()
 	extern_libs = {
 		"benchmark",
 	}
-	setup_third_party_static_lib_project("benchmark", source_dirs, extern_libs, { no_pch = 1, no_default_link = 1 })
+	setup_third_party_static_lib_project("benchmark_lib", source_dirs, extern_libs, { no_pch = 1, no_default_link = 1 })
+	includedirs { source_root .. "third_party/benchmark/include/" }
 	removefiles { source_root .. "third_party/benchmark/src/benchmark_main.cc" }
 	filter "action:vs*"
 		buildoptions {
@@ -1717,7 +1718,7 @@ function setup_benchmarks ()
 		links { static_lib_names_release }
 	filter { }
 
-	links { "benchmark" }
+	links { "benchmark_lib" }
 
 	project_add_extern_libs(used_extern_libs, target_type)
 	project_add_extern_libs({ "benchmark" }, target_type)
