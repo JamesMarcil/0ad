@@ -258,8 +258,62 @@ function project_set_build_flags()
 		defines { "__PRETTY_FUNCTION__=__FUNCSIG__" }
 	end
 
-	filter { "Debug", "action:vs*" }
-		defines { "DEBUG" }
+	local extra_defines = {}
+	if mozjs_is_debug_build then
+		table.insert(extra_defines, "DEBUG")
+	end
+
+	if _OPTIONS["gles"] then
+		table.insert(extra_defines, "CONFIG2_GLES=1")
+	end
+
+	if _OPTIONS["with-tracy"] then
+		table.insert(extra_defines, "TRACY_ENABLE=1")
+		table.insert(extra_defines, "TRACY_ON_DEMAND=1")
+		table.insert(extra_defines, "TRACY_DELAYED_INIT=1")
+		table.insert(extra_defines, "TRACY_MANUAL_LIFETIME=1")
+		table.insert(extra_defines, "TRACY_NO_SYSTEM_TRACING=1")
+		includedirs { rootdir .. "/source/third_party/tracy/include" }
+	end
+
+	if _OPTIONS["with-entt-ecs"] then
+		table.insert(extra_defines, "CONFIG_ENABLE_ENTT_ECS=1")
+	elseif _OPTIONS["without-entt-ecs"] then
+		table.insert(extra_defines, "CONFIG_ENABLE_ENTT_ECS=0")
+	end
+
+	if _OPTIONS["without-audio"] then
+		table.insert(extra_defines, "CONFIG2_AUDIO=0")
+	end
+
+	if _OPTIONS["without-nvtt"] then
+		table.insert(extra_defines, "CONFIG2_NVTT=0")
+	end
+
+	if _OPTIONS["without-lobby"] then
+		table.insert(extra_defines, "CONFIG2_LOBBY=0")
+	end
+
+	if _OPTIONS["without-miniupnpc"] then
+		table.insert(extra_defines, "CONFIG2_MINIUPNPC=0")
+	end
+
+	if _OPTIONS["without-dap-interface"] then
+		table.insert(extra_defines, "CONFIG2_DAP_INTERFACE=0")
+	end
+
+	local debug_defines = { "DEBUG" }
+	for _, d in ipairs(extra_defines) do
+		table.insert(debug_defines, d)
+	end
+
+	local release_defines = { "NDEBUG", "CONFIG_FINAL=1" }
+	for _, d in ipairs(extra_defines) do
+		table.insert(release_defines, d)
+	end
+
+	filter "Debug"
+		defines(debug_defines)
 
 	filter "Release"
 		if os.istarget("windows") or not _OPTIONS["minimal-flags"] then
@@ -268,48 +322,9 @@ function project_set_build_flags()
 		if _OPTIONS["with-lto"] then
 			linktimeoptimization("On")
 		end
-		defines { "NDEBUG", "CONFIG_FINAL=1" }
+		defines(release_defines)
 
 	filter { }
-
-	if mozjs_is_debug_build then
-		defines "DEBUG"
-	end
-
-	if _OPTIONS["gles"] then
-		defines { "CONFIG2_GLES=1" }
-	end
-
-	if _OPTIONS["with-tracy"] then
-		defines { "TRACY_ENABLE=1", "TRACY_ON_DEMAND=1", "TRACY_DELAYED_INIT=1", "TRACY_MANUAL_LIFETIME=1", "TRACY_NO_SYSTEM_TRACING=1", "TRACY_NO_CALLSTACK=1" }
-		includedirs { rootdir .. "/source/third_party/tracy/include" }
-	end
-
-	if _OPTIONS["with-entt-ecs"] then
-		defines { "CONFIG_ENABLE_ENTT_ECS=1" }
-	elseif _OPTIONS["without-entt-ecs"] then
-		defines { "CONFIG_ENABLE_ENTT_ECS=0" }
-	end
-
-	if _OPTIONS["without-audio"] then
-		defines { "CONFIG2_AUDIO=0" }
-	end
-
-	if _OPTIONS["without-nvtt"] then
-		defines { "CONFIG2_NVTT=0" }
-	end
-
-	if _OPTIONS["without-lobby"] then
-		defines { "CONFIG2_LOBBY=0" }
-	end
-
-	if _OPTIONS["without-miniupnpc"] then
-		defines { "CONFIG2_MINIUPNPC=0" }
-	end
-
-	if _OPTIONS["without-dap-interface"] then
-		defines { "CONFIG2_DAP_INTERFACE=0" }
-	end
 
 	-- hide warnings caused by library includes
 	externalwarnings "Off"
@@ -752,6 +767,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"tracy",
+		"entt",
 	}
 	if not _OPTIONS["without-miniupnpc"] then
 		table.insert(extern_libs, "miniupnpc")
@@ -766,6 +782,7 @@ function setup_all_libs ()
 		"fmt",
 		"spidermonkey",
 		"cpp_httplib",
+		"entt",
 	}
 	setup_static_lib_project("rlinterface", source_dirs, extern_libs, { no_pch = 1 })
 
@@ -777,7 +794,8 @@ function setup_all_libs ()
 			"boost", -- dragged in via simulation.h and scriptinterface.h
 			"fmt",
 			"spidermonkey",
-			"sockets"
+			"sockets",
+			"entt",
 		}
 		setup_static_lib_project("dapinterface", source_dirs, extern_libs, { no_pch = 1 })
 	end
@@ -865,6 +883,7 @@ function setup_all_libs ()
 			"libsodium",
 			"tinygettext",
 			"fmt",
+			"entt",
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
 	else
@@ -877,6 +896,7 @@ function setup_all_libs ()
 			"boost",
 			"libsodium",
 			"fmt",
+			"entt",
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
 		files { source_root.."lobby/Globals.cpp" }
@@ -916,6 +936,7 @@ function setup_all_libs ()
 		"sdl",
 		"fmt",
 		"tracy",
+		"entt",
 	}
 	setup_static_lib_project("scriptinterface", source_dirs, extern_libs, {})
 
@@ -953,6 +974,7 @@ function setup_all_libs ()
 		"freetype",
 		"cpp_httplib",
 		"tracy",
+		"entt",
 	}
 
 	if not _OPTIONS["without-lobby"] then
@@ -997,6 +1019,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"tracy",
+		"entt",
 	}
 	if not _OPTIONS["without-nvtt"] then
 		table.insert(extern_libs, "nvtt")
@@ -1015,6 +1038,7 @@ function setup_all_libs ()
 		"fmt",
 		"libxml2",
 		"iconv",
+		"entt",
 	}
 	setup_static_lib_project("atlas", source_dirs, extern_libs, {})
 
@@ -1038,6 +1062,7 @@ function setup_all_libs ()
 		"fmt",
 		"libxml2",
 		"tracy",
+		"entt",
 	}
 	if not _OPTIONS["without-audio"] then
 		table.insert(extern_libs, "openal")
