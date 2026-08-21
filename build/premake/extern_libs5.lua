@@ -209,6 +209,17 @@ end
 --        e.g. Xerces (which is so stupid as to export variables).
 
 extern_lib_defs = {
+	benchmark = {
+		compile_settings = function()
+			add_third_party_include_paths("benchmark")
+			defines { "BENCHMARK_STATIC_DEFINE" }
+		end,
+		link_settings = function()
+			if os.istarget("windows") then
+				links { "shlwapi" }
+			end
+		end,
+	},
 	boost = {
 		compile_settings = function()
 			if os.istarget("windows") then

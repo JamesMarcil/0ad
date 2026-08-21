@@ -57,6 +57,7 @@ newoption { category = "Pyrogenesis", trigger = "with-tracy", description = "Ena
 newoption { category = "Pyrogenesis", trigger = "with-valgrind", description = "Enable Valgrind support (non-Windows only)" }
 newoption { category = "Pyrogenesis", trigger = "without-audio", description = "Disable use of OpenAL/Ogg/Vorbis APIs" }
 newoption { category = "Pyrogenesis", trigger = "without-atlas", description = "Disable Atlas scenario/map editor and ActorEditor" }
+newoption { category = "Pyrogenesis", trigger = "without-benchmarks", description = "Disable generation of benchmark projects" }
 newoption { category = "Pyrogenesis", trigger = "without-dap-interface", description = "Disable Dap interface project" }
 newoption { category = "Pyrogenesis", trigger = "without-lobby", description = "Disable the use of gloox and the multiplayer lobby" }
 newoption { category = "Pyrogenesis", trigger = "without-miniupnpc", description = "Disable use of miniupnpc for port forwarding" }
@@ -550,7 +551,7 @@ function project_add_contents(source_root, rel_source_dirs, rel_include_dirs, ex
 
 	for i,v in pairs(rel_source_dirs) do
 		local prefix = source_root..v.."/"
-		files { prefix.."*.cpp", prefix.."*.h", prefix.."*.inl", prefix.."*.js", prefix.."*.asm", prefix.."*.mm" }
+		files { prefix.."*.cpp", prefix.."*.cc", prefix.."*.h", prefix.."*.inl", prefix.."*.js", prefix.."*.asm", prefix.."*.mm" }
 	end
 
 	-- Put the project-specific PCH directory at the start of the
@@ -812,6 +813,27 @@ function setup_all_libs ()
 			"/wd4267",
 			"/wd4324",
 			"/wd4996",
+		}
+	filter {}
+
+	source_dirs = {
+		"third_party/benchmark/src",
+	}
+	extern_libs = {
+		"benchmark",
+	}
+	setup_third_party_static_lib_project("benchmark", source_dirs, extern_libs, { no_pch = 1, no_default_link = 1 })
+	removefiles { source_root .. "third_party/benchmark/src/benchmark_main.cc" }
+	filter "action:vs*"
+		buildoptions {
+			"/wd4127",
+			"/wd4309",
+			"/wd4800",
+			"/wd4100",
+			"/wd4996",
+			"/wd4099",
+			"/wd4503",
+			"/wd4459"
 		}
 	filter {}
 
@@ -1674,6 +1696,72 @@ function setup_tests()
 	end
 end
 
+function setup_benchmarks ()
+	local target_type = get_main_project_target_type()
+	project_create("benchmark", target_type)
+
+	local source_dirs = {
+		"benchmarks",
+	}
+
+	project_add_contents(source_root, source_dirs, {}, { no_pch = 1 })
+
+	filter "system:not macosx"
+		linkgroups 'On'
+	filter {}
+
+	links { static_lib_names }
+	filter "Debug"
+		links { static_lib_names_debug }
+	filter "Release"
+		links { static_lib_names_release }
+	filter { }
+
+	links { "benchmark" }
+
+	project_add_extern_libs(used_extern_libs, target_type)
+	project_add_extern_libs({ "benchmark" }, target_type)
+
+	dependson { "Collada" }
+
+	rtti "off"
+
+	if os.istarget("windows") then
+		files { source_root.."lib/sysdep/os/win/error_dialog.rc" }
+		linkoptions { "/SUBSYSTEM:CONSOLE" }
+		links { "delayimp", "shlwapi" }
+		project_add_manifest(arch)
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
+	elseif os.istarget("linux") or os.istarget("bsd") then
+		if link_execinfo then
+			links { "execinfo" }
+		end
+		if not _OPTIONS["android"] and not (os.getversion().description == "OpenBSD") then
+			links { "rt" }
+		end
+		if os.istarget("linux") or os.getversion().description == "GNU/kFreeBSD" then
+			links { "dl" }
+			if arch == "riscv64" then
+				links { "atomic" }
+			end
+		end
+		buildoptions { "-pthread" }
+		if not _OPTIONS["android"] then
+			linkoptions { "-pthread" }
+		end
+	elseif os.istarget("macosx") then
+		architecture(macos_arch)
+		buildoptions { "-arch " .. macos_arch }
+		linkoptions { "-arch " .. macos_arch }
+		xcodebuildsettings { ARCHS = macos_arch }
+		if _OPTIONS["macosx-version-min"] then
+			xcodebuildsettings { MACOSX_DEPLOYMENT_TARGET = _OPTIONS["macosx-version-min"] }
+		end
+	end
+end
+
 -- must come first, so that VC sets it as the default project and therefore
 -- allows running via F5 without the "where is the EXE" dialog.
 setup_main_exe()
@@ -1702,4 +1790,8 @@ setup_collada_projects()
 
 if not _OPTIONS["without-tests"] then
 	setup_tests()
+end
+
+if not _OPTIONS["without-benchmarks"] then
+	setup_benchmarks()
 end
