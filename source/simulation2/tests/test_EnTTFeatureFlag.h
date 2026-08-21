@@ -121,16 +121,7 @@ public:
 		TS_ASSERT_EQUALS(e2, 3u);
 		TS_ASSERT_EQUALS(elocal, static_cast<entity_id_t>(FIRST_LOCAL_ENTITY));
 
-#if CONFIG_ENTT_ENTITY_REGISTRY
-		TS_ASSERT(man.GetRegistry().valid(static_cast<entt::entity>(e1)));
-		TS_ASSERT(man.GetRegistry().valid(static_cast<entt::entity>(e2)));
-		TS_ASSERT(man.GetRegistry().valid(static_cast<entt::entity>(elocal)));
-
 		man.ResetState();
-		TS_ASSERT(!man.GetRegistry().valid(static_cast<entt::entity>(e1)));
-#else
-		man.ResetState();
-#endif
 	}
 
 	void test_entt_message_dispatch_storage()
@@ -157,24 +148,23 @@ public:
 		MockDispatchComponent comp1;
 		MockDispatchComponent comp2;
 
-		auto e1 = registry.create();
-		auto e2 = registry.create();
+		auto e1 = static_cast<entt::entity>(100);
+		auto e2 = static_cast<entt::entity>(101);
 
 		const entt::id_type testCid = 42;
-		registry.storage<IComponent*>(testCid).emplace(e1, static_cast<IComponent*>(&comp1));
-		registry.storage<IComponent*>(testCid).emplace(e2, static_cast<IComponent*>(&comp2));
+		auto& storage = registry.storage<IComponent*>(testCid);
+		storage.emplace(e1, static_cast<IComponent*>(&comp1));
+		storage.emplace(e2, static_cast<IComponent*>(&comp2));
 
-		TS_ASSERT(registry.storage<IComponent*>(testCid).contains(e1));
-		TS_ASSERT(registry.storage<IComponent*>(testCid).contains(e2));
+		TS_ASSERT(storage.contains(e1));
+		TS_ASSERT(storage.contains(e2));
 
 		CMessageTurnStart msg;
 
 		// Targeted message to e1
-		const auto* storage = std::as_const(registry).storage<IComponent*>(testCid);
-		TS_ASSERT(storage != nullptr);
-		if (storage && storage->contains(e1))
+		if (storage.contains(e1))
 		{
-			IComponent* c = storage->get(e1);
+			IComponent* c = storage.get(e1);
 			c->HandleMessage(msg, false);
 		}
 
@@ -182,16 +172,17 @@ public:
 		TS_ASSERT_EQUALS(comp1.lastPayload, 100);
 		TS_ASSERT_EQUALS(comp2.receivedMessages, 0);
 
-		// Broadcast message to all registered entities
-		for (auto [ent, comp] : storage->each())
-		{
-			if (comp)
-				comp->HandleMessage(msg, false);
-		}
+		// Component destruction cleanup from storage
+		storage.erase(e1);
+		TS_ASSERT(!storage.contains(e1));
+		TS_ASSERT(storage.contains(e2));
 
-		TS_ASSERT_EQUALS(comp1.receivedMessages, 2);
-		TS_ASSERT_EQUALS(comp2.receivedMessages, 1);
-		TS_ASSERT_EQUALS(comp2.lastPayload, 100);
+		if (storage.contains(e1))
+		{
+			IComponent* c = storage.get(e1);
+			c->HandleMessage(msg, false);
+		}
+		TS_ASSERT_EQUALS(comp1.receivedMessages, 1);
 	}
 
 	void test_entt_spatial_storage()

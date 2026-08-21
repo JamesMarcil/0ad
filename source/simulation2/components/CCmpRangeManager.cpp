@@ -1201,9 +1201,6 @@ public:
 		// Important: The order of messages must be fully deterministic.
 		std::vector<std::optional<RangeUpdateMessage>> messages(m_Queries.size());
 
-		// Used to write update messages to the corresponding index in the message vector and maintain the original order.
-		size_t messageIdx = 0;
-
 #if CONFIG_ENTT_SPATIAL_STORAGE
 		struct ActiveQueryEntry
 		{
@@ -1228,7 +1225,6 @@ public:
 				std::vector<entity_id_t> results;
 				std::vector<entity_id_t> added;
 				std::vector<entity_id_t> removed;
-				std::vector<std::pair<i64, entity_id_t>> distPairs;
 
 				while (true)
 				{
@@ -1262,31 +1258,8 @@ public:
 					if (added.empty() && removed.empty())
 						continue;
 
-					if (cmpSourcePosition && cmpSourcePosition->IsInWorld() && !added.empty())
-					{
-						CFixedVector2D sourcePos = cmpSourcePosition->GetPosition2D();
-						distPairs.clear();
-						distPairs.reserve(added.size());
-						for (entity_id_t entId : added)
-						{
-							auto eit = m_EntityData.find(entId);
-							if (eit != m_EntityData.end())
-							{
-								CFixedVector2D diff = CFixedVector2D(eit->second.x, eit->second.z) - sourcePos;
-								i64 d2 = (SQUARE_U64_FIXED(diff.X) + SQUARE_U64_FIXED(diff.Y)) >> 1;
-								distPairs.push_back({d2, entId});
-							}
-							else
-							{
-								distPairs.push_back({std::numeric_limits<i64>::max(), entId});
-							}
-						}
-						std::stable_sort(distPairs.begin(), distPairs.end(), [](const auto& a, const auto& b) {
-							return a.first < b.first;
-						});
-						for (size_t i = 0; i < added.size(); ++i)
-							added[i] = distPairs[i].second;
-					}
+					if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
+						std::stable_sort(added.begin(), added.end(), EntityDistanceOrdering(m_EntityData, cmpSourcePosition->GetPosition2D()));
 
 					// Safe because it's guaranteed that no two threads can write to the same index anyway.
 					messages[idxCopy].emplace(
@@ -1297,6 +1270,9 @@ public:
 				}
 			};
 #else
+		// Used to write update messages to the corresponding index in the message vector and maintain the original order.
+		size_t messageIdx = 0;
+
 		const auto ProcessQueriesAsync = [&](std::vector<entity_id_t>& subdivisionResultsBuffer) {
 				PROFILE2_COLOR("Async range query execution", TRACY_COLOR_SPATIAL);
 
