@@ -869,6 +869,7 @@ function setup_all_libs ()
 		"iconv",
 		"cxxtest",
 		"tracy",
+		"entt",
 	}
 	setup_static_lib_project("simulation2", source_dirs, extern_libs, {})
 
@@ -1149,6 +1150,7 @@ used_extern_libs = {
 
 	"oleaut32",
 	"tracy",
+	"entt",
 }
 
 if not _OPTIONS["without-audio"] then

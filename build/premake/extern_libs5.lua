@@ -264,6 +264,11 @@ extern_lib_defs = {
 			end
 		end,
 	},
+	entt = {
+		compile_settings = function()
+			add_third_party_include_paths("entt")
+		end,
+	},
 	enet = {
 		compile_settings = function()
 			if os.istarget("windows") then
