@@ -22,6 +22,7 @@
 #include "bench_fixtures.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
+#include <entt/entt.hpp>
 
 namespace
 {
@@ -224,5 +225,113 @@ static void BM_UnitMotion_PostMove(benchmark::State& state)
 	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(unitCount));
 }
 BENCHMARK(BM_UnitMotion_PostMove)->RangeMultiplier(4)->Range(64, 4096);
+
+// ----------------------------------------------------------------------------
+// EnTT Modernized ECS Comparative Counterparts
+// ----------------------------------------------------------------------------
+
+struct MotionComponentEnTT
+{
+	CFixedVector2D targetPos;
+	fixed speed;
+	fixed maxSpeed;
+	fixed heading;
+	fixed turnRate;
+};
+
+struct PositionComponentEnTT
+{
+	CFixedVector2D pos;
+};
+
+static void BM_UnitMotion_StepMove_EnTT(benchmark::State& state)
+{
+	const size_t unitCount = static_cast<size_t>(state.range(0));
+	const fixed dt = fixed::FromFloat(0.2f);
+	const fixed twoPi = fixed::Pi() * 2;
+
+	entt::registry registry;
+	DeterministicRng rng(0x11223344ULL);
+
+	for (size_t i = 0; i < unitCount; ++i)
+	{
+		auto e = registry.create();
+		registry.emplace<PositionComponentEnTT>(e, CFixedVector2D(rng.NextFixed(fixed::Zero(), fixed::FromInt(200)), rng.NextFixed(fixed::Zero(), fixed::FromInt(200))));
+		registry.emplace<MotionComponentEnTT>(e,
+			CFixedVector2D(rng.NextFixed(fixed::Zero(), fixed::FromInt(200)), rng.NextFixed(fixed::Zero(), fixed::FromInt(200))),
+			fixed::FromFloat(5.0f),
+			fixed::FromFloat(10.0f),
+			rng.NextFixed(fixed::Zero(), twoPi),
+			fixed::FromFloat(3.0f));
+	}
+
+	for (auto _ : state)
+	{
+		auto view = registry.view<PositionComponentEnTT, MotionComponentEnTT>();
+		view.each([&](PositionComponentEnTT& posComp, MotionComponentEnTT& motionComp) {
+			CFixedVector2D toTarget = motionComp.targetPos - posComp.pos;
+			if (!toTarget.IsZero())
+			{
+				fixed maxTurn = motionComp.turnRate.Multiply(dt);
+				motionComp.heading = (motionComp.heading + maxTurn);
+				if (motionComp.heading > twoPi) motionComp.heading -= twoPi;
+
+				fixed sinH, cosH;
+				sincos_approx(motionComp.heading, sinH, cosH);
+				CFixedVector2D moveVec(sinH.Multiply(motionComp.speed).Multiply(dt), cosH.Multiply(motionComp.speed).Multiply(dt));
+				posComp.pos += moveVec;
+			}
+		});
+		benchmark::ClobberMemory();
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(unitCount));
+}
+BENCHMARK(BM_UnitMotion_StepMove_EnTT)->RangeMultiplier(4)->Range(64, 4096);
+
+static void BM_UnitMotion_PostMove_EnTT(benchmark::State& state)
+{
+	const size_t unitCount = static_cast<size_t>(state.range(0));
+	const size_t mapSize = 256;
+	std::vector<u32> visibilityGrid(mapSize * mapSize, 0);
+
+	entt::registry registry;
+	auto entities = SyntheticGridGenerator::GenerateUniformGrid(unitCount, fixed::FromInt(256));
+	for (const auto& ent : entities)
+	{
+		auto e = registry.create();
+		registry.emplace<PositionComponentEnTT>(e, CFixedVector2D(ent.pos.X, ent.pos.Y));
+	}
+
+	CFixedVector2D step(fixed::FromFloat(1.5f), fixed::FromFloat(1.5f));
+	const u32 playerMask = 1 << 1;
+	const int visionRadius = 3;
+
+	for (auto _ : state)
+	{
+		auto view = registry.view<PositionComponentEnTT>();
+		view.each([&](PositionComponentEnTT& posComp) {
+			posComp.pos += step;
+			int cx = std::clamp(posComp.pos.X.ToInt_RoundToZero(), 5, static_cast<int>(mapSize - 6));
+			int cz = std::clamp(posComp.pos.Y.ToInt_RoundToZero(), 5, static_cast<int>(mapSize - 6));
+
+			for (int dz = -visionRadius; dz <= visionRadius; ++dz)
+			{
+				for (int dx = -visionRadius; dx <= visionRadius; ++dx)
+				{
+					if (dx * dx + dz * dz <= visionRadius * visionRadius)
+					{
+						size_t idx = (cz + dz) * mapSize + (cx + dx);
+						visibilityGrid[idx] |= playerMask;
+					}
+				}
+			}
+		});
+		benchmark::DoNotOptimize(visibilityGrid.data());
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(unitCount));
+}
+BENCHMARK(BM_UnitMotion_PostMove_EnTT)->RangeMultiplier(4)->Range(64, 4096);
 
 } // anonymous namespace

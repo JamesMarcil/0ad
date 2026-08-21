@@ -24,6 +24,7 @@
 
 #include "bench_fixtures.h"
 #include "simulation2/system/Entity.h"
+#include <entt/entt.hpp>
 
 namespace
 {
@@ -229,5 +230,151 @@ static void BM_ComponentManager_ComponentCacheLookup(benchmark::State& state)
 	state.SetItemsProcessed(int64_t(state.iterations()) * 1000);
 }
 BENCHMARK(BM_ComponentManager_ComponentCacheLookup)->RangeMultiplier(4)->Range(64, 4096);
+
+// ----------------------------------------------------------------------------
+// EnTT Modernized ECS Comparative Counterparts
+// ----------------------------------------------------------------------------
+
+// 5. EnTT BroadcastMessage Dispatch Benchmark
+static void BM_ComponentManager_BroadcastMessage_EnTT(benchmark::State& state)
+{
+	const size_t entityCount = static_cast<size_t>(state.range(0));
+	const MessageTypeId msgTypeId = 100;
+
+	entt::registry registry;
+	for (size_t i = 0; i < entityCount; ++i)
+	{
+		auto e = registry.create();
+		registry.emplace<RealisticComponent>(e);
+	}
+
+	for (auto _ : state)
+	{
+		auto view = registry.view<RealisticComponent>();
+		for (auto entity : view)
+		{
+			auto& comp = view.get<RealisticComponent>(entity);
+			comp.HandleMessage(msgTypeId, 42);
+		}
+		benchmark::ClobberMemory();
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(entityCount));
+}
+BENCHMARK(BM_ComponentManager_BroadcastMessage_EnTT)->RangeMultiplier(4)->Range(64, 4096);
+
+// 6. EnTT Multi-Receiver Turn Message Broadcast (6 Component Types per Entity)
+struct CompTag1 { RealisticComponent comp; };
+struct CompTag2 { RealisticComponent comp; };
+struct CompTag3 { RealisticComponent comp; };
+struct CompTag4 { RealisticComponent comp; };
+struct CompTag5 { RealisticComponent comp; };
+struct CompTag6 { RealisticComponent comp; };
+
+static void BM_ComponentManager_MultiReceiverBroadcast_EnTT(benchmark::State& state)
+{
+	const size_t entityCount = static_cast<size_t>(state.range(0));
+	const MessageTypeId turnMsgType = 101;
+
+	entt::registry registry;
+	for (size_t i = 0; i < entityCount; ++i)
+	{
+		auto e = registry.create();
+		registry.emplace<CompTag1>(e);
+		registry.emplace<CompTag2>(e);
+		registry.emplace<CompTag3>(e);
+		registry.emplace<CompTag4>(e);
+		registry.emplace<CompTag5>(e);
+		registry.emplace<CompTag6>(e);
+	}
+
+	for (auto _ : state)
+	{
+		registry.view<CompTag1>().each([&](CompTag1& c) { c.comp.HandleMessage(turnMsgType, 1); });
+		registry.view<CompTag2>().each([&](CompTag2& c) { c.comp.HandleMessage(turnMsgType, 1); });
+		registry.view<CompTag3>().each([&](CompTag3& c) { c.comp.HandleMessage(turnMsgType, 1); });
+		registry.view<CompTag4>().each([&](CompTag4& c) { c.comp.HandleMessage(turnMsgType, 1); });
+		registry.view<CompTag5>().each([&](CompTag5& c) { c.comp.HandleMessage(turnMsgType, 1); });
+		registry.view<CompTag6>().each([&](CompTag6& c) { c.comp.HandleMessage(turnMsgType, 1); });
+		benchmark::ClobberMemory();
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(entityCount * 6));
+}
+BENCHMARK(BM_ComponentManager_MultiReceiverBroadcast_EnTT)->RangeMultiplier(4)->Range(64, 2048);
+
+// 7. EnTT Batch Entity Teardown (Fast O(1) swap-and-pop sparse set erasures)
+static void BM_ComponentManager_BatchEntityDestruction_EnTT(benchmark::State& state)
+{
+	const size_t batchSize = static_cast<size_t>(state.range(0));
+
+	for (auto _ : state)
+	{
+		state.PauseTiming();
+		entt::registry registry;
+		std::vector<entt::entity> destructionQueue;
+		destructionQueue.reserve(batchSize);
+
+		for (size_t e = 0; e < batchSize; ++e)
+		{
+			auto ent = registry.create();
+			destructionQueue.push_back(ent);
+			registry.emplace<CompTag1>(ent);
+			registry.emplace<CompTag2>(ent);
+			registry.emplace<CompTag3>(ent);
+			registry.emplace<CompTag4>(ent);
+			registry.emplace<CompTag5>(ent);
+			registry.emplace<CompTag6>(ent);
+			registry.emplace<RealisticComponent>(ent);
+		}
+		state.ResumeTiming();
+
+		for (auto ent : destructionQueue)
+		{
+			registry.destroy(ent);
+		}
+		benchmark::DoNotOptimize(registry.storage<RealisticComponent>().empty());
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(batchSize));
+}
+BENCHMARK(BM_ComponentManager_BatchEntityDestruction_EnTT)->RangeMultiplier(4)->Range(16, 256);
+
+// 8. EnTT Component Lookup Benchmark (Direct Sparse Set $O(1)$)
+static void BM_ComponentManager_ComponentCacheLookup_EnTT(benchmark::State& state)
+{
+	const size_t count = static_cast<size_t>(state.range(0));
+	entt::registry registry;
+	std::vector<entt::entity> entities;
+	entities.reserve(count + 1);
+
+	for (size_t i = 0; i <= count; ++i)
+	{
+		auto e = registry.create();
+		registry.emplace<RealisticComponent>(e);
+		entities.push_back(e);
+	}
+
+	DeterministicRng rng(0x33445566ULL);
+	std::vector<entt::entity> accessPattern;
+	accessPattern.reserve(1000);
+	for (size_t i = 0; i < 1000; ++i)
+		accessPattern.push_back(entities[rng.NextRange(1, count)]);
+
+	for (auto _ : state)
+	{
+		uint64_t sum = 0;
+		for (auto ent : accessPattern)
+		{
+			RealisticComponent& comp = registry.get<RealisticComponent>(ent);
+			benchmark::DoNotOptimize(&comp);
+			sum += reinterpret_cast<uintptr_t>(&comp);
+		}
+		benchmark::DoNotOptimize(sum);
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * 1000);
+}
+BENCHMARK(BM_ComponentManager_ComponentCacheLookup_EnTT)->RangeMultiplier(4)->Range(64, 4096);
 
 } // anonymous namespace

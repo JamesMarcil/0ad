@@ -29,6 +29,7 @@
 #include "maths/FixedVector2D.h"
 #include "maths/FixedVector3D.h"
 #include "simulation2/helpers/Spatial.h"
+#include <entt/entt.hpp>
 
 namespace
 {
@@ -325,5 +326,66 @@ static void BM_RangeManager_IncrementalLOS(benchmark::State& state)
 	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(count));
 }
 BENCHMARK(BM_RangeManager_IncrementalLOS)->RangeMultiplier(4)->Range(64, 1024);
+
+// ----------------------------------------------------------------------------
+// EnTT Modernized ECS Comparative Counterparts
+// ----------------------------------------------------------------------------
+
+class BenchEntityDistanceOrderingEnTT
+{
+public:
+	BenchEntityDistanceOrderingEnTT(const entt::storage<EntityPosData>& storage, const CFixedVector2D& source) :
+		m_Storage(storage), m_Source(source)
+	{
+	}
+
+	bool operator()(entt::entity a, entt::entity b) const
+	{
+		const EntityPosData& da = m_Storage.get(a);
+		const EntityPosData& db = m_Storage.get(b);
+		CFixedVector2D vecA = CFixedVector2D(da.x, da.z) - m_Source;
+		CFixedVector2D vecB = CFixedVector2D(db.x, db.z) - m_Source;
+		return (vecA.CompareLength(vecB) < 0);
+	}
+
+private:
+	const entt::storage<EntityPosData>& m_Storage;
+	CFixedVector2D m_Source;
+};
+
+static void BM_RangeManager_DistanceOrdering_EnTT(benchmark::State& state)
+{
+	const size_t count = static_cast<size_t>(state.range(0));
+	auto syntheticEntities = SyntheticGridGenerator::GenerateClusteredSwarm(count, fixed::FromInt(512));
+
+	entt::registry registry;
+	std::vector<entt::entity> entityList;
+	entityList.reserve(count);
+
+	for (const auto& ent : syntheticEntities)
+	{
+		auto e = registry.create();
+		registry.emplace<EntityPosData>(e, ent.pos.X, ent.pos.Y, ent.flags);
+		entityList.push_back(e);
+	}
+
+	CFixedVector2D sourcePos(fixed::FromInt(256), fixed::FromInt(256));
+	const auto& storage = registry.storage<EntityPosData>();
+
+	for (auto _ : state)
+	{
+		state.PauseTiming();
+		std::vector<entt::entity> workList = entityList;
+		state.ResumeTiming();
+
+		BenchEntityDistanceOrderingEnTT ordering(storage, sourcePos);
+		std::stable_sort(workList.begin(), workList.end(), ordering);
+
+		benchmark::DoNotOptimize(workList.data());
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(count));
+}
+BENCHMARK(BM_RangeManager_DistanceOrdering_EnTT)->RangeMultiplier(4)->Range(64, 4096);
 
 } // anonymous namespace
