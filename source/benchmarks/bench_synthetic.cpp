@@ -38,7 +38,7 @@ BENCHMARK(BM_Synthetic_MathComputation);
 // 2. Synthetic Container & Memory Bandwidth with Range Parameterization
 static void BM_Synthetic_VectorAccumulation(benchmark::State& state)
 {
-	const size_t size = state.range(0);
+	const size_t size = static_cast<size_t>(state.range(0));
 	std::vector<int64_t> data(size);
 	std::iota(data.begin(), data.end(), 1);
 
@@ -86,7 +86,7 @@ static void BM_Synthetic_EngineTypesInteroperability(benchmark::State& state)
 		for (int i = 0; i < count; ++i)
 		{
 			current += step;
-			CStr formatted = CStr::FromInt(current.X.ToInt());
+			CStr formatted = current.X.ToString();
 			benchmark::DoNotOptimize(formatted);
 			benchmark::DoNotOptimize(current);
 		}

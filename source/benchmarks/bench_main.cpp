@@ -15,7 +15,7 @@ int main(int argc, char** argv)
 {
 	std::cout << "====================================================" << std::endl;
 	std::cout << "  0 A.D. (Pyrogenesis) Google Benchmark Suite       " << std::endl;
-	std::cout << "  Google Benchmark Version: " << BENCHMARK_VERSION << std::endl;
+	std::cout << "  Google Benchmark Version: 1.9.5                   " << std::endl;
 	std::cout << "====================================================" << std::endl;
 
 	benchmark::Initialize(&argc, argv);
