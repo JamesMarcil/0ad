@@ -814,6 +814,10 @@ IComponent* CComponentManager::ConstructComponent(CEntityHandle ent, ComponentTy
 	// Store a reference to the new component
 	emap1.insert(std::make_pair(ent.GetId(), component));
 	emap2.insert(std::make_pair(ent.GetId(), component));
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	entt::entity enttEntity = static_cast<entt::entity>(ent.GetId());
+	m_Registry.storage<IComponent*>(static_cast<entt::id_type>(cid)).emplace(enttEntity, component);
+#endif
 	// TODO: We need to more careful about this - if an entity is constructed by a component
 	// while we're iterating over all components, this will invalidate the iterators and everything
 	// will break.
@@ -1072,6 +1076,24 @@ const CComponentManager::InterfaceListUnordered& CComponentManager::GetEntitiesW
 
 void CComponentManager::PostMessage(entity_id_t ent, const CMessage& msg)
 {
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	entt::entity enttEntity = static_cast<entt::entity>(ent);
+	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
+	it = m_LocalMessageSubscriptions.find(msg.GetType());
+	if (it != m_LocalMessageSubscriptions.end())
+	{
+		for (ComponentTypeId cid : it->second)
+		{
+			const auto* storage = std::as_const(m_Registry).storage<IComponent*>(static_cast<entt::id_type>(cid));
+			if (storage && storage->contains(enttEntity))
+			{
+				IComponent* comp = storage->get(enttEntity);
+				if (comp)
+					comp->HandleMessage(msg, false);
+			}
+		}
+	}
+#else
 	// Send the message to components of ent, that subscribed locally to this message
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_LocalMessageSubscriptions.find(msg.GetType());
@@ -1091,6 +1113,7 @@ void CComponentManager::PostMessage(entity_id_t ent, const CMessage& msg)
 				eit->second->HandleMessage(msg, false);
 		}
 	}
+#endif
 
 	SendGlobalMessage(ent, msg);
 }
@@ -1103,6 +1126,26 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 		TRACY_ZONE_TEXT(m_MessageTypeNamesById[msg.GetType()].c_str(), m_MessageTypeNamesById[msg.GetType()].length());
 	}
 
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	// Send the message to components of all entities that subscribed locally to this message
+	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
+	it = m_LocalMessageSubscriptions.find(msg.GetType());
+	if (it != m_LocalMessageSubscriptions.end())
+	{
+		for (ComponentTypeId cid : it->second)
+		{
+			const auto* storage = std::as_const(m_Registry).storage<IComponent*>(static_cast<entt::id_type>(cid));
+			if (storage)
+			{
+				for (auto [entity, component] : storage->each())
+				{
+					if (component)
+						component->HandleMessage(msg, false);
+				}
+			}
+		}
+	}
+#else
 	// Send the message to components of all entities that subscribed locally to this message
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_LocalMessageSubscriptions.find(msg.GetType());
@@ -1122,6 +1165,7 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 				eit->second->HandleMessage(msg, false);
 		}
 	}
+#endif
 
 	SendGlobalMessage(INVALID_ENTITY, msg);
 }
@@ -1131,6 +1175,35 @@ void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
 	// (Common functionality for PostMessage and BroadcastMessage)
 
 	// Send the message to components of all entities that subscribed globally to this message
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
+	it = m_GlobalMessageSubscriptions.find(msg.GetType());
+	if (it != m_GlobalMessageSubscriptions.end())
+	{
+		for (ComponentTypeId cid : it->second)
+		{
+			// Special case: Messages for local entities shouldn't be sent to script
+			// components that subscribed globally, so that we don't have to worry about
+			// them accidentally picking up non-network-synchronised data.
+			if (ENTITY_IS_LOCAL(ent))
+			{
+				std::map<ComponentTypeId, ComponentType>::const_iterator cit = m_ComponentTypesById.find(cid);
+				if (cit != m_ComponentTypesById.end() && cit->second.type == CT_Script)
+					continue;
+			}
+
+			const auto* storage = std::as_const(m_Registry).storage<IComponent*>(static_cast<entt::id_type>(cid));
+			if (storage)
+			{
+				for (auto [entity, component] : storage->each())
+				{
+					if (component)
+						component->HandleMessage(msg, true);
+				}
+			}
+		}
+	}
+#else
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_GlobalMessageSubscriptions.find(msg.GetType());
 	if (it != m_GlobalMessageSubscriptions.end())
@@ -1159,6 +1232,7 @@ void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
 				eit->second->HandleMessage(msg, true);
 		}
 	}
+#endif
 
 	// Send the message to component instances that dynamically subscribed to this message
 	std::map<MessageTypeId, CDynamicSubscription>::iterator dit = m_DynamicMessageSubscriptionsNonsync.find(msg.GetType());
