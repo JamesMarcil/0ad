@@ -33,22 +33,7 @@ using namespace BenchmarkFixtures;
 typedef int MessageTypeId;
 typedef int ComponentTypeId;
 
-class MockComponent
-{
-public:
-	virtual ~MockComponent() = default;
-	virtual void HandleMessage(int messageType, int payload)
-	{
-		m_Counter += (messageType ^ payload);
-	}
-
-	uint32_t GetCounter() const { return m_Counter; }
-
-private:
-	uint32_t m_Counter = 0;
-};
-
-// 1. BroadcastMessage Dispatch Benchmark (std::map Pointer-Chasing Architecture)
+// 1. BroadcastMessage Dispatch Benchmark with Realistic 256-Byte Components
 // Replicates the exact dispatch topology of CComponentManager::BroadcastMessage:
 // std::map<MessageTypeId, std::vector<ComponentTypeId>> m_LocalMessageSubscriptions;
 // std::map<ComponentTypeId, std::map<entity_id_t, IComponent*>> m_ComponentsByTypeId;
@@ -58,18 +43,18 @@ static void BM_ComponentManager_BroadcastMessage_Dense(benchmark::State& state)
 	const ComponentTypeId compTypeId = 1;
 	const MessageTypeId msgTypeId = 100;
 
-	std::vector<std::unique_ptr<MockComponent>> components;
+	std::vector<std::unique_ptr<RealisticComponent>> components;
 	components.reserve(entityCount);
 
 	std::map<MessageTypeId, std::vector<ComponentTypeId>> subscriptions;
 	subscriptions[msgTypeId] = { compTypeId };
 
-	std::map<ComponentTypeId, std::map<entity_id_t, MockComponent*>> componentsByTypeId;
+	std::map<ComponentTypeId, std::map<entity_id_t, RealisticComponent*>> componentsByTypeId;
 	auto& compMap = componentsByTypeId[compTypeId];
 
 	for (size_t i = 0; i < entityCount; ++i)
 	{
-		auto comp = std::make_unique<MockComponent>();
+		auto comp = std::make_unique<RealisticComponent>();
 		entity_id_t ent = static_cast<entity_id_t>(i + 100);
 		compMap[ent] = comp.get();
 		components.push_back(std::move(comp));
@@ -99,35 +84,36 @@ static void BM_ComponentManager_BroadcastMessage_Dense(benchmark::State& state)
 }
 BENCHMARK(BM_ComponentManager_BroadcastMessage_Dense)->RangeMultiplier(4)->Range(64, 4096);
 
-// 2. BroadcastMessage Sparse Subscription Benchmark
-static void BM_ComponentManager_BroadcastMessage_Sparse(benchmark::State& state)
+// 2. Multi-Receiver Turn Message Broadcast (Realistic 6 Component Types per Entity)
+static void BM_ComponentManager_MultiReceiverBroadcast(benchmark::State& state)
 {
 	const size_t entityCount = static_cast<size_t>(state.range(0));
-	const ComponentTypeId sparseCompTypeId = 2;
-	const MessageTypeId msgTypeId = 200;
+	const MessageTypeId turnMsgType = 101; // e.g. TurnStart / RenderSubmit
+	const std::vector<ComponentTypeId> attachedTypes = { 1, 2, 3, 4, 5, 6 };
 
-	std::vector<std::unique_ptr<MockComponent>> components;
-	components.reserve(entityCount);
+	std::vector<std::unique_ptr<RealisticComponent>> components;
+	components.reserve(entityCount * attachedTypes.size());
 
 	std::map<MessageTypeId, std::vector<ComponentTypeId>> subscriptions;
-	subscriptions[msgTypeId] = { sparseCompTypeId };
+	subscriptions[turnMsgType] = attachedTypes;
 
-	std::map<ComponentTypeId, std::map<entity_id_t, MockComponent*>> componentsByTypeId;
-	auto& compMap = componentsByTypeId[sparseCompTypeId];
+	std::map<ComponentTypeId, std::map<entity_id_t, RealisticComponent*>> componentsByTypeId;
 
-	// Only 5% of entities have this component type attached
-	size_t sparseCount = std::max<size_t>(1, entityCount / 20);
-	for (size_t i = 0; i < sparseCount; ++i)
+	for (ComponentTypeId cid : attachedTypes)
 	{
-		auto comp = std::make_unique<MockComponent>();
-		entity_id_t ent = static_cast<entity_id_t>(i * 20 + 100);
-		compMap[ent] = comp.get();
-		components.push_back(std::move(comp));
+		auto& compMap = componentsByTypeId[cid];
+		for (size_t i = 0; i < entityCount; ++i)
+		{
+			auto comp = std::make_unique<RealisticComponent>();
+			entity_id_t ent = static_cast<entity_id_t>(i + 100);
+			compMap[ent] = comp.get();
+			components.push_back(std::move(comp));
+		}
 	}
 
 	for (auto _ : state)
 	{
-		auto subIt = subscriptions.find(msgTypeId);
+		auto subIt = subscriptions.find(turnMsgType);
 		if (subIt != subscriptions.end())
 		{
 			for (ComponentTypeId cid : subIt->second)
@@ -137,7 +123,7 @@ static void BM_ComponentManager_BroadcastMessage_Sparse(benchmark::State& state)
 				{
 					for (auto& [ent, comp] : emapIt->second)
 					{
-						comp->HandleMessage(msgTypeId, 99);
+						comp->HandleMessage(turnMsgType, 1);
 					}
 				}
 			}
@@ -145,25 +131,29 @@ static void BM_ComponentManager_BroadcastMessage_Sparse(benchmark::State& state)
 		benchmark::ClobberMemory();
 	}
 
-	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(sparseCount));
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(entityCount * attachedTypes.size()));
 }
-BENCHMARK(BM_ComponentManager_BroadcastMessage_Sparse)->RangeMultiplier(4)->Range(128, 4096);
+BENCHMARK(BM_ComponentManager_MultiReceiverBroadcast)->RangeMultiplier(4)->Range(64, 2048);
 
-// 3. Batch Entity Teardown (FlushDestroyedComponents) Benchmark
-// Replicates the nested map lookups and teardown deallocation occurring in FlushDestroyedComponents
+// 3. Batch Entity Teardown (FlushDestroyedComponents Full Lifecycle) Benchmark
+struct MockComponentCache
+{
+	RealisticComponent* interfaces[32];
+};
+
 static void BM_ComponentManager_BatchEntityDestruction(benchmark::State& state)
 {
 	const size_t batchSize = static_cast<size_t>(state.range(0));
-	const size_t totalTypes = 12; // Typical number of components attached to an entity
+	const size_t totalTypes = 8;
 
 	for (auto _ : state)
 	{
 		state.PauseTiming();
-		// Setup entities and component maps
-		std::map<ComponentTypeId, std::map<entity_id_t, MockComponent*>> componentsByTypeId;
-		std::vector<std::unique_ptr<MockComponent>> allocatedComponents;
+		std::map<ComponentTypeId, std::map<entity_id_t, RealisticComponent*>> componentsByTypeId;
+		std::vector<std::unique_ptr<RealisticComponent>> allocatedComponents;
 		allocatedComponents.reserve(batchSize * totalTypes);
 
+		std::unordered_map<entity_id_t, MockComponentCache> entityCaches;
 		std::vector<entity_id_t> destructionQueue;
 		destructionQueue.reserve(batchSize);
 
@@ -171,23 +161,31 @@ static void BM_ComponentManager_BatchEntityDestruction(benchmark::State& state)
 		{
 			entity_id_t ent = static_cast<entity_id_t>(e + 500);
 			destructionQueue.push_back(ent);
+			MockComponentCache cache;
+			for (int i = 0; i < 32; ++i) cache.interfaces[i] = nullptr;
+
 			for (ComponentTypeId cid = 0; cid < static_cast<ComponentTypeId>(totalTypes); ++cid)
 			{
-				auto comp = std::make_unique<MockComponent>();
+				auto comp = std::make_unique<RealisticComponent>();
 				componentsByTypeId[cid][ent] = comp.get();
+				cache.interfaces[cid] = comp.get();
 				allocatedComponents.push_back(std::move(comp));
 			}
+			entityCaches[ent] = cache;
 		}
 		state.ResumeTiming();
 
-		// Execute teardown loop
+		// Full 7-stage teardown loop (FlushDestroyedComponents)
 		for (entity_id_t ent : destructionQueue)
 		{
+			auto& cache = entityCaches[ent];
 			for (auto iit = componentsByTypeId.begin(); iit != componentsByTypeId.end(); ++iit)
 			{
 				auto eit = iit->second.find(ent);
 				if (eit != iit->second.end())
 				{
+					eit->second->Deinit();
+					cache.interfaces[iit->first] = nullptr;
 					iit->second.erase(eit);
 				}
 			}
@@ -199,23 +197,16 @@ static void BM_ComponentManager_BatchEntityDestruction(benchmark::State& state)
 }
 BENCHMARK(BM_ComponentManager_BatchEntityDestruction)->RangeMultiplier(4)->Range(16, 256);
 
-// 4. Entity Handle Component Cache vs Map Lookup Benchmark
-struct MockComponentCache
-{
-	MockComponent* interfaces[32];
-};
-
+// 4. Entity Handle Component Cache Lookup Benchmark
 static void BM_ComponentManager_ComponentCacheLookup(benchmark::State& state)
 {
 	const size_t count = static_cast<size_t>(state.range(0));
-	MockComponent mockComp;
+	RealisticComponent mockComp;
 	MockComponentCache cache;
 	for (int i = 0; i < 32; ++i)
 		cache.interfaces[i] = &mockComp;
 
-	std::unordered_map<entity_id_t, MockComponentCache> cacheMap;
-	for (size_t i = 0; i < count; ++i)
-		cacheMap[static_cast<entity_id_t>(i + 1)] = cache;
+	std::vector<MockComponentCache> cacheArray(count + 1, cache);
 
 	DeterministicRng rng(0x33445566ULL);
 	std::vector<entity_id_t> accessPattern;
@@ -228,7 +219,7 @@ static void BM_ComponentManager_ComponentCacheLookup(benchmark::State& state)
 		uint64_t sum = 0;
 		for (entity_id_t id : accessPattern)
 		{
-			MockComponent* ptr = cacheMap[id].interfaces[3];
+			RealisticComponent* ptr = cacheArray[id].interfaces[3];
 			benchmark::DoNotOptimize(ptr);
 			sum += reinterpret_cast<uintptr_t>(ptr);
 		}

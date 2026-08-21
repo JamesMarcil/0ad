@@ -28,8 +28,8 @@ namespace
 
 using namespace BenchmarkFixtures;
 
-// 1. Unit Motion Physics & Step Integration Benchmark
-// Exercises heading rotation, velocity dampening, and position advancement from CCmpUnitMotion::Move
+// 1. Unit Motion Physics & Step Integration with Fixed-Point Trigonometry
+// Exercises heading rotation, trigonometric velocity vectoring, and position advancement from CCmpUnitMotion::Move
 struct UnitSimState
 {
 	CFixedVector2D pos;
@@ -44,6 +44,7 @@ static void BM_UnitMotion_StepMove(benchmark::State& state)
 {
 	const size_t unitCount = static_cast<size_t>(state.range(0));
 	const fixed dt = fixed::FromFloat(0.2f); // 200 ms turn
+	const fixed twoPi = fixed::Pi() * 2;
 
 	std::vector<UnitSimState> units;
 	units.reserve(unitCount);
@@ -56,7 +57,7 @@ static void BM_UnitMotion_StepMove(benchmark::State& state)
 		u.targetPos = CFixedVector2D(rng.NextFixed(fixed::Zero(), fixed::FromInt(200)), rng.NextFixed(fixed::Zero(), fixed::FromInt(200)));
 		u.speed = fixed::FromFloat(5.0f);
 		u.maxSpeed = fixed::FromFloat(10.0f);
-		u.heading = rng.NextFixed(fixed::Zero(), fixed::FromFloat(6.2831853f));
+		u.heading = rng.NextFixed(fixed::Zero(), twoPi);
 		u.turnRate = fixed::FromFloat(3.0f);
 		units.push_back(u);
 	}
@@ -70,10 +71,13 @@ static void BM_UnitMotion_StepMove(benchmark::State& state)
 			{
 				fixed dist = toTarget.Length();
 				fixed maxTurn = u.turnRate.Multiply(dt);
-				u.heading = (u.heading + maxTurn) % fixed::FromFloat(6.2831853f);
+				u.heading = (u.heading + maxTurn);
+				if (u.heading > twoPi) u.heading -= twoPi;
 
-				toTarget.Normalize(std::min(dist, u.speed.Multiply(dt)));
-				u.pos += toTarget;
+				fixed sinH, cosH;
+				sincos_approx(u.heading, sinH, cosH);
+				CFixedVector2D moveVec(sinH.Multiply(u.speed).Multiply(dt), cosH.Multiply(u.speed).Multiply(dt));
+				u.pos += moveVec;
 			}
 		}
 		benchmark::DoNotOptimize(units.data());
@@ -83,8 +87,8 @@ static void BM_UnitMotion_StepMove(benchmark::State& state)
 }
 BENCHMARK(BM_UnitMotion_StepMove)->RangeMultiplier(4)->Range(64, 4096);
 
-// 2. Unit Pushing Collision Resolution Benchmark
-// Replicates the pairwise pushing resolution logic from CCmpUnitMotionManager::Push
+// 2. Bucketed Unit Pushing Collision Resolution Benchmark
+// Replicates the spatially-bucketed pairwise pushing resolution logic from CCmpUnitMotionManager::Push
 struct UnitPushState
 {
 	CFixedVector2D pos;
@@ -93,48 +97,75 @@ struct UnitPushState
 	bool isMoving;
 };
 
-static void BM_UnitMotion_PushResolution(benchmark::State& state)
+static void BM_UnitMotion_BucketedPushResolution(benchmark::State& state)
 {
 	const size_t unitCount = static_cast<size_t>(state.range(0));
+	const size_t bucketDim = 16;
+	const fixed bucketSize = fixed::FromInt(8);
 
 	std::vector<UnitPushState> units;
 	units.reserve(unitCount);
 
 	DeterministicRng rng(0x88776655ULL);
-	// Place units tightly packed in a 50x50 area
 	for (size_t i = 0; i < unitCount; ++i)
 	{
 		UnitPushState u;
-		u.pos = CFixedVector2D(rng.NextFixed(fixed::Zero(), fixed::FromInt(50)), rng.NextFixed(fixed::Zero(), fixed::FromInt(50)));
+		u.pos = CFixedVector2D(rng.NextFixed(fixed::Zero(), fixed::FromInt(128)), rng.NextFixed(fixed::Zero(), fixed::FromInt(128)));
 		u.push = CFixedVector2D();
 		u.radius = fixed::FromFloat(1.2f);
 		u.isMoving = (i % 2 == 0);
 		units.push_back(u);
 	}
 
+	std::vector<std::vector<size_t>> buckets(bucketDim * bucketDim);
+
 	for (auto _ : state)
 	{
+		for (auto& b : buckets) b.clear();
 		for (size_t i = 0; i < units.size(); ++i)
 		{
 			units[i].push = CFixedVector2D();
+			int bx = std::clamp((units[i].pos.X / bucketSize).ToInt_RoundToZero(), 0, static_cast<int>(bucketDim - 1));
+			int bz = std::clamp((units[i].pos.Y / bucketSize).ToInt_RoundToZero(), 0, static_cast<int>(bucketDim - 1));
+			buckets[bz * bucketDim + bx].push_back(i);
 		}
 
-		for (size_t i = 0; i < units.size(); ++i)
+		for (int bz = 0; bz < static_cast<int>(bucketDim); ++bz)
 		{
-			for (size_t j = i + 1; j < units.size(); ++j)
+			for (int bx = 0; bx < static_cast<int>(bucketDim); ++bx)
 			{
-				CFixedVector2D delta = units[j].pos - units[i].pos;
-				fixed minDist = units[i].radius + units[j].radius;
-				if (delta.CompareLength(minDist) < 0)
+				const auto& cellA = buckets[bz * bucketDim + bx];
+				for (size_t i : cellA)
 				{
-					fixed dist = delta.Length();
-					if (dist > fixed::FromFloat(0.01f))
+					for (int dz = 0; dz <= 1; ++dz)
 					{
-						fixed overlap = minDist - dist;
-						fixed scale = (overlap / dist).Multiply(fixed::FromFloat(0.5f));
-						CFixedVector2D pushVec = delta.Multiply(scale);
-						units[i].push -= pushVec;
-						units[j].push += pushVec;
+						for (int dx = (dz == 0 ? 0 : -1); dx <= 1; ++dx)
+						{
+							int nx = bx + dx;
+							int nz = bz + dz;
+							if (nx >= 0 && nx < static_cast<int>(bucketDim) && nz >= 0 && nz < static_cast<int>(bucketDim))
+							{
+								const auto& cellB = buckets[nz * bucketDim + nx];
+								for (size_t j : cellB)
+								{
+									if (i >= j) continue;
+									CFixedVector2D delta = units[j].pos - units[i].pos;
+									fixed minDist = units[i].radius + units[j].radius;
+									if (delta.CompareLength(minDist) < 0)
+									{
+										fixed dist = delta.Length();
+										if (dist > fixed::FromFloat(0.01f))
+										{
+											fixed overlap = minDist - dist;
+											fixed scale = (overlap / dist).Multiply(fixed::FromFloat(0.5f));
+											CFixedVector2D pushVec = delta.Multiply(scale);
+											units[i].push -= pushVec;
+											units[j].push += pushVec;
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -150,6 +181,48 @@ static void BM_UnitMotion_PushResolution(benchmark::State& state)
 
 	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(unitCount));
 }
-BENCHMARK(BM_UnitMotion_PushResolution)->RangeMultiplier(2)->Range(32, 256);
+BENCHMARK(BM_UnitMotion_BucketedPushResolution)->RangeMultiplier(4)->Range(64, 4096);
+
+// 3. MotionMgr_PostMove Pipeline & Incremental LOS Update Benchmark
+// Replicates the 6th hottest engine bottleneck in before.tracy (15.24s self-time)
+static void BM_UnitMotion_PostMove(benchmark::State& state)
+{
+	const size_t unitCount = static_cast<size_t>(state.range(0));
+	const size_t mapSize = 256;
+	std::vector<u32> visibilityGrid(mapSize * mapSize, 0);
+
+	auto entities = SyntheticGridGenerator::GenerateUniformGrid(unitCount, fixed::FromInt(256));
+	CFixedVector2D step(fixed::FromFloat(1.5f), fixed::FromFloat(1.5f));
+	const u32 playerMask = 1 << 1;
+	const int visionRadius = 3;
+
+	for (auto _ : state)
+	{
+		for (auto& ent : entities)
+		{
+			ent.pos += step;
+			int cx = std::clamp(ent.pos.X.ToInt_RoundToZero(), 5, static_cast<int>(mapSize - 6));
+			int cz = std::clamp(ent.pos.Y.ToInt_RoundToZero(), 5, static_cast<int>(mapSize - 6));
+
+			// Incremental LOS bitmask calculation triggered by PostMove
+			for (int dz = -visionRadius; dz <= visionRadius; ++dz)
+			{
+				for (int dx = -visionRadius; dx <= visionRadius; ++dx)
+				{
+					if (dx * dx + dz * dz <= visionRadius * visionRadius)
+					{
+						size_t idx = (cz + dz) * mapSize + (cx + dx);
+						visibilityGrid[idx] |= playerMask;
+					}
+				}
+			}
+		}
+		benchmark::DoNotOptimize(visibilityGrid.data());
+		benchmark::DoNotOptimize(entities.data());
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(unitCount));
+}
+BENCHMARK(BM_UnitMotion_PostMove)->RangeMultiplier(4)->Range(64, 4096);
 
 } // anonymous namespace

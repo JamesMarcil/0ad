@@ -29,43 +29,20 @@ namespace
 
 using namespace BenchmarkFixtures;
 
-// 1. Grid Navcell Clearance & Passability Lookup Benchmark
-// Exercises tile lookup and bitmask clearance checking corresponding to IS_PASSABLE(grid.get(x, z), passClass)
-struct NavcellGrid
-{
-	size_t width;
-	size_t height;
-	std::vector<u16> cells;
-
-	inline bool IsPassable(int x, int z, u16 passClass) const
-	{
-		if (x < 0 || x >= static_cast<int>(width) || z < 0 || z >= static_cast<int>(height))
-			return false;
-		return (cells[z * width + x] & passClass) == 0;
-	}
-};
-
-static void BM_Pathfinding_NavcellClearance(benchmark::State& state)
+// 1. Multi-Class Navcell Clearance & Passability Lookup Benchmark
+// Exercises 16-bit packed navcells with class clearance checking (Infantry, Cavalry, Siege, Ship)
+static void BM_Pathfinding_MultiClassNavcellClearance(benchmark::State& state)
 {
 	const size_t gridDim = static_cast<size_t>(state.range(0));
-	NavcellGrid grid;
-	grid.width = gridDim;
-	grid.height = gridDim;
-	grid.cells.resize(gridDim * gridDim, 0);
+	NavcellClearanceGrid grid = NavcellGridGenerator::GenerateGrid(gridDim, 0.12f);
 
-	// Populate 10% obstacle density
 	DeterministicRng rng(0x99887766ULL);
-	for (size_t i = 0; i < grid.cells.size(); ++i)
-	{
-		if (rng.NextFloat() < 0.10f)
-			grid.cells[i] = 0x01; // Impassable
-	}
-
 	std::vector<std::pair<int, int>> queryCoords;
 	queryCoords.reserve(1000);
 	for (size_t i = 0; i < 1000; ++i)
 	{
-		queryCoords.emplace_back(rng.NextRange(0, gridDim - 1), rng.NextRange(0, gridDim - 1));
+		queryCoords.emplace_back(rng.NextRange(0, static_cast<uint32_t>(gridDim - 1)),
+		                         rng.NextRange(0, static_cast<uint32_t>(gridDim - 1)));
 	}
 
 	for (auto _ : state)
@@ -73,53 +50,85 @@ static void BM_Pathfinding_NavcellClearance(benchmark::State& state)
 		uint32_t passableCount = 0;
 		for (const auto& [x, z] : queryCoords)
 		{
-			if (grid.IsPassable(x, z, 0x01))
-				passableCount++;
+			if (grid.IsPassable(x, z, NavcellClearanceGrid::PASS_INFANTRY))
+			{
+				u8 clearance = grid.GetClearance(x, z, 4);
+				if (clearance >= 2) passableCount++;
+			}
 		}
 		benchmark::DoNotOptimize(passableCount);
 	}
 
 	state.SetItemsProcessed(int64_t(state.iterations()) * 1000);
 }
-BENCHMARK(BM_Pathfinding_NavcellClearance)->RangeMultiplier(2)->Range(128, 512);
+BENCHMARK(BM_Pathfinding_MultiClassNavcellClearance)->RangeMultiplier(2)->Range(128, 512);
 
-// 2. Jump Point Search (JPS) Straight-Line Scan Benchmark
-// Simulates JPS horizontal/vertical and diagonal jump line scanning across navcells
-static void BM_Pathfinding_JPS_Scan(benchmark::State& state)
+// 2. Jump Point Search (JPS) 2D Diagonal & Orthogonal Traversal Benchmark
+// Replicates the 2D scanning and jump evaluation logic from LongPathfinder::ComputeJPSPath (10.10s self-time)
+struct JPSNode
 {
-	const size_t pathLen = static_cast<size_t>(state.range(0));
-	const size_t gridDim = 512;
-	NavcellGrid grid;
-	grid.width = gridDim;
-	grid.height = gridDim;
-	grid.cells.resize(gridDim * gridDim, 0);
+	int x, z;
+	int g, f;
+	bool operator>(const JPSNode& o) const { return f > o.f; }
+};
 
-	// Place an obstacle at pathLen
-	grid.cells[100 * gridDim + (100 + pathLen)] = 0x01;
+static void BM_Pathfinding_JPS_2DTraversal(benchmark::State& state)
+{
+	const size_t gridDim = static_cast<size_t>(state.range(0));
+	NavcellClearanceGrid grid = NavcellGridGenerator::GenerateGrid(gridDim, 0.08f);
+
+	const int targetX = static_cast<int>(gridDim - 10);
+	const int targetZ = static_cast<int>(gridDim - 10);
 
 	for (auto _ : state)
 	{
-		int x = 100;
-		int z = 100;
-		int dx = 1;
-		int dz = 0;
+		std::priority_queue<JPSNode, std::vector<JPSNode>, std::greater<JPSNode>> openQueue;
+		openQueue.push({ 10, 10, 0, (targetX - 10) + (targetZ - 10) });
 
-		while (grid.IsPassable(x + dx, z + dz, 0x01))
+		size_t jumpsEvaluated = 0;
+		while (!openQueue.empty() && jumpsEvaluated < 500)
 		{
-			x += dx;
-			z += dz;
-		}
+			JPSNode current = openQueue.top();
+			openQueue.pop();
+			jumpsEvaluated++;
 
-		benchmark::DoNotOptimize(x);
-		benchmark::DoNotOptimize(z);
+			if (current.x == targetX && current.z == targetZ)
+				break;
+
+			// Expand orthogonal and diagonal jump rays
+			const int directions[4][2] = { {1, 0}, {0, 1}, {1, 1}, {-1, 1} };
+			for (const auto& dir : directions)
+			{
+				int nx = current.x;
+				int nz = current.z;
+				int step = 0;
+				while (grid.IsPassable(nx + dir[0], nz + dir[1], NavcellClearanceGrid::PASS_INFANTRY) && step < 16)
+				{
+					nx += dir[0];
+					nz += dir[1];
+					step++;
+					if (nx == targetX && nz == targetZ)
+					{
+						openQueue.push({ nx, nz, current.g + step, current.g + step });
+						break;
+					}
+				}
+				if (step > 0 && (nx != targetX || nz != targetZ))
+				{
+					int h = std::abs(targetX - nx) + std::abs(targetZ - nz);
+					openQueue.push({ nx, nz, current.g + step, current.g + step + h });
+				}
+			}
+		}
+		benchmark::DoNotOptimize(jumpsEvaluated);
 	}
 
-	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(pathLen));
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(gridDim));
 }
-BENCHMARK(BM_Pathfinding_JPS_Scan)->RangeMultiplier(2)->Range(16, 256);
+BENCHMARK(BM_Pathfinding_JPS_2DTraversal)->RangeMultiplier(2)->Range(128, 512);
 
-// 3. Vertex Short-Path Line-of-Sight Raycast Benchmark
-// Exercises local obstacle avoidance raycasts in VertexPathfinder::ComputeShortPath
+// 3. Vertex Short-Path Visibility Graph Routing Benchmark
+// Exercises obstacle contour extraction and tangent routing from VertexPathfinder::ComputeShortPath (6.12s self-time)
 struct ObstacleEdge
 {
 	CFixedVector2D p0;
@@ -143,7 +152,7 @@ static inline bool RayIntersectsSegment(const CFixedVector2D& rayOrigin, const C
 	return (t1 >= fixed::Zero() && t2 >= fixed::Zero() && t2 <= fixed::FromInt(1));
 }
 
-static void BM_Pathfinding_VertexRaycast(benchmark::State& state)
+static void BM_Pathfinding_VertexVisibilityGraph(benchmark::State& state)
 {
 	const size_t edgeCount = static_cast<size_t>(state.range(0));
 	DeterministicRng rng(0x55667788ULL);
@@ -163,28 +172,28 @@ static void BM_Pathfinding_VertexRaycast(benchmark::State& state)
 
 	for (auto _ : state)
 	{
-		size_t hitCount = 0;
+		size_t visibleVertices = 0;
 		for (const auto& edge : edges)
 		{
-			if (RayIntersectsSegment(rayOrigin, rayDir, edge))
-				hitCount++;
+			if (!RayIntersectsSegment(rayOrigin, rayDir, edge))
+				visibleVertices++;
 		}
-		benchmark::DoNotOptimize(hitCount);
+		benchmark::DoNotOptimize(visibleVertices);
 	}
 
 	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(edgeCount));
 }
-BENCHMARK(BM_Pathfinding_VertexRaycast)->RangeMultiplier(4)->Range(16, 1024);
+BENCHMARK(BM_Pathfinding_VertexVisibilityGraph)->RangeMultiplier(4)->Range(16, 1024);
 
 // 4. Nearest Passable Navcell Search (MakeGoalReachable) Benchmark
 static void BM_Pathfinding_MakeGoalReachable(benchmark::State& state)
 {
 	const size_t maxRadius = static_cast<size_t>(state.range(0));
 	const size_t gridDim = 256;
-	NavcellGrid grid;
+	NavcellClearanceGrid grid;
 	grid.width = gridDim;
 	grid.height = gridDim;
-	grid.cells.resize(gridDim * gridDim, 0x01); // All impassable except outer ring
+	grid.cells.resize(gridDim * gridDim, NavcellClearanceGrid::PASS_INFANTRY); // Impassable
 
 	int centerX = 128;
 	int centerZ = 128;
@@ -204,7 +213,7 @@ static void BM_Pathfinding_MakeGoalReachable(benchmark::State& state)
 				{
 					if (std::max(std::abs(dx), std::abs(dz)) == r)
 					{
-						if (grid.IsPassable(centerX + dx, centerZ + dz, 0x01))
+						if (grid.IsPassable(centerX + dx, centerZ + dz, NavcellClearanceGrid::PASS_INFANTRY))
 						{
 							foundX = centerX + dx;
 							foundZ = centerZ + dz;

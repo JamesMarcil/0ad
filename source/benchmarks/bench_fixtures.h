@@ -200,6 +200,101 @@ public:
 	}
 };
 
+/**
+ * Realistic component base struct with 256-byte cache footprint mimicking
+ * Pyrogenesis component instances (CCmpUnitMotion, CCmpUnitRenderer, CCmpPosition).
+ */
+class RealisticComponent
+{
+public:
+	virtual ~RealisticComponent() = default;
+	virtual void Deinit()
+	{
+		m_Initialized = false;
+	}
+	virtual void HandleMessage(int messageType, int payload)
+	{
+		m_Counter += (messageType ^ payload);
+		m_TransformMatrix[0] += 0.001f;
+	}
+
+	uint32_t GetCounter() const { return m_Counter; }
+
+protected:
+	uint32_t m_Counter = 0;
+	bool m_Initialized = true;
+	uint8_t m_Pad[23];
+	float m_TransformMatrix[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+	CFixedVector3D m_Position;
+	CFixedVector3D m_Velocity;
+	fixed m_Heading;
+	uint8_t m_ComponentPayload[128] = {0};
+};
+
+/**
+ * Multi-class terrain clearance map generator for pathfinding benchmarks.
+ */
+struct NavcellClearanceGrid
+{
+	size_t width;
+	size_t height;
+	std::vector<u16> cells; // Bitfield: bits 0-3 pass classes, bits 4-7 infantry clearance, bits 8-11 cavalry, bits 12-15 siege
+
+	static const u16 PASS_INFANTRY = 0x0001;
+	static const u16 PASS_CAVALRY  = 0x0002;
+	static const u16 PASS_SIEGE    = 0x0004;
+	static const u16 PASS_SHIP     = 0x0008;
+
+	inline bool IsPassable(int x, int z, u16 passClass) const
+	{
+		if (x < 0 || x >= static_cast<int>(width) || z < 0 || z >= static_cast<int>(height))
+			return false;
+		return (cells[z * width + x] & passClass) == 0;
+	}
+
+	inline u8 GetClearance(int x, int z, int classShift) const
+	{
+		if (x < 0 || x >= static_cast<int>(width) || z < 0 || z >= static_cast<int>(height))
+			return 0;
+		return static_cast<u8>((cells[z * width + x] >> classShift) & 0x0F);
+	}
+};
+
+class NavcellGridGenerator
+{
+public:
+	static NavcellClearanceGrid GenerateGrid(size_t dim, float obstacleRatio = 0.12f)
+	{
+		NavcellClearanceGrid grid;
+		grid.width = dim;
+		grid.height = dim;
+		grid.cells.resize(dim * dim, 0);
+
+		DeterministicRng rng(0x55aa66bbULL);
+		for (size_t z = 0; z < dim; ++z)
+		{
+			for (size_t x = 0; x < dim; ++x)
+			{
+				u16 cellVal = 0;
+				if (rng.NextFloat() < obstacleRatio)
+				{
+					cellVal |= NavcellClearanceGrid::PASS_INFANTRY | NavcellClearanceGrid::PASS_CAVALRY | NavcellClearanceGrid::PASS_SIEGE;
+				}
+				else
+				{
+					// Assign clearance (0-15)
+					u16 infClearance = static_cast<u16>(rng.NextRange(1, 15)) << 4;
+					u16 cavClearance = static_cast<u16>(rng.NextRange(1, 12)) << 8;
+					u16 siegeClearance = static_cast<u16>(rng.NextRange(1, 8)) << 12;
+					cellVal |= (infClearance | cavClearance | siegeClearance);
+				}
+				grid.cells[z * dim + x] = cellVal;
+			}
+		}
+		return grid;
+	}
+};
+
 } // namespace BenchmarkFixtures
 
 #endif // INCLUDED_BENCH_FIXTURES

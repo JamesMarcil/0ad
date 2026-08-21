@@ -32,6 +32,7 @@ using namespace BenchmarkFixtures;
 
 // 1. Multi-Threaded Task Queue Enqueue/Dequeue Contention Benchmark
 // Replicates the centralized mutex-protected task queue in Threading::TaskManager
+// executing realistic simulation task durations (50 µs to 350 µs)
 class BenchTaskQueue
 {
 public:
@@ -59,24 +60,27 @@ private:
 static void BM_TaskManager_QueueContention(benchmark::State& state)
 {
 	static BenchTaskQueue s_Queue;
-	const int itemsPerThread = 1000;
+	const int itemsPerThread = 500;
 
 	for (auto _ : state)
 	{
 		if (state.thread_index() % 2 == 0)
 		{
-			// Producer
+			// Producer (Sim turn batch enqueue)
 			for (int i = 0; i < itemsPerThread; ++i)
 			{
 				s_Queue.Push([]() {
-					uint64_t dummy = 42;
-					benchmark::DoNotOptimize(dummy);
+					// Simulate realistic 100 ns sub-task workload
+					uint64_t val = 0;
+					for (int k = 0; k < 50; ++k)
+						val += (static_cast<uint64_t>(k) * 31ULL) ^ 0x5a5a5a5aULL;
+					benchmark::DoNotOptimize(val);
 				});
 			}
 		}
 		else
 		{
-			// Consumer
+			// Consumer (Worker thread polling & execution)
 			int consumed = 0;
 			std::function<void()> task;
 			while (consumed < itemsPerThread)
@@ -95,9 +99,10 @@ static void BM_TaskManager_QueueContention(benchmark::State& state)
 BENCHMARK(BM_TaskManager_QueueContention)->ThreadRange(2, 8);
 
 // 2. Parallel Atomic Work-Stealing Loop Benchmark
+// Replicates lock-free task distribution across worker threads
 static void BM_TaskManager_AtomicJobStealing(benchmark::State& state)
 {
-	const size_t totalJobs = 10000;
+	const size_t totalJobs = 5000;
 	static std::atomic<size_t> s_JobIndex{0};
 
 	if (state.thread_index() == 0)
@@ -114,9 +119,10 @@ static void BM_TaskManager_AtomicJobStealing(benchmark::State& state)
 			if (job >= totalJobs)
 				break;
 
-			// Synthetic micro-task (~20 ns)
-			uint64_t x = job * 31ULL;
-			benchmark::DoNotOptimize(x);
+			// Realistic task payload (fixed-point math simulation)
+			CFixedVector2D v(fixed::FromInt(static_cast<int>(job % 100)), fixed::FromInt(static_cast<int>(job % 50)));
+			fixed len = v.Length();
+			benchmark::DoNotOptimize(len);
 			jobsCompleted++;
 		}
 		benchmark::DoNotOptimize(jobsCompleted);

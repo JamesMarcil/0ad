@@ -28,6 +28,7 @@
 #include "bench_fixtures.h"
 #include "maths/FixedVector2D.h"
 #include "maths/FixedVector3D.h"
+#include "simulation2/helpers/Spatial.h"
 
 namespace
 {
@@ -46,7 +47,7 @@ struct EntityPosData
 class BenchEntityDistanceOrdering
 {
 public:
-	BenchEntityDistanceOrdering(const std::unordered_map<entity_id_t, EntityPosData>& entities, const CFixedVector2D& source) :
+	BenchEntityDistanceOrdering(const std::map<entity_id_t, EntityPosData>& entities, const CFixedVector2D& source) :
 		m_EntityData(entities), m_Source(source)
 	{
 	}
@@ -61,7 +62,7 @@ public:
 	}
 
 private:
-	const std::unordered_map<entity_id_t, EntityPosData>& m_EntityData;
+	const std::map<entity_id_t, EntityPosData>& m_EntityData;
 	CFixedVector2D m_Source;
 };
 
@@ -70,8 +71,7 @@ static void BM_RangeManager_DistanceOrdering(benchmark::State& state)
 	const size_t count = static_cast<size_t>(state.range(0));
 	auto syntheticEntities = SyntheticGridGenerator::GenerateClusteredSwarm(count, fixed::FromInt(512));
 
-	std::unordered_map<entity_id_t, EntityPosData> entityMap;
-	entityMap.reserve(count);
+	std::map<entity_id_t, EntityPosData> entityMap;
 	std::vector<entity_id_t> entityIds;
 	entityIds.reserve(count);
 
@@ -99,77 +99,97 @@ static void BM_RangeManager_DistanceOrdering(benchmark::State& state)
 }
 BENCHMARK(BM_RangeManager_DistanceOrdering)->RangeMultiplier(4)->Range(64, 4096);
 
-// 2. Set Difference (Added/Removed Computation) Benchmark
-// Exercises std::set_difference used for query delta calculation in ExecuteActiveQueries
-static void BM_RangeManager_SetDifference(benchmark::State& state)
-{
-	const size_t matchSize = static_cast<size_t>(state.range(0));
-	DeterministicRng rng(0x45678901ULL);
-
-	std::vector<entity_id_t> previousMatch;
-	previousMatch.reserve(matchSize);
-	for (size_t i = 0; i < matchSize; ++i)
-		previousMatch.push_back(static_cast<entity_id_t>(i * 2 + 100));
-
-	std::vector<entity_id_t> currentMatch;
-	currentMatch.reserve(matchSize);
-	for (size_t i = 0; i < matchSize; ++i)
-	{
-		// 80% overlap, 20% different
-		if (rng.NextFloat() < 0.8f)
-			currentMatch.push_back(previousMatch[i]);
-		else
-			currentMatch.push_back(static_cast<entity_id_t>((i + matchSize) * 2 + 100));
-	}
-	std::sort(currentMatch.begin(), currentMatch.end());
-
-	std::vector<entity_id_t> added;
-	std::vector<entity_id_t> removed;
-	added.reserve(matchSize);
-	removed.reserve(matchSize);
-
-	for (auto _ : state)
-	{
-		added.clear();
-		removed.clear();
-
-		std::set_difference(currentMatch.begin(), currentMatch.end(),
-		                    previousMatch.begin(), previousMatch.end(),
-		                    std::back_inserter(added));
-
-		std::set_difference(previousMatch.begin(), previousMatch.end(),
-		                    currentMatch.begin(), currentMatch.end(),
-		                    std::back_inserter(removed));
-
-		benchmark::DoNotOptimize(added.data());
-		benchmark::DoNotOptimize(removed.data());
-	}
-
-	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(matchSize));
-}
-BENCHMARK(BM_RangeManager_SetDifference)->RangeMultiplier(4)->Range(16, 1024);
-
-// 3. Spatial Grid Subdivision 2D Range Query Benchmark
-// Simulates 2D circular entity range queries against a spatial hash grid
-static void BM_RangeManager_SpatialGridQuery2D(benchmark::State& state)
+// 2. SpatialSubdivision GetNear (Engine Structure) Benchmark
+static void BM_SpatialSubdivision_GetNear(benchmark::State& state)
 {
 	const size_t entityCount = static_cast<size_t>(state.range(0));
 	const fixed worldSize = fixed::FromInt(512);
-	const size_t gridDim = 16; // 512 / 32
+	const fixed divisionSize = fixed::FromInt(32);
+
+	SpatialSubdivision spatial;
+	spatial.Reset(worldSize, worldSize, divisionSize);
 
 	auto entities = SyntheticGridGenerator::GenerateUniformGrid(entityCount, worldSize);
-
-	// Spatial grid: cell (x, z) -> list of entity IDs
-	std::vector<std::vector<entity_id_t>> grid(gridDim * gridDim);
 	for (const auto& ent : entities)
 	{
-		int cx = std::clamp(ent.pos.X.ToInt_RoundToZero() / 32, 0, static_cast<int>(gridDim - 1));
-		int cz = std::clamp(ent.pos.Y.ToInt_RoundToZero() / 32, 0, static_cast<int>(gridDim - 1));
-		grid[cz * gridDim + cx].push_back(ent.id);
+		CFixedVector2D minPos = ent.pos - CFixedVector2D(ent.radius, ent.radius);
+		CFixedVector2D maxPos = ent.pos + CFixedVector2D(ent.radius, ent.radius);
+		spatial.Add(ent.id, minPos, maxPos);
 	}
 
 	const CFixedVector2D queryCenter(fixed::FromInt(256), fixed::FromInt(256));
-	const fixed queryRadius = fixed::FromInt(48);
+	const entity_pos_t queryRadius = fixed::FromInt(48);
+
+	std::vector<uint32_t> results;
+	results.reserve(entityCount);
+
+	for (auto _ : state)
+	{
+		results.clear();
+		spatial.GetNear(results, queryCenter, queryRadius);
+		benchmark::DoNotOptimize(results.data());
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(entityCount));
+}
+BENCHMARK(BM_SpatialSubdivision_GetNear)->RangeMultiplier(4)->Range(256, 4096);
+
+// 3. SpatialSubdivision Dynamic Movement Benchmark
+static void BM_SpatialSubdivision_Move(benchmark::State& state)
+{
+	const size_t entityCount = static_cast<size_t>(state.range(0));
+	const fixed worldSize = fixed::FromInt(512);
+	const fixed divisionSize = fixed::FromInt(32);
+
+	SpatialSubdivision spatial;
+	spatial.Reset(worldSize, worldSize, divisionSize);
+
+	auto entities = SyntheticGridGenerator::GenerateUniformGrid(entityCount, worldSize);
+	for (const auto& ent : entities)
+	{
+		CFixedVector2D minPos = ent.pos - CFixedVector2D(ent.radius, ent.radius);
+		CFixedVector2D maxPos = ent.pos + CFixedVector2D(ent.radius, ent.radius);
+		spatial.Add(ent.id, minPos, maxPos);
+	}
+
+	CFixedVector2D step(fixed::FromFloat(2.5f), fixed::FromFloat(1.5f));
+
+	for (auto _ : state)
+	{
+		for (auto& ent : entities)
+		{
+			CFixedVector2D oldMin = ent.pos - CFixedVector2D(ent.radius, ent.radius);
+			CFixedVector2D oldMax = ent.pos + CFixedVector2D(ent.radius, ent.radius);
+			ent.pos += step;
+			CFixedVector2D newMin = ent.pos - CFixedVector2D(ent.radius, ent.radius);
+			CFixedVector2D newMax = ent.pos + CFixedVector2D(ent.radius, ent.radius);
+
+			spatial.Move(ent.id, oldMin, oldMax, newMin, newMax);
+		}
+		benchmark::ClobberMemory();
+	}
+
+	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(entityCount));
+}
+BENCHMARK(BM_SpatialSubdivision_Move)->RangeMultiplier(4)->Range(256, 4096);
+
+// 4. FastSpatialSubdivision Benchmark
+static void BM_FastSpatialSubdivision_GetNear(benchmark::State& state)
+{
+	const size_t entityCount = static_cast<size_t>(state.range(0));
+	const fixed worldSize = fixed::FromInt(512);
+
+	FastSpatialSubdivision spatial;
+	spatial.Reset(worldSize, worldSize);
+
+	auto entities = SyntheticGridGenerator::GenerateUniformGrid(entityCount, worldSize);
+	for (const auto& ent : entities)
+	{
+		spatial.Add(ent.id, ent.pos, ent.radius.ToInt_RoundToInfinity());
+	}
+
+	const CFixedVector2D queryCenter(fixed::FromInt(256), fixed::FromInt(256));
+	const entity_pos_t queryRadius = fixed::FromInt(48);
 
 	std::vector<entity_id_t> results;
 	results.reserve(entityCount);
@@ -177,93 +197,95 @@ static void BM_RangeManager_SpatialGridQuery2D(benchmark::State& state)
 	for (auto _ : state)
 	{
 		results.clear();
-
-		int minCellX = std::max(0, (queryCenter.X - queryRadius).ToInt_RoundToZero() / 32);
-		int maxCellX = std::min(static_cast<int>(gridDim - 1), (queryCenter.X + queryRadius).ToInt_RoundToZero() / 32);
-		int minCellZ = std::max(0, (queryCenter.Y - queryRadius).ToInt_RoundToZero() / 32);
-		int maxCellZ = std::min(static_cast<int>(gridDim - 1), (queryCenter.Y + queryRadius).ToInt_RoundToZero() / 32);
-
-		for (int cz = minCellZ; cz <= maxCellZ; ++cz)
-		{
-			for (int cx = minCellX; cx <= maxCellX; ++cx)
-			{
-				const auto& cellEnts = grid[cz * gridDim + cx];
-				for (entity_id_t id : cellEnts)
-				{
-					const auto& ent = entities[id - 100];
-					CFixedVector2D diff = ent.pos - queryCenter;
-					if (diff.CompareLength(queryRadius) <= 0)
-					{
-						results.push_back(id);
-					}
-				}
-			}
-		}
-
+		spatial.GetNear(results, queryCenter, queryRadius);
 		benchmark::DoNotOptimize(results.data());
 	}
 
 	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(entityCount));
 }
-BENCHMARK(BM_RangeManager_SpatialGridQuery2D)->RangeMultiplier(4)->Range(256, 4096);
+BENCHMARK(BM_FastSpatialSubdivision_GetNear)->RangeMultiplier(4)->Range(256, 4096);
 
-// 4. Concurrent Active Query Work-Stealing vs Mutex Contention Benchmark
-// Replicates the exact contention behavior observed on RangeManager QueryMutex across threads
+// 5. Concurrent Range Query Execution with Realistic Workloads (Contention Simulation)
 struct MockRangeQuery
 {
 	uint32_t tag;
 	CFixedVector2D center;
 	fixed radius;
 	bool enabled;
+	std::vector<entity_id_t> lastMatch;
 };
 
-static void BM_RangeManager_ConcurrentQueryMutex(benchmark::State& state)
+static void BM_RangeManager_ConcurrentQueryExecution(benchmark::State& state)
 {
-	const size_t totalQueries = 1000;
-	static std::vector<MockRangeQuery> s_Queries;
+	const size_t totalQueries = 500;
+	static std::map<uint32_t, MockRangeQuery> s_Queries;
 	static std::mutex s_Mutex;
-	static size_t s_CurrentIdx = 0;
+	static std::map<uint32_t, MockRangeQuery>::iterator s_Iterator;
 
 	if (state.thread_index() == 0)
 	{
-		s_Queries.resize(totalQueries);
+		s_Queries.clear();
 		for (size_t i = 0; i < totalQueries; ++i)
 		{
-			s_Queries[i] = { static_cast<uint32_t>(i), CFixedVector2D(fixed::FromInt(static_cast<int>(i % 100)), fixed::FromInt(static_cast<int>((i * 7) % 100))), fixed::FromInt(20), true };
+			MockRangeQuery q;
+			q.tag = static_cast<uint32_t>(i);
+			q.center = CFixedVector2D(fixed::FromInt(static_cast<int>(i % 200)), fixed::FromInt(static_cast<int>((i * 5) % 200)));
+			q.radius = fixed::FromInt(30);
+			q.enabled = true;
+			for (size_t m = 0; m < 20; ++m)
+				q.lastMatch.push_back(static_cast<entity_id_t>(m + 100));
+			s_Queries[q.tag] = std::move(q);
 		}
-		s_CurrentIdx = 0;
+		s_Iterator = s_Queries.begin();
 	}
 
 	for (auto _ : state)
 	{
 		uint64_t processed = 0;
+		std::vector<entity_id_t> results;
+		std::vector<entity_id_t> added;
+		std::vector<entity_id_t> removed;
+
 		while (true)
 		{
-			MockRangeQuery q;
+			std::map<uint32_t, MockRangeQuery>::iterator itCopy;
 			{
 				std::lock_guard<std::mutex> lock(s_Mutex);
-				if (s_CurrentIdx >= s_Queries.size())
+				if (s_Iterator == s_Queries.end())
 					break;
-				q = s_Queries[s_CurrentIdx++];
+				itCopy = s_Iterator++;
 			}
 
-			// Simulate query evaluation workload (~50 ns)
-			CFixedVector2D offset = q.center.Multiply(fixed::FromFloat(0.5f));
-			benchmark::DoNotOptimize(offset);
+			MockRangeQuery& q = itCopy->second;
+			if (!q.enabled)
+				continue;
+
+			// Perform realistic query match and delta calculations (~250 ns)
+			results.clear();
+			for (size_t r = 0; r < 25; ++r)
+			{
+				results.push_back(static_cast<entity_id_t>(r + 105));
+			}
+
+			added.clear();
+			removed.clear();
+			std::set_difference(results.begin(), results.end(), q.lastMatch.begin(), q.lastMatch.end(), std::back_inserter(added));
+			std::set_difference(q.lastMatch.begin(), q.lastMatch.end(), results.begin(), results.end(), std::back_inserter(removed));
+
+			q.lastMatch.swap(results);
 			processed++;
+			benchmark::DoNotOptimize(processed);
 		}
-		benchmark::DoNotOptimize(processed);
 	}
 
 	if (state.thread_index() == 0)
 	{
-		s_CurrentIdx = 0;
+		s_Iterator = s_Queries.begin();
 	}
 }
-BENCHMARK(BM_RangeManager_ConcurrentQueryMutex)->ThreadRange(1, 8);
+BENCHMARK(BM_RangeManager_ConcurrentQueryExecution)->ThreadRange(1, 8);
 
-// 5. Incremental LOS Bitmask Calculation Benchmark
-// Simulates CCmpRangeManager::LosUpdateHelperIncremental
+// 6. Incremental LOS Bitmask Calculation Benchmark
 static void BM_RangeManager_IncrementalLOS(benchmark::State& state)
 {
 	const size_t count = static_cast<size_t>(state.range(0));
