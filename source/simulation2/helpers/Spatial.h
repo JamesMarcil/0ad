@@ -22,17 +22,39 @@
 #include "lib/types.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
+#include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
+#include "simulation2/system/EnTTConfig.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
 #include <vector>
+
+/**
+ * Modernized POD data structs for contiguous EnTT spatial storage.
+ */
+struct SPositionComponent
+{
+	CFixedVector3D position;
+	CFixedVector3D prevPosition;
+	fixed rotation;
+	fixed height;
+};
+
+struct SObstructionComponent
+{
+	entity_id_t entity;
+	u32 shapeType;
+	fixed radius;
+	fixed halfWidth;
+	fixed halfDepth;
+};
 
 /**
  * A very basic subdivision scheme for finding items in ranges.

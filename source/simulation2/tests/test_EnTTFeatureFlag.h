@@ -19,6 +19,7 @@
 
 #include "scriptinterface/Interface.h"
 #include "simulation2/MessageTypes.h"
+#include "simulation2/helpers/Spatial.h"
 #include "simulation2/system/ComponentManager.h"
 #include "simulation2/system/EnTTConfig.h"
 #include "simulation2/system/Entity.h"
@@ -191,5 +192,58 @@ public:
 		TS_ASSERT_EQUALS(comp1.receivedMessages, 2);
 		TS_ASSERT_EQUALS(comp2.receivedMessages, 1);
 		TS_ASSERT_EQUALS(comp2.lastPayload, 100);
+	}
+
+	void test_entt_spatial_storage()
+	{
+		entt::registry registry;
+
+		auto e1 = registry.create();
+		auto e2 = registry.create();
+		auto e3 = registry.create();
+
+		SPositionComponent pos1{ CFixedVector3D(fixed::FromInt(10), fixed::Zero(), fixed::FromInt(20)), CFixedVector3D(), fixed::Zero(), fixed::Zero() };
+		SPositionComponent pos2{ CFixedVector3D(fixed::FromInt(50), fixed::Zero(), fixed::FromInt(60)), CFixedVector3D(), fixed::Zero(), fixed::Zero() };
+		SPositionComponent pos3{ CFixedVector3D(fixed::FromInt(100), fixed::Zero(), fixed::FromInt(100)), CFixedVector3D(), fixed::Zero(), fixed::Zero() };
+
+		SObstructionComponent obs1{ 1u, 1u, fixed::FromInt(2), fixed::Zero(), fixed::Zero() };
+		SObstructionComponent obs2{ 2u, 1u, fixed::FromInt(3), fixed::Zero(), fixed::Zero() };
+		SObstructionComponent obs3{ 3u, 1u, fixed::FromInt(4), fixed::Zero(), fixed::Zero() };
+
+		registry.emplace<SPositionComponent>(e1, pos1);
+		registry.emplace<SPositionComponent>(e2, pos2);
+		registry.emplace<SPositionComponent>(e3, pos3);
+
+		registry.emplace<SObstructionComponent>(e1, obs1);
+		registry.emplace<SObstructionComponent>(e2, obs2);
+		registry.emplace<SObstructionComponent>(e3, obs3);
+
+		size_t viewCount = 0;
+		auto view = registry.view<SPositionComponent, SObstructionComponent>();
+		for (auto entity : view)
+		{
+			auto& p = view.get<SPositionComponent>(entity);
+			auto& o = view.get<SObstructionComponent>(entity);
+			TS_ASSERT(p.position.X >= fixed::Zero());
+			TS_ASSERT(o.radius > fixed::Zero());
+			viewCount++;
+		}
+		TS_ASSERT_EQUALS(viewCount, 3u);
+
+		// Test distance ordering with contiguous sorting
+		CFixedVector2D source(fixed::Zero(), fixed::Zero());
+		std::vector<std::pair<i64, entt::entity>> distList;
+		for (auto entity : view)
+		{
+			const auto& p = view.get<SPositionComponent>(entity);
+			CFixedVector2D diff(p.position.X, p.position.Z);
+			i64 d2 = (SQUARE_U64_FIXED(diff.X) + SQUARE_U64_FIXED(diff.Y)) >> 1;
+			distList.push_back({d2, entity});
+		}
+		std::sort(distList.begin(), distList.end());
+
+		TS_ASSERT_EQUALS(distList[0].second, e1);
+		TS_ASSERT_EQUALS(distList[1].second, e2);
+		TS_ASSERT_EQUALS(distList[2].second, e3);
 	}
 };

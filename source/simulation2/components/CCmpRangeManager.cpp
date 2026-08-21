@@ -64,6 +64,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <iterator>
@@ -1203,6 +1204,99 @@ public:
 		// Used to write update messages to the corresponding index in the message vector and maintain the original order.
 		size_t messageIdx = 0;
 
+#if CONFIG_ENTT_SPATIAL_STORAGE
+		struct ActiveQueryEntry
+		{
+			tag_t tag;
+			Query* query;
+			size_t index;
+		};
+
+		std::vector<ActiveQueryEntry> activeQueries;
+		activeQueries.reserve(m_Queries.size());
+		size_t queryIdx = 0;
+		for (auto& [tag, query] : m_Queries)
+		{
+			activeQueries.push_back({tag, &query, queryIdx++});
+		}
+
+		std::atomic<size_t> nextQueryIdx{0};
+
+		const auto ProcessQueriesAsync = [&](std::vector<entity_id_t>& subdivisionResultsBuffer) {
+				PROFILE2_COLOR("Async range query execution", TRACY_COLOR_SPATIAL);
+
+				std::vector<entity_id_t> results;
+				std::vector<entity_id_t> added;
+				std::vector<entity_id_t> removed;
+				std::vector<std::pair<i64, entity_id_t>> distPairs;
+
+				while (true)
+				{
+					size_t qIdx = nextQueryIdx.fetch_add(1, std::memory_order_relaxed);
+					if (qIdx >= activeQueries.size())
+						break;
+
+					const auto& entry = activeQueries[qIdx];
+					tag_t tag = entry.tag;
+					Query& query = *entry.query;
+					size_t idxCopy = entry.index;
+
+					if (!query.enabled)
+						continue;
+
+					results.clear();
+					CmpPtr<ICmpPosition> cmpSourcePosition(query.source);
+					if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
+					{
+						results.reserve(query.lastMatch.size());
+						PerformQuery(query, results, cmpSourcePosition->GetPosition2D(), subdivisionResultsBuffer);
+					}
+
+					// Compute the changes vs the last match
+					added.clear();
+					removed.clear();
+					std::set_difference(results.begin(), results.end(), query.lastMatch.begin(), query.lastMatch.end(),
+						std::back_inserter(added));
+					std::set_difference(query.lastMatch.begin(), query.lastMatch.end(), results.begin(), results.end(),
+						std::back_inserter(removed));
+					if (added.empty() && removed.empty())
+						continue;
+
+					if (cmpSourcePosition && cmpSourcePosition->IsInWorld() && !added.empty())
+					{
+						CFixedVector2D sourcePos = cmpSourcePosition->GetPosition2D();
+						distPairs.clear();
+						distPairs.reserve(added.size());
+						for (entity_id_t entId : added)
+						{
+							auto eit = m_EntityData.find(entId);
+							if (eit != m_EntityData.end())
+							{
+								CFixedVector2D diff = CFixedVector2D(eit->second.x, eit->second.z) - sourcePos;
+								i64 d2 = (SQUARE_U64_FIXED(diff.X) + SQUARE_U64_FIXED(diff.Y)) >> 1;
+								distPairs.push_back({d2, entId});
+							}
+							else
+							{
+								distPairs.push_back({std::numeric_limits<i64>::max(), entId});
+							}
+						}
+						std::stable_sort(distPairs.begin(), distPairs.end(), [](const auto& a, const auto& b) {
+							return a.first < b.first;
+						});
+						for (size_t i = 0; i < added.size(); ++i)
+							added[i] = distPairs[i].second;
+					}
+
+					// Safe because it's guaranteed that no two threads can write to the same index anyway.
+					messages[idxCopy].emplace(
+						query.source.GetId(),
+						CMessageRangeUpdate(tag, std::move(added), std::move(removed))
+					);
+					query.lastMatch.swap(results);
+				}
+			};
+#else
 		const auto ProcessQueriesAsync = [&](std::vector<entity_id_t>& subdivisionResultsBuffer) {
 				PROFILE2_COLOR("Async range query execution", TRACY_COLOR_SPATIAL);
 
@@ -1264,6 +1358,7 @@ public:
 					query.lastMatch.swap(results);
 				}
 			};
+#endif
 
 		size_t numFutures = std::min(g_TaskManager.GetNumberOfWorkers(), m_Queries.size());
 		std::vector<Future<void>> futures;
