@@ -24,6 +24,7 @@
 #include "scriptinterface/Interface.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/DynamicSubscription.h"
+#include "simulation2/system/EnTTConfig.h"
 #include "simulation2/system/Entity.h"
 
 #include <boost/random/linear_congruential.hpp>

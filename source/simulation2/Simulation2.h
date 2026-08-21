@@ -24,6 +24,7 @@
 #include "ps/Loader.h"
 #include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/DebugOptions.h"
+#include "simulation2/system/EnTTConfig.h"
 #include "simulation2/system/Entity.h"
 
 #include <array>

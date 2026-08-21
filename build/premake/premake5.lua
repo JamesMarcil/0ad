@@ -53,12 +53,14 @@ newoption { category = "Pyrogenesis", trigger = "with-system-cxxtest", descripti
 newoption { category = "Pyrogenesis", trigger = "with-lto", description = "Enable Link Time Optimization (LTO)" }
 newoption { category = "Pyrogenesis", trigger = "with-system-mozjs", description = "Search standard paths for libmozjs128, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-nvtt", description = "Search standard paths for nvidia-texture-tools library, instead of using bundled copy" }
+newoption { category = "Pyrogenesis", trigger = "with-entt-ecs", description = "Enable modern EnTT ECS architecture" }
 newoption { category = "Pyrogenesis", trigger = "with-tracy", description = "Enable Tracy profiler support" }
 newoption { category = "Pyrogenesis", trigger = "with-valgrind", description = "Enable Valgrind support (non-Windows only)" }
 newoption { category = "Pyrogenesis", trigger = "without-audio", description = "Disable use of OpenAL/Ogg/Vorbis APIs" }
 newoption { category = "Pyrogenesis", trigger = "without-atlas", description = "Disable Atlas scenario/map editor and ActorEditor" }
 newoption { category = "Pyrogenesis", trigger = "without-benchmarks", description = "Disable generation of benchmark projects" }
 newoption { category = "Pyrogenesis", trigger = "without-dap-interface", description = "Disable Dap interface project" }
+newoption { category = "Pyrogenesis", trigger = "without-entt-ecs", description = "Disable modern EnTT ECS architecture (use legacy OOP)" }
 newoption { category = "Pyrogenesis", trigger = "without-lobby", description = "Disable the use of gloox and the multiplayer lobby" }
 newoption { category = "Pyrogenesis", trigger = "without-miniupnpc", description = "Disable use of miniupnpc for port forwarding" }
 newoption { category = "Pyrogenesis", trigger = "without-nvtt", description = "Disable use of NVTT" }
@@ -281,6 +283,12 @@ function project_set_build_flags()
 	if _OPTIONS["with-tracy"] then
 		defines { "TRACY_ENABLE=1", "TRACY_ON_DEMAND=1", "TRACY_DELAYED_INIT=1", "TRACY_MANUAL_LIFETIME=1", "TRACY_NO_SYSTEM_TRACING=1", "TRACY_NO_CALLSTACK=1" }
 		includedirs { rootdir .. "/source/third_party/tracy/include" }
+	end
+
+	if _OPTIONS["with-entt-ecs"] then
+		defines { "CONFIG_ENABLE_ENTT_ECS=1" }
+	elseif _OPTIONS["without-entt-ecs"] then
+		defines { "CONFIG_ENABLE_ENTT_ECS=0" }
 	end
 
 	if _OPTIONS["without-audio"] then
