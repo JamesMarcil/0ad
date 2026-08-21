@@ -493,6 +493,15 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			debugDataMotionMgr.m_Lines.push_back(gridL);
 		}
 #endif
+#if CONFIG_ENTT_UNIT_MOTION
+		for (EntityMap<MotionState>::iterator& it : *vec)
+		{
+			MotionState& ms = it->second;
+			if (ms.needUpdate)
+				ms.cmpUnitMotion->Move(ms, dt);
+			ms.pushingPressure = (m_PushingPressureDecay * ms.pushingPressure).ToInt_RoundToZero();
+		}
+#else
 		for (EntityMap<MotionState>::iterator& it : *vec)
 		{
 			if (it->second.needUpdate)
@@ -500,6 +509,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			// Decay pressure after moving so we can get the full 0-MAX_PRESSURE range of values.
 			it->second.pushingPressure = (m_PushingPressureDecay * it->second.pushingPressure).ToInt_RoundToZero();
 		}
+#endif
 	}
 
 	// Skip pushing entirely if the radius is 0

@@ -57,6 +57,39 @@ struct SObstructionComponent
 };
 
 /**
+ * Modernized POD data structs for contiguous EnTT kinematic and motion state.
+ */
+struct SWaypointData
+{
+	CFixedVector2D targetPos;
+	fixed minDistance;
+	fixed speed;
+};
+
+struct SMotionState
+{
+	CFixedVector2D initialPos;
+	CFixedVector2D pos;
+	CFixedVector2D push;
+	fixed speed;
+	fixed maxSpeed;
+	fixed heading;
+	fixed turnRate;
+	uint8_t pushingPressure;
+	bool needUpdate;
+	bool wasObstructed;
+	bool isMoving;
+};
+
+struct SFlockingState
+{
+	entity_id_t controlGroup;
+	fixed separationWeight;
+	fixed cohesionWeight;
+	fixed alignmentWeight;
+};
+
+/**
  * A very basic subdivision scheme for finding items in ranges.
  * Items are stored in lists in dynamic-sized divisions.
  * Items have a size (min/max values of their axis-aligned bounding box)

@@ -246,4 +246,64 @@ public:
 		TS_ASSERT_EQUALS(distList[1].second, e2);
 		TS_ASSERT_EQUALS(distList[2].second, e3);
 	}
+
+	void test_entt_unit_motion()
+	{
+		entt::registry registry;
+
+		auto e1 = registry.create();
+		auto e2 = registry.create();
+
+		SPositionComponent pos1{ CFixedVector3D(fixed::FromInt(10), fixed::Zero(), fixed::FromInt(10)), CFixedVector3D(), fixed::Zero(), fixed::Zero() };
+		SPositionComponent pos2{ CFixedVector3D(fixed::FromInt(50), fixed::Zero(), fixed::FromInt(50)), CFixedVector3D(), fixed::Zero(), fixed::Zero() };
+
+		SMotionState motion1;
+		motion1.pos = CFixedVector2D(fixed::FromInt(10), fixed::FromInt(10));
+		motion1.speed = fixed::FromInt(5);
+		motion1.maxSpeed = fixed::FromInt(10);
+		motion1.heading = fixed::Zero();
+		motion1.turnRate = fixed::FromFloat(3.0f);
+		motion1.needUpdate = true;
+
+		SMotionState motion2;
+		motion2.pos = CFixedVector2D(fixed::FromInt(50), fixed::FromInt(50));
+		motion2.speed = fixed::FromInt(6);
+		motion2.maxSpeed = fixed::FromInt(12);
+		motion2.heading = fixed::Pi();
+		motion2.turnRate = fixed::FromFloat(3.0f);
+		motion2.needUpdate = true;
+
+		SWaypointData wp1{ CFixedVector2D(fixed::FromInt(20), fixed::FromInt(10)), fixed::FromInt(1), fixed::FromInt(5) };
+		SWaypointData wp2{ CFixedVector2D(fixed::FromInt(50), fixed::FromInt(30)), fixed::FromInt(1), fixed::FromInt(6) };
+
+		registry.emplace<SPositionComponent>(e1, pos1);
+		registry.emplace<SPositionComponent>(e2, pos2);
+		registry.emplace<SMotionState>(e1, motion1);
+		registry.emplace<SMotionState>(e2, motion2);
+		registry.emplace<SWaypointData>(e1, wp1);
+		registry.emplace<SWaypointData>(e2, wp2);
+
+		auto view = registry.view<SPositionComponent, SMotionState, SWaypointData>();
+		size_t count = 0;
+		const fixed dt = fixed::FromFloat(0.2f);
+		for (auto entity : view)
+		{
+			auto& pos = view.get<SPositionComponent>(entity);
+			auto& mot = view.get<SMotionState>(entity);
+			auto& wp = view.get<SWaypointData>(entity);
+
+			CFixedVector2D toTarget = wp.targetPos - mot.pos;
+			if (!toTarget.IsZero())
+			{
+				fixed moveDist = mot.speed.Multiply(dt);
+				mot.pos.X += moveDist;
+				pos.position.X = mot.pos.X;
+			}
+			count++;
+		}
+
+		TS_ASSERT_EQUALS(count, 2u);
+		TS_ASSERT(registry.get<SMotionState>(e1).pos.X > fixed::FromInt(10));
+		TS_ASSERT(registry.get<SPositionComponent>(e1).position.X > fixed::FromInt(10));
+	}
 };
