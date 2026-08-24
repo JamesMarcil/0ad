@@ -72,12 +72,13 @@ static Status InitDbghelp()
 	// initialize dbghelp.
 	// .. request symbols from all currently active modules be loaded.
 	const BOOL fInvadeProcess = TRUE;
-	// .. use default *symbol* search path. we don't use this to locate
-	//    our PDB file because its absolute path is stored inside the EXE.
 	const PWSTR UserSearchPath = 0;
 	WinScopedPreserveLastError s;	// SymInitializeW
 	const BOOL ok = pSymInitializeW(hProcess, UserSearchPath, fInvadeProcess);
-	WARN_IF_FALSE(ok);
+	if (!ok && GetLastError() != ERROR_INVALID_PARAMETER && GetLastError() != ERROR_ALREADY_EXISTS)
+	{
+		WARN_IF_FALSE(ok);
+	}
 
 	HMODULE hModule = GetModuleHandle(0);
 	IMAGE_NT_HEADERS* const header = pImageNtHeader(hModule);

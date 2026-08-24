@@ -824,7 +824,6 @@ int main(int argc, char* argv[])
 	wdir_watch_Init();
 #endif
 
-	TRACY_STARTUP();
 	EarlyInit();	// must come at beginning of main
 
 	try
@@ -839,7 +838,6 @@ int main(int argc, char* argv[])
 
 	// Shut down profiler initialised by EarlyInit
 	g_Profiler2.Shutdown();
-	TRACY_SHUTDOWN();
 
 #if OS_WIN
 	// All calls to Windows specific functions have to happen before the following

@@ -204,6 +204,12 @@ void CProfiler2::Shutdown()
 	ENSURE(Threading::IsMainThread());
 	m_Initialised = false;
 
+	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		m_Threads.clear();
+	}
+	m_CurrentStorage = nullptr;
+
 	TRACY_SHUTDOWN();
 }
 
