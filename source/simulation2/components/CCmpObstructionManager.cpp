@@ -44,6 +44,7 @@
 #include "simulation2/serialization/SerializedTypes.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
+#include "simulation2/system/EntityMap.h"
 #include "simulation2/system/Message.h"
 
 #include <algorithm>
@@ -158,9 +159,8 @@ public:
 	SpatialSubdivision m_UnitSubdivision;
 	SpatialSubdivision m_StaticSubdivision;
 
-	// TODO: using std::map is a bit inefficient; is there a better way to store these?
-	std::map<u32, UnitShape> m_UnitShapes;
-	std::map<u32, StaticShape> m_StaticShapes;
+	EntityMap<UnitShape> m_UnitShapes;
+	EntityMap<StaticShape> m_StaticShapes;
 	u32 m_UnitShapeNext; // next allocated id
 	u32 m_StaticShapeNext;
 
@@ -281,14 +281,14 @@ public:
 		m_UnitSubdivision.Reset(x1, z1, OBSTRUCTION_SUBDIVISION_SIZE);
 		m_StaticSubdivision.Reset(x1, z1, OBSTRUCTION_SUBDIVISION_SIZE);
 
-		for (std::map<u32, UnitShape>::iterator it = m_UnitShapes.begin(); it != m_UnitShapes.end(); ++it)
+		for (EntityMap<UnitShape>::iterator it = m_UnitShapes.begin(); it != m_UnitShapes.end(); ++it)
 		{
 			CFixedVector2D center(it->second.x, it->second.z);
 			CFixedVector2D halfSize(it->second.clearance, it->second.clearance);
 			m_UnitSubdivision.Add(it->first, center - halfSize, center + halfSize);
 		}
 
-		for (std::map<u32, StaticShape>::iterator it = m_StaticShapes.begin(); it != m_StaticShapes.end(); ++it)
+		for (EntityMap<StaticShape>::iterator it = m_StaticShapes.begin(); it != m_StaticShapes.end(); ++it)
 		{
 			CFixedVector2D center(it->second.x, it->second.z);
 			CFixedVector2D bbHalfSize = Geometry::GetHalfBoundingBox(it->second.u, it->second.v, CFixedVector2D(it->second.hw, it->second.hh));
@@ -300,7 +300,7 @@ public:
 	{
 		UnitShape shape = { ent, x, z, clearance, flags, group };
 		u32 id = m_UnitShapeNext++;
-		m_UnitShapes[id] = shape;
+		m_UnitShapes.insert(id, shape);
 
 		m_UnitSubdivision.Add(id, CFixedVector2D(x - clearance, z - clearance), CFixedVector2D(x + clearance, z + clearance));
 
@@ -318,7 +318,7 @@ public:
 
 		StaticShape shape = { ent, x, z, u, v, w/2, h/2, flags, group, group2 };
 		u32 id = m_StaticShapeNext++;
-		m_StaticShapes[id] = shape;
+		m_StaticShapes.insert(id, shape);
 
 		CFixedVector2D center(x, z);
 		CFixedVector2D bbHalfSize = Geometry::GetHalfBoundingBox(u, v, CFixedVector2D(w/2, h/2));
@@ -354,7 +354,9 @@ public:
 
 		if (TAG_IS_UNIT(tag))
 		{
-			UnitShape& shape = m_UnitShapes[TAG_TO_INDEX(tag)];
+			EntityMap<UnitShape>::iterator it = m_UnitShapes.find(TAG_TO_INDEX(tag));
+			ENSURE(it != m_UnitShapes.end());
+			UnitShape& shape = it->second;
 
 			MakeDirtyUnit(shape.flags, TAG_TO_INDEX(tag), shape); // dirty the old shape region
 
@@ -376,7 +378,9 @@ public:
 			CFixedVector2D u(c, -s);
 			CFixedVector2D v(s, c);
 
-			StaticShape& shape = m_StaticShapes[TAG_TO_INDEX(tag)];
+			EntityMap<StaticShape>::iterator it = m_StaticShapes.find(TAG_TO_INDEX(tag));
+			ENSURE(it != m_StaticShapes.end());
+			StaticShape& shape = it->second;
 
 			MakeDirtyStatic(shape.flags, TAG_TO_INDEX(tag), shape); // dirty the old shape region
 
@@ -403,13 +407,17 @@ public:
 
 		if (TAG_IS_UNIT(tag))
 		{
-			UnitShape& shape = m_UnitShapes[TAG_TO_INDEX(tag)];
-			if (moving)
-				shape.flags |= FLAG_MOVING;
-			else
-				shape.flags &= (flags_t)~FLAG_MOVING;
+			EntityMap<UnitShape>::iterator it = m_UnitShapes.find(TAG_TO_INDEX(tag));
+			if (it != m_UnitShapes.end())
+			{
+				UnitShape& shape = it->second;
+				if (moving)
+					shape.flags |= FLAG_MOVING;
+				else
+					shape.flags &= (flags_t)~FLAG_MOVING;
 
-			MakeDirtyDebug();
+				MakeDirtyDebug();
+			}
 		}
 	}
 
@@ -419,8 +427,11 @@ public:
 
 		if (TAG_IS_UNIT(tag))
 		{
-			UnitShape& shape = m_UnitShapes[TAG_TO_INDEX(tag)];
-			shape.group = group;
+			EntityMap<UnitShape>::iterator it = m_UnitShapes.find(TAG_TO_INDEX(tag));
+			if (it != m_UnitShapes.end())
+			{
+				it->second.group = group;
+			}
 		}
 	}
 
@@ -430,9 +441,12 @@ public:
 
 		if (TAG_IS_STATIC(tag))
 		{
-			StaticShape& shape = m_StaticShapes[TAG_TO_INDEX(tag)];
-			shape.group = group;
-			shape.group2 = group2;
+			EntityMap<StaticShape>::iterator it = m_StaticShapes.find(TAG_TO_INDEX(tag));
+			if (it != m_StaticShapes.end())
+			{
+				it->second.group = group;
+				it->second.group2 = group2;
+			}
 		}
 	}
 
@@ -442,26 +456,34 @@ public:
 
 		if (TAG_IS_UNIT(tag))
 		{
-			UnitShape& shape = m_UnitShapes[TAG_TO_INDEX(tag)];
-			m_UnitSubdivision.Remove(TAG_TO_INDEX(tag),
-				CFixedVector2D(shape.x - shape.clearance, shape.z - shape.clearance),
-				CFixedVector2D(shape.x + shape.clearance, shape.z + shape.clearance));
+			EntityMap<UnitShape>::iterator it = m_UnitShapes.find(TAG_TO_INDEX(tag));
+			if (it != m_UnitShapes.end())
+			{
+				UnitShape& shape = it->second;
+				m_UnitSubdivision.Remove(TAG_TO_INDEX(tag),
+					CFixedVector2D(shape.x - shape.clearance, shape.z - shape.clearance),
+					CFixedVector2D(shape.x + shape.clearance, shape.z + shape.clearance));
 
-			MakeDirtyUnit(shape.flags, TAG_TO_INDEX(tag), shape);
+				MakeDirtyUnit(shape.flags, TAG_TO_INDEX(tag), shape);
 
-			m_UnitShapes.erase(TAG_TO_INDEX(tag));
+				m_UnitShapes.erase(TAG_TO_INDEX(tag));
+			}
 		}
 		else
 		{
-			StaticShape& shape = m_StaticShapes[TAG_TO_INDEX(tag)];
+			EntityMap<StaticShape>::iterator it = m_StaticShapes.find(TAG_TO_INDEX(tag));
+			if (it != m_StaticShapes.end())
+			{
+				StaticShape& shape = it->second;
 
-			CFixedVector2D center(shape.x, shape.z);
-			CFixedVector2D bbHalfSize = Geometry::GetHalfBoundingBox(shape.u, shape.v, CFixedVector2D(shape.hw, shape.hh));
-			m_StaticSubdivision.Remove(TAG_TO_INDEX(tag), center - bbHalfSize, center + bbHalfSize);
+				CFixedVector2D center(shape.x, shape.z);
+				CFixedVector2D bbHalfSize = Geometry::GetHalfBoundingBox(shape.u, shape.v, CFixedVector2D(shape.hw, shape.hh));
+				m_StaticSubdivision.Remove(TAG_TO_INDEX(tag), center - bbHalfSize, center + bbHalfSize);
 
-			MakeDirtyStatic(shape.flags, TAG_TO_INDEX(tag), shape);
+				MakeDirtyStatic(shape.flags, TAG_TO_INDEX(tag), shape);
 
-			m_StaticShapes.erase(TAG_TO_INDEX(tag));
+				m_StaticShapes.erase(TAG_TO_INDEX(tag));
+			}
 		}
 	}
 
@@ -471,7 +493,9 @@ public:
 
 		if (TAG_IS_UNIT(tag))
 		{
-			const UnitShape& shape = m_UnitShapes.at(TAG_TO_INDEX(tag));
+			EntityMap<UnitShape>::const_iterator it = m_UnitShapes.find(TAG_TO_INDEX(tag));
+			ENSURE(it != m_UnitShapes.end());
+			const UnitShape& shape = it->second;
 			CFixedVector2D u(entity_pos_t::FromInt(1), entity_pos_t::Zero());
 			CFixedVector2D v(entity_pos_t::Zero(), entity_pos_t::FromInt(1));
 			ObstructionSquare o = { shape.x, shape.z, u, v, shape.clearance, shape.clearance };
@@ -479,7 +503,9 @@ public:
 		}
 		else
 		{
-			const StaticShape& shape = m_StaticShapes.at(TAG_TO_INDEX(tag));
+			EntityMap<StaticShape>::const_iterator it = m_StaticShapes.find(TAG_TO_INDEX(tag));
+			ENSURE(it != m_StaticShapes.end());
+			const StaticShape& shape = it->second;
 			ObstructionSquare o = { shape.x, shape.z, shape.u, shape.v, shape.hw, shape.hh };
 			return o;
 		}
@@ -903,7 +929,7 @@ bool CCmpObstructionManager::TestLine(const IObstructionTestFilter& filter, enti
 	m_UnitSubdivision.GetInRange(unitShapes, posMin, posMax);
 	for (const entity_id_t& shape : unitShapes)
 	{
-		std::map<u32, UnitShape>::const_iterator it = m_UnitShapes.find(shape);
+		EntityMap<UnitShape>::const_iterator it = m_UnitShapes.find(shape);
 		ENSURE(it != m_UnitShapes.end());
 
 		if (!filter.TestShape(UNIT_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, INVALID_ENTITY))
@@ -919,7 +945,7 @@ bool CCmpObstructionManager::TestLine(const IObstructionTestFilter& filter, enti
 	m_StaticSubdivision.GetInRange(staticShapes, posMin, posMax);
 	for (const entity_id_t& shape : staticShapes)
 	{
-		std::map<u32, StaticShape>::const_iterator it = m_StaticShapes.find(shape);
+		EntityMap<StaticShape>::const_iterator it = m_StaticShapes.find(shape);
 		ENSURE(it != m_StaticShapes.end());
 
 		if (!filter.TestShape(STATIC_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, it->second.group2))
@@ -952,7 +978,7 @@ bool CCmpObstructionManager::TestUnitLine(const IObstructionTestFilter& filter, 
 	m_UnitSubdivision.GetInRange(unitShapes, posMin, posMax);
 	for (const entity_id_t& shape : unitShapes)
 	{
-		std::map<u32, UnitShape>::const_iterator it = m_UnitShapes.find(shape);
+		EntityMap<UnitShape>::const_iterator it = m_UnitShapes.find(shape);
 		ENSURE(it != m_UnitShapes.end());
 
 		if (!filter.TestShape(UNIT_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, INVALID_ENTITY))
@@ -1004,7 +1030,7 @@ bool CCmpObstructionManager::TestStaticShape(const IObstructionTestFilter& filte
 	m_UnitSubdivision.GetInRange(unitShapes, posMin, posMax);
 	for (entity_id_t& shape : unitShapes)
 	{
-		std::map<u32, UnitShape>::const_iterator it = m_UnitShapes.find(shape);
+		EntityMap<UnitShape>::const_iterator it = m_UnitShapes.find(shape);
 		ENSURE(it != m_UnitShapes.end());
 
 		if (!filter.TestShape(UNIT_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, INVALID_ENTITY))
@@ -1025,7 +1051,7 @@ bool CCmpObstructionManager::TestStaticShape(const IObstructionTestFilter& filte
 	m_StaticSubdivision.GetInRange(staticShapes, posMin, posMax);
 	for (entity_id_t& shape : staticShapes)
 	{
-		std::map<u32, StaticShape>::const_iterator it = m_StaticShapes.find(shape);
+		EntityMap<StaticShape>::const_iterator it = m_StaticShapes.find(shape);
 		ENSURE(it != m_StaticShapes.end());
 
 		if (!filter.TestShape(STATIC_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, it->second.group2))
@@ -1071,7 +1097,7 @@ bool CCmpObstructionManager::TestUnitShape(const IObstructionTestFilter& filter,
 	m_UnitSubdivision.GetInRange(unitShapes, posMin, posMax);
 	for (const entity_id_t& shape : unitShapes)
 	{
-		std::map<u32, UnitShape>::const_iterator it = m_UnitShapes.find(shape);
+		EntityMap<UnitShape>::const_iterator it = m_UnitShapes.find(shape);
 		ENSURE(it != m_UnitShapes.end());
 
 		if (!filter.TestShape(UNIT_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, INVALID_ENTITY))
@@ -1096,7 +1122,7 @@ bool CCmpObstructionManager::TestUnitShape(const IObstructionTestFilter& filter,
 	m_StaticSubdivision.GetInRange(staticShapes, posMin, posMax);
 	for (const entity_id_t& shape : staticShapes)
 	{
-		std::map<u32, StaticShape>::const_iterator it = m_StaticShapes.find(shape);
+		EntityMap<StaticShape>::const_iterator it = m_StaticShapes.find(shape);
 		ENSURE(it != m_StaticShapes.end());
 
 		if (!filter.TestShape(STATIC_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, it->second.group2))
@@ -1226,7 +1252,7 @@ void CCmpObstructionManager::GetUnitObstructionsInRange(const IObstructionTestFi
 	m_UnitSubdivision.GetInRange(unitShapes, CFixedVector2D(x0, z0), CFixedVector2D(x1, z1));
 	for (entity_id_t& unitShape : unitShapes)
 	{
-		std::map<u32, UnitShape>::const_iterator it = m_UnitShapes.find(unitShape);
+		EntityMap<UnitShape>::const_iterator it = m_UnitShapes.find(unitShape);
 		ENSURE(it != m_UnitShapes.end());
 
 		if (!filter.TestShape(UNIT_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, INVALID_ENTITY))
@@ -1254,7 +1280,7 @@ void CCmpObstructionManager::GetStaticObstructionsInRange(const IObstructionTest
 	m_StaticSubdivision.GetInRange(staticShapes, CFixedVector2D(x0, z0), CFixedVector2D(x1, z1));
 	for (entity_id_t& staticShape : staticShapes)
 	{
-		std::map<u32, StaticShape>::const_iterator it = m_StaticShapes.find(staticShape);
+		EntityMap<StaticShape>::const_iterator it = m_StaticShapes.find(staticShape);
 		ENSURE(it != m_StaticShapes.end());
 
 		if (!filter.TestShape(STATIC_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, it->second.group2))
@@ -1291,7 +1317,7 @@ void CCmpObstructionManager::GetUnitsOnObstruction(const ObstructionSquare& squa
 
 	for (const u32& unitShape : unitShapes)
 	{
-		std::map<u32, UnitShape>::const_iterator it = m_UnitShapes.find(unitShape);
+		EntityMap<UnitShape>::const_iterator it = m_UnitShapes.find(unitShape);
 		ENSURE(it != m_UnitShapes.end());
 
 		const UnitShape& shape = it->second;
@@ -1344,7 +1370,7 @@ void CCmpObstructionManager::GetStaticObstructionsOnObstruction(const Obstructio
 
 	for (const u32& staticShape : staticShapes)
 	{
-		std::map<u32, StaticShape>::const_iterator it = m_StaticShapes.find(staticShape);
+		EntityMap<StaticShape>::const_iterator it = m_StaticShapes.find(staticShape);
 		ENSURE(it != m_StaticShapes.end());
 
 		const StaticShape& shape = it->second;
@@ -1388,14 +1414,14 @@ void CCmpObstructionManager::RenderSubmit(SceneCollector& collector)
 				(m_WorldX1-m_WorldX0).ToFloat(), (m_WorldZ1-m_WorldZ0).ToFloat(),
 				0, m_DebugOverlayLines.back(), true);
 
-		for (std::map<u32, UnitShape>::iterator it = m_UnitShapes.begin(); it != m_UnitShapes.end(); ++it)
+		for (EntityMap<UnitShape>::iterator it = m_UnitShapes.begin(); it != m_UnitShapes.end(); ++it)
 		{
 			m_DebugOverlayLines.push_back(SOverlayLine());
 			m_DebugOverlayLines.back().m_Color = ((it->second.flags & FLAG_MOVING) ? movingColor : defaultColor);
 			SimRender::ConstructSquareOnGround(GetSimContext(), it->second.x.ToFloat(), it->second.z.ToFloat(), it->second.clearance.ToFloat(), it->second.clearance.ToFloat(), 0, m_DebugOverlayLines.back(), true);
 		}
 
-		for (std::map<u32, StaticShape>::iterator it = m_StaticShapes.begin(); it != m_StaticShapes.end(); ++it)
+		for (EntityMap<StaticShape>::iterator it = m_StaticShapes.begin(); it != m_StaticShapes.end(); ++it)
 		{
 			m_DebugOverlayLines.push_back(SOverlayLine());
 			m_DebugOverlayLines.back().m_Color = defaultColor;
