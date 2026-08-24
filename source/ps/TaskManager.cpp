@@ -243,8 +243,11 @@ WorkerThread::WorkerThread(TaskManager::Impl& taskManager)
 
 WorkerThread::~WorkerThread()
 {
-	m_Kill = true;
-	m_ConditionVariable.notify_one();
+	{
+		std::lock_guard lock(m_Mutex);
+		m_Kill = true;
+	}
+	m_ConditionVariable.notify_all();
 	if (m_Thread.joinable())
 		m_Thread.join();
 }

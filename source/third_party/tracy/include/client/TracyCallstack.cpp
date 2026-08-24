@@ -656,31 +656,7 @@ void DbgHelpInit()
     DBGHELP_LOCK;
 #endif
 
-    // append executable path to the _NT_SYMBOL_PATH environment variable
-    char buffer [32767];  // max env var length on Windows (including null-terminator)
-    DWORD length = GetEnvironmentVariableA( "_NT_SYMBOL_PATH", buffer, sizeof( buffer ) );
-    if( length > sizeof( buffer ) ) SymError( "GetEnvironmentVariableA", GetLastError() );
-    else if( length + 1 >= sizeof( buffer ) ) SymError( "_TracyAppendEnvironmentVariable", ERROR_INSUFFICIENT_BUFFER );
-    else
-    {
-        buffer[length] = ';';
-        buffer[++length] = '\0';
-        length += GetModuleFileNameA( NULL, &buffer[length], sizeof( buffer ) - length );
-        if( length >= sizeof( buffer ) && GetLastError() == ERROR_INSUFFICIENT_BUFFER )
-        {
-            SymError( "GetModuleFileNameA", GetLastError() );
-        }
-        else
-        {
-            while( length > 0 && buffer[--length] != '\\' )
-                buffer[length] = '\0';
-        }
-    }
-
-    assert( length < sizeof( buffer ) );
-    if( SetEnvironmentVariableA( "_NT_SYMBOL_PATH", buffer ) == FALSE ) SymError( "SetEnvironmentVariableA", GetLastError() );
- 
-    SymSetOptions( SymGetOptions() | SYMOPT_LOAD_LINES );
+    SymSetOptions( SymGetOptions() | SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME );
     if( SymInitialize( GetCurrentProcess(), NULL, TRUE ) == FALSE )
     {
         SymError( "SymInitialize", GetLastError() );
@@ -689,7 +665,6 @@ void DbgHelpInit()
     {
         TracyDebug( "SymSrv.dll was not loaded, it needs to be near a matching version of DbgHelp.dll. Symbol resolution may fail as symbol servers will not be used. See https://learn.microsoft.com/en-us/windows/win32/debug/calling-the-dbghelp-library" );
     }
-
 
 #ifdef TRACY_DBGHELP_LOCK
     DBGHELP_UNLOCK;
@@ -839,12 +814,8 @@ void InitCallstack()
     DBGHELP_LOCK;
 #endif
 
-    // use TRACY_NO_DBGHELP_INIT_LOAD=1 to disable preloading of driver
-    // and process module symbol loading at startup time - they will be loaded on demand later
-    // Sometimes this process can take a very long time and prevent resolving callstack frames
-    // symbols during that time.
     const char* noInitLoadEnv = GetEnvVar( "TRACY_NO_DBGHELP_INIT_LOAD" );
-    const bool initTimeModuleLoad = !( noInitLoadEnv && noInitLoadEnv[0] == '1' );
+    const bool initTimeModuleLoad = ( noInitLoadEnv && noInitLoadEnv[0] == '0' );
     if ( !initTimeModuleLoad )
     {
         TracyDebug( "TRACY: skipping init time dbghelper module load" );
