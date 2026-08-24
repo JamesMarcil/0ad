@@ -1138,6 +1138,25 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 		TRACY_ZONE_TEXT(m_MessageTypeNamesById[msg.GetType()].c_str(), m_MessageTypeNamesById[msg.GetType()].length());
 	}
 
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	// Send the message to components of all entities that subscribed locally to this message
+	auto it = m_LocalMessageSubscriptions.find(msg.GetType());
+	if (it != m_LocalMessageSubscriptions.end())
+	{
+		for (ComponentTypeId cid : it->second)
+		{
+			const auto* storage = std::as_const(m_Registry).storage<IComponent*>(static_cast<entt::id_type>(cid));
+			if (storage)
+			{
+				for (IComponent* comp : *storage)
+				{
+					if (comp)
+						comp->HandleMessage(msg, false);
+				}
+			}
+		}
+	}
+#else
 	// Send the message to components of all entities that subscribed locally to this message
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_LocalMessageSubscriptions.find(msg.GetType());
@@ -1157,6 +1176,7 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 				eit->second->HandleMessage(msg, false);
 		}
 	}
+#endif
 
 	SendGlobalMessage(INVALID_ENTITY, msg);
 }
@@ -1183,6 +1203,17 @@ void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
 					continue;
 			}
 
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+			const auto* storage = std::as_const(m_Registry).storage<IComponent*>(static_cast<entt::id_type>(*ctit));
+			if (storage)
+			{
+				for (IComponent* comp : *storage)
+				{
+					if (comp)
+						comp->HandleMessage(msg, true);
+				}
+			}
+#else
 			// Find the component instances of this type (if any)
 			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap = m_ComponentsByTypeId.find(*ctit);
 			if (emap == m_ComponentsByTypeId.end())
@@ -1192,6 +1223,7 @@ void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
 			std::map<entity_id_t, IComponent*>::const_iterator eit = emap->second.begin();
 			for (; eit != emap->second.end(); ++eit)
 				eit->second->HandleMessage(msg, true);
+#endif
 		}
 	}
 
