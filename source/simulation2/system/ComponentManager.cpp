@@ -757,6 +757,17 @@ void CComponentManager::AddSystemComponents(bool skipScriptedComponents, bool sk
 	}
 }
 
+#if CONFIG_ENTT_ENTITY_REGISTRY
+entt::id_type CComponentManager::GetComponentStorageId(ComponentTypeId cid, bool isLocal)
+{
+	// Reserve the top bit of the storage key to namespace local entities into a separate
+	// entt::storage instance per component type, since ComponentTypeId values never come close
+	// to it. See the declaration in ComponentManager.h for why this is necessary.
+	constexpr entt::id_type LOCAL_ENTITY_STORAGE_BIT = entt::id_type(1) << 31;
+	return isLocal ? (static_cast<entt::id_type>(cid) | LOCAL_ENTITY_STORAGE_BIT) : static_cast<entt::id_type>(cid);
+}
+#endif
+
 IComponent* CComponentManager::ConstructComponent(CEntityHandle ent, ComponentTypeId cid)
 {
 	Script::Request rq(m_ScriptInterface);
@@ -806,7 +817,7 @@ IComponent* CComponentManager::ConstructComponent(CEntityHandle ent, ComponentTy
 	emap2.insert(std::make_pair(ent.GetId(), component));
 #if CONFIG_ENTT_ENTITY_REGISTRY
 	entt::entity enttEntity = static_cast<entt::entity>(ent.GetId());
-	auto& storage = m_Registry.storage<IComponent*>(static_cast<entt::id_type>(cid));
+	auto& storage = m_Registry.storage<IComponent*>(GetComponentStorageId(cid, ENTITY_IS_LOCAL(ent.GetId())));
 	if (storage.contains(enttEntity))
 		storage.erase(enttEntity);
 	storage.emplace(enttEntity, component);
@@ -995,7 +1006,7 @@ void CComponentManager::FlushDestroyedComponents()
 					ct.dealloc(comp);
 					compMap.erase(eit);
 
-					auto& storage = m_Registry.storage<IComponent*>(static_cast<entt::id_type>(cid));
+					auto& storage = m_Registry.storage<IComponent*>(GetComponentStorageId(cid, ENTITY_IS_LOCAL(ent)));
 					if (storage.contains(enttEntity))
 						storage.erase(enttEntity);
 				}
@@ -1090,13 +1101,14 @@ void CComponentManager::PostMessage(entity_id_t ent, const CMessage& msg)
 {
 #if CONFIG_ENTT_MESSAGE_DISPATCH
 	entt::entity enttEntity = static_cast<entt::entity>(ent);
+	bool entIsLocal = ENTITY_IS_LOCAL(ent);
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_LocalMessageSubscriptions.find(msg.GetType());
 	if (it != m_LocalMessageSubscriptions.end())
 	{
 		for (ComponentTypeId cid : it->second)
 		{
-			const auto* storage = std::as_const(m_Registry).storage<IComponent*>(static_cast<entt::id_type>(cid));
+			const auto* storage = std::as_const(m_Registry).storage<IComponent*>(GetComponentStorageId(cid, entIsLocal));
 			if (storage && storage->contains(enttEntity))
 			{
 				IComponent* comp = storage->get(enttEntity);

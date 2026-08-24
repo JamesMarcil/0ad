@@ -19,6 +19,7 @@
 
 #include "scriptinterface/Interface.h"
 #include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpTest.h"
 #include "simulation2/helpers/Spatial.h"
 #include "simulation2/system/ComponentManager.h"
 #include "simulation2/system/EnTTConfig.h"
@@ -122,6 +123,57 @@ public:
 		TS_ASSERT_EQUALS(elocal, static_cast<entity_id_t>(FIRST_LOCAL_ENTITY));
 
 		man.ResetState();
+	}
+
+	// Regression test for a Slot-not-available crash in entt::sparse_set: 0 A.D.'s local/normal
+	// tag bit (bit 29 of entity_id_t) falls inside entt::entity's 12-bit version field rather than
+	// its 20-bit index field, so a normal and a local entity whose low-20-bit counters coincide
+	// cast to the *same* entt::entity index. Before CComponentManager::GetComponentStorageId()
+	// namespaced local vs. normal component storage, giving both entities the same component type
+	// crashed entt::sparse_set::try_emplace with ENTT_ASSERT(elem == null, "Slot not available").
+	void test_component_manager_local_normal_index_collision()
+	{
+		CSimContext context;
+		CComponentManager man(context, *g_ScriptContext, true);
+		man.LoadComponentTypes();
+
+		CParamNode noParam;
+
+		// Allocate through the same public counters real gameplay uses, rather than picking IDs
+		// by hand: m_NextEntityId starts at SYSTEM_ENTITY+1, so the first normal entity is 2; the
+		// third local entity is FIRST_LOCAL_ENTITY+2, which has the same low-20-bit index as id 2.
+		entity_id_t normalId = man.AllocateNewEntity();
+		man.AllocateNewLocalEntity();
+		man.AllocateNewLocalEntity();
+		entity_id_t localId = man.AllocateNewLocalEntity();
+
+		TS_ASSERT_EQUALS(normalId, 2u);
+		TS_ASSERT_EQUALS(localId, static_cast<entity_id_t>(FIRST_LOCAL_ENTITY) + 2);
+
+		CEntityHandle hndNormal = man.LookupEntityHandle(normalId, true);
+		CEntityHandle hndLocal = man.LookupEntityHandle(localId, true);
+
+#if CONFIG_ENTT_ENTITY_REGISTRY
+		// Confirm the raw indices really do collide, so this test actually exercises the bug.
+		entt::entity enttNormal = static_cast<entt::entity>(normalId);
+		entt::entity enttLocal = static_cast<entt::entity>(localId);
+		TS_ASSERT_EQUALS(entt::to_entity(enttNormal), entt::to_entity(enttLocal));
+		TS_ASSERT_DIFFERS(entt::to_version(enttNormal), entt::to_version(enttLocal));
+#endif
+
+		TS_ASSERT(man.AddComponent(hndNormal, CID_Test1A, noParam));
+		TS_ASSERT(man.AddComponent(hndLocal, CID_Test1A, noParam));
+
+		IComponent* cmpNormal = man.QueryInterface(normalId, IID_Test1);
+		IComponent* cmpLocal = man.QueryInterface(localId, IID_Test1);
+		TS_ASSERT(cmpNormal != NULL);
+		TS_ASSERT(cmpLocal != NULL);
+		TS_ASSERT_DIFFERS(cmpNormal, cmpLocal);
+
+		man.ResetState();
+
+		TS_ASSERT(man.QueryInterface(normalId, IID_Test1) == NULL);
+		TS_ASSERT(man.QueryInterface(localId, IID_Test1) == NULL);
 	}
 
 	void test_entt_message_dispatch_storage()

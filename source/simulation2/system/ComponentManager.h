@@ -337,6 +337,18 @@ private:
 
 	CEntityHandle AllocateEntityHandle(entity_id_t ent);
 
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	/**
+	 * Returns the entt::id_type used to key the per-component-type EnTT storage for @p cid.
+	 * Local and normal entity IDs share the same low bits once cast to entt::entity (0 A.D.'s
+	 * local/normal tag bit falls inside entt's version field, not its 20-bit index field), so a
+	 * normal and a local entity can alias to the same sparse-set slot. Namespacing the storage key
+	 * by @p isLocal keeps their component data in separate entt::storage instances entirely, so the
+	 * index aliasing can never collide.
+	 */
+	static entt::id_type GetComponentStorageId(ComponentTypeId cid, bool isLocal);
+#endif
+
 	Script::Interface m_ScriptInterface;
 	CSimContext& m_SimContext;
 
