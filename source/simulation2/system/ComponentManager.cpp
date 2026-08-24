@@ -976,6 +976,31 @@ void CComponentManager::FlushDestroyedComponents()
 			FlattenDynamicSubscriptions();
 
 			// Destroy the components, and remove from m_ComponentsByTypeId:
+#if CONFIG_ENTT_ENTITY_REGISTRY
+			entt::entity enttEntity = static_cast<entt::entity>(ent);
+			SEntityComponentCache* compCache = handle.GetComponentCache();
+			for (auto& [cid, compMap] : m_ComponentsByTypeId)
+			{
+				auto eit = compMap.find(ent);
+				if (eit != compMap.end())
+				{
+					IComponent* comp = eit->second;
+					comp->Deinit();
+					RemoveComponentDynamicSubscriptions(comp);
+					const auto& ct = m_ComponentTypesById[cid];
+					if (compCache && ct.iid >= 0 && (size_t)ct.iid < compCache->numInterfaces)
+						compCache->interfaces[ct.iid] = NULL;
+					if ((size_t)ct.iid < m_ComponentsByInterface.size())
+						m_ComponentsByInterface[ct.iid].erase(ent);
+					ct.dealloc(comp);
+					compMap.erase(eit);
+
+					auto& storage = m_Registry.storage<IComponent*>(static_cast<entt::id_type>(cid));
+					if (storage.contains(enttEntity))
+						storage.erase(enttEntity);
+				}
+			}
+#else
 			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::iterator iit = m_ComponentsByTypeId.begin();
 			for (; iit != m_ComponentsByTypeId.end(); ++iit)
 			{
@@ -987,13 +1012,9 @@ void CComponentManager::FlushDestroyedComponents()
 					m_ComponentTypesById[iit->first].dealloc(eit->second);
 					iit->second.erase(ent);
 					handle.GetComponentCache()->interfaces[m_ComponentTypesById[iit->first].iid] = NULL;
-#if CONFIG_ENTT_ENTITY_REGISTRY
-					auto& storage = m_Registry.storage<IComponent*>(static_cast<entt::id_type>(iit->first));
-					if (storage.contains(static_cast<entt::entity>(ent)))
-						storage.erase(static_cast<entt::entity>(ent));
-#endif
 				}
 			}
+#endif
 
 			free(handle.GetComponentCache());
 			m_ComponentCaches.erase(ent);
@@ -1002,12 +1023,14 @@ void CComponentManager::FlushDestroyedComponents()
 			if (hit != m_TraceCache.end())
 				m_TraceCache.erase(hit);
 
+#if !CONFIG_ENTT_ENTITY_REGISTRY
 			// Remove from m_ComponentsByInterface
 			std::vector<std::unordered_map<entity_id_t, IComponent*> >::iterator ifcit = m_ComponentsByInterface.begin();
 			for (; ifcit != m_ComponentsByInterface.end(); ++ifcit)
 			{
 				ifcit->erase(ent);
 			}
+#endif
 		}
 	}
 }
