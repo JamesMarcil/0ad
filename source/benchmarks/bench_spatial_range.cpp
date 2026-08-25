@@ -29,6 +29,14 @@
 #include "maths/FixedVector2D.h"
 #include "maths/FixedVector3D.h"
 #include "simulation2/helpers/Spatial.h"
+
+// The benchmark project is built without the precompiled header, so the warning
+// suppressions in lib/pch/pch_warnings.h do not apply here. EntityMap::insert uses
+// debug_warn, which expands to ENSURE(0 && ...) and therefore trips C4127.
+#if MSC_VERSION
+# pragma warning(disable:4127)	// conditional expression is constant; rationale: see STMT in lib.h.
+#endif
+#include "simulation2/system/EntityMap.h"
 #include <entt/entt.hpp>
 
 namespace
@@ -39,6 +47,14 @@ using namespace BenchmarkFixtures;
 // 1. Distance Ordering & Sorting Benchmark
 // Exercises the exact sorting logic used in CCmpRangeManager::ExecuteActiveQueries:
 // std::stable_sort(added.begin(), added.end(), EntityDistanceOrdering(...))
+//
+// The baseline deliberately resolves positions through EntityMap<T>, mirroring the
+// engine's EntityDistanceOrdering, which holds an EntityMap<EntityData>. EntityMap
+// is not a tree: its find() is a direct index into a single contiguous buffer
+// (m_Buffer + key, see simulation2/system/EntityMap.h), so the legacy path is
+// already a flat O(1) lookup over contiguous storage. Modelling the baseline as
+// std::map<entity_id_t, T> would measure red-black tree traversal the engine never
+// performs, and would overstate any gain from moving to EnTT sparse sets.
 struct EntityPosData
 {
 	fixed x, z;
@@ -48,7 +64,7 @@ struct EntityPosData
 class BenchEntityDistanceOrdering
 {
 public:
-	BenchEntityDistanceOrdering(const std::map<entity_id_t, EntityPosData>& entities, const CFixedVector2D& source) :
+	BenchEntityDistanceOrdering(const EntityMap<EntityPosData>& entities, const CFixedVector2D& source) :
 		m_EntityData(entities), m_Source(source)
 	{
 	}
@@ -63,7 +79,7 @@ public:
 	}
 
 private:
-	const std::map<entity_id_t, EntityPosData>& m_EntityData;
+	const EntityMap<EntityPosData>& m_EntityData;
 	CFixedVector2D m_Source;
 };
 
@@ -72,13 +88,13 @@ static void BM_RangeManager_DistanceOrdering(benchmark::State& state)
 	const size_t count = static_cast<size_t>(state.range(0));
 	auto syntheticEntities = SyntheticGridGenerator::GenerateClusteredSwarm(count, fixed::FromInt(512));
 
-	std::map<entity_id_t, EntityPosData> entityMap;
+	EntityMap<EntityPosData> entityMap;
 	std::vector<entity_id_t> entityIds;
 	entityIds.reserve(count);
 
 	for (const auto& ent : syntheticEntities)
 	{
-		entityMap[ent.id] = { ent.pos.X, ent.pos.Y, ent.flags };
+		entityMap.insert(ent.id, EntityPosData{ ent.pos.X, ent.pos.Y, ent.flags });
 		entityIds.push_back(ent.id);
 	}
 

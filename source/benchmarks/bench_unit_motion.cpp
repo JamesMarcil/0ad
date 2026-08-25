@@ -31,6 +31,11 @@ using namespace BenchmarkFixtures;
 
 // 1. Unit Motion Physics & Step Integration with Fixed-Point Trigonometry
 // Exercises heading rotation, trigonometric velocity vectoring, and position advancement from CCmpUnitMotion::Move
+//
+// This loop body must stay arithmetically identical to BM_UnitMotion_StepMove_EnTT:
+// the only intended difference between the two is storage layout (std::vector of
+// interleaved state vs. an entt view over separate component pools). Any extra work
+// on one side alone is measured as a layout win that does not exist.
 struct UnitSimState
 {
 	CFixedVector2D pos;
@@ -70,7 +75,6 @@ static void BM_UnitMotion_StepMove(benchmark::State& state)
 			CFixedVector2D toTarget = u.targetPos - u.pos;
 			if (!toTarget.IsZero())
 			{
-				fixed dist = toTarget.Length();
 				fixed maxTurn = u.turnRate.Multiply(dt);
 				u.heading = (u.heading + maxTurn);
 				if (u.heading > twoPi) u.heading -= twoPi;
@@ -81,7 +85,7 @@ static void BM_UnitMotion_StepMove(benchmark::State& state)
 				u.pos += moveVec;
 			}
 		}
-		benchmark::DoNotOptimize(units.data());
+		benchmark::ClobberMemory();
 	}
 
 	state.SetItemsProcessed(int64_t(state.iterations()) * int64_t(unitCount));
