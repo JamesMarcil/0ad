@@ -145,6 +145,9 @@ public:
 	void Register(CCmpUnitMotion* component, entity_id_t ent, bool formationController) override;
 	void Unregister(entity_id_t ent) override;
 
+	void UpdateMotionFormation(fixed dt) override;
+	void UpdateMotionUnit(fixed dt) override;
+
 	bool ComputingMotion() const override
 	{
 		return m_ComputingMotion;

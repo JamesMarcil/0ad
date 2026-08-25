@@ -53,6 +53,7 @@
 #include "simulation2/components/ICmpAIManager.h"
 #include "simulation2/components/ICmpCommandQueue.h"
 #include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/components/ICmpUnitMotionManager.h"
 #include "simulation2/helpers/Player.h"
 #include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/Component.h"
@@ -575,8 +576,16 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 
 	{
 		PROFILE2_COLOR("Sim - Motion Formation", TRACY_COLOR_SIMULATION);
-		CMessageUpdate_MotionFormation msgUpdate(turnLengthFixed);
-		componentManager.BroadcastMessage(msgUpdate);
+#if CONFIG_ENTT_UNIT_MOTION
+		CmpPtr<ICmpUnitMotionManager> cmpUnitMotionManager(simContext, SYSTEM_ENTITY);
+		if (cmpUnitMotionManager)
+			cmpUnitMotionManager->UpdateMotionFormation(turnLengthFixed);
+		else
+#endif
+		{
+			CMessageUpdate_MotionFormation msgUpdate(turnLengthFixed);
+			componentManager.BroadcastMessage(msgUpdate);
+		}
 	}
 
 	// Process move commands for formations (group proxy)
@@ -588,8 +597,16 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 
 	{
 		PROFILE2_COLOR("Sim - Motion Unit", TRACY_COLOR_SIMULATION);
-		CMessageUpdate_MotionUnit msgUpdate(turnLengthFixed);
-		componentManager.BroadcastMessage(msgUpdate);
+#if CONFIG_ENTT_UNIT_MOTION
+		CmpPtr<ICmpUnitMotionManager> cmpUnitMotionManager(simContext, SYSTEM_ENTITY);
+		if (cmpUnitMotionManager)
+			cmpUnitMotionManager->UpdateMotionUnit(turnLengthFixed);
+		else
+#endif
+		{
+			CMessageUpdate_MotionUnit msgUpdate(turnLengthFixed);
+			componentManager.BroadcastMessage(msgUpdate);
+		}
 	}
 	{
 		PROFILE2_COLOR("Sim - Update Final", TRACY_COLOR_SIMULATION);

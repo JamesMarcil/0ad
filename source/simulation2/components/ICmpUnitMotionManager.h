@@ -36,6 +36,12 @@ class ICmpUnitMotionManager : public IComponent
 public:
 	DECLARE_INTERFACE_TYPE(UnitMotionManager)
 
+	/**
+	 * Direct system update methods for formation and unit kinematics.
+	 */
+	virtual void UpdateMotionFormation(fixed dt) = 0;
+	virtual void UpdateMotionUnit(fixed dt) = 0;
+
 private:
 	/**
 	 * This class makes no sense outside of CCmpUnitMotion. This enforces that tight coupling.

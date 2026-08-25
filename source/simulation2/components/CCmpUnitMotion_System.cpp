@@ -172,17 +172,13 @@ void CCmpUnitMotionManager::HandleMessage(const CMessage& msg, bool /*global*/)
 		case MT_Update_MotionFormation:
 		{
 			fixed dt = static_cast<const CMessageUpdate_MotionFormation&>(msg).turnLength;
-			m_ComputingMotion = true;
-			MoveFormations(dt);
-			m_ComputingMotion = false;
+			UpdateMotionFormation(dt);
 			break;
 		}
 		case MT_Update_MotionUnit:
 		{
 			fixed dt = static_cast<const CMessageUpdate_MotionUnit&>(msg).turnLength;
-			m_ComputingMotion = true;
-			MoveUnits(dt);
-			m_ComputingMotion = false;
+			UpdateMotionUnit(dt);
 			break;
 		}
 		case MT_Deserialized:
@@ -419,6 +415,20 @@ void CCmpUnitMotionManager::OnTurnStart()
 		data.second.cmpUnitMotion->OnTurnStart();
 }
 
+void CCmpUnitMotionManager::UpdateMotionFormation(fixed dt)
+{
+	m_ComputingMotion = true;
+	MoveFormations(dt);
+	m_ComputingMotion = false;
+}
+
+void CCmpUnitMotionManager::UpdateMotionUnit(fixed dt)
+{
+	m_ComputingMotion = true;
+	MoveUnits(dt);
+	m_ComputingMotion = false;
+}
+
 void CCmpUnitMotionManager::MoveUnits(fixed dt)
 {
 	Move(m_Units, dt);
@@ -443,7 +453,8 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 
 	PROFILE2_COLOR("MotionMgr_Move", TRACY_COLOR_SIMULATION);
 	TRACY_ZONE_VALUE(ents.size());
-	std::unordered_set<std::vector<EntityMap<MotionState>::iterator>*> assigned;
+	std::vector<std::vector<EntityMap<MotionState>::iterator>*> assigned;
+	assigned.reserve(ents.size());
 	for (EntityMap<MotionState>::iterator it = ents.begin(); it != ents.end(); ++it)
 	{
 		if (!it->second.cmpPosition->IsInWorld())
@@ -464,8 +475,9 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE,
 			it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE
 		);
+		if (subdiv.empty())
+			assigned.push_back(&subdiv);
 		subdiv.emplace_back(it);
-		assigned.emplace(&subdiv);
 	}
 
 	for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
