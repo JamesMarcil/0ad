@@ -269,10 +269,38 @@ function project_set_build_flags()
 
 	if _OPTIONS["with-tracy"] then
 		table.insert(extra_defines, "TRACY_ENABLE=1")
-		table.insert(extra_defines, "TRACY_ON_DEMAND=1")
 		table.insert(extra_defines, "TRACY_DELAYED_INIT=1")
 		table.insert(extra_defines, "TRACY_MANUAL_LIFETIME=1")
-		table.insert(extra_defines, "TRACY_NO_SYSTEM_TRACING=1")
+		-- Note: TRACY_ON_DEMAND is deliberately not set. On-demand mode only starts
+		-- collecting once the GUI connects, which truncates captures of runs that are
+		-- driven from the command line (replays, benchmarks). Without it the client
+		-- records from TRACY_STARTUP() onwards and buffers in memory until a
+		-- connection is made, so an unattended run grows the client's heap.
+		--
+		-- Note: TRACY_NO_SYSTEM_TRACING is deliberately not set either, so ETW/perf
+		-- system tracing (call stack sampling, context switches, vsync) is compiled
+		-- in. It only activates when the process has the required privileges - on
+		-- Windows that means running elevated, otherwise SysTraceStart() silently
+		-- returns false. Set TRACY_NO_SYS_TRACE=1 in the environment to disable it at
+		-- run time without rebuilding.
+		if os.istarget("windows") then
+			if arch ~= "amd64" then
+				-- ...except on 32-bit Windows, where it is not an option: Tracy's ETW
+				-- decoder is x64-only (client/windows/TracyETW.cpp static_asserts
+				-- sizeof(VSyncDPC) == 64, which only holds for 64-bit pointers, so
+				-- the client does not even compile). ETW kernel stack walking does
+				-- not work for WOW64 processes either, so profile the x64 build -
+				-- see build/workspaces/vs2022-x64 and HOSTTYPE=amd64.
+				table.insert(extra_defines, "TRACY_NO_SYSTEM_TRACING=1")
+			end
+
+			-- dbghelp is not thread-safe and lib/sysdep/os/win/wdbg_sym.cpp already
+			-- drives it under WDBG_SYM_CS. Tracy's symbol worker hits dbghelp hard
+			-- once sampling is on, so hand it that same lock; see wdbg_tracy.cpp.
+			-- The prefix must not be "DbgHelp": Tracy's own tracy::DbgHelpInit()
+			-- contains the DBGHELP_INIT call site and would recurse into itself.
+			table.insert(extra_defines, "TRACY_DBGHELP_LOCK=wdbg_tracy_Sym")
+		end
 		includedirs { rootdir .. "/source/third_party/tracy/include" }
 	end
 
