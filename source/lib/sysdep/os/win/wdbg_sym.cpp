@@ -96,6 +96,19 @@ static Status InitDbghelp()
 // symserv wants to access the internet.
 static void sym_init()
 {
+	// InitDbghelp calls SymInitializeW, which must be serialized against every
+	// other use of dbghelp - including Tracy's symbol worker thread, which is a
+	// second, independent consumer of the same process' symbol context when the
+	// Tracy client is compiled in (see wdbg_tracy.cpp). Two of our own callers,
+	// wdbg_sym_WalkStack and wdbg_sym_WriteMinidump, reach us without holding
+	// the lock; the others already hold it, which is harmless because
+	// WDBG_SYM_CS is a critical section and hence reentrant.
+	//
+	// Note this is still a no-op before wutil_Init() has created the critical
+	// sections, which is the pre-winit window this function is designed to
+	// tolerate (see the comment above).
+	WinScopedLock lock(WDBG_SYM_CS);
+
 	static ModuleInitState initState{ 0 };
 	ModuleInit(&initState, InitDbghelp);
 }

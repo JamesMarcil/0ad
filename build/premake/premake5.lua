@@ -256,8 +256,84 @@ function project_set_build_flags()
 		defines { "__PRETTY_FUNCTION__=__FUNCSIG__" }
 	end
 
-	filter { "Debug", "action:vs*" }
-		defines { "DEBUG" }
+	local extra_defines = {}
+	if mozjs_is_debug_build then
+		table.insert(extra_defines, "DEBUG")
+	end
+
+	if _OPTIONS["gles"] then
+		table.insert(extra_defines, "CONFIG2_GLES=1")
+	end
+
+	if _OPTIONS["with-tracy"] then
+		table.insert(extra_defines, "TRACY_ENABLE=1")
+		table.insert(extra_defines, "TRACY_DELAYED_INIT=1")
+		table.insert(extra_defines, "TRACY_MANUAL_LIFETIME=1")
+		-- Note: TRACY_ON_DEMAND is deliberately not set. On-demand mode only starts
+		-- collecting once the GUI connects, which truncates captures of runs that are
+		-- driven from the command line (replays, benchmarks). Without it the client
+		-- records from TRACY_STARTUP() onwards and buffers in memory until a
+		-- connection is made, so an unattended run grows the client's heap.
+		--
+		-- Note: TRACY_NO_SYSTEM_TRACING is deliberately not set either, so ETW/perf
+		-- system tracing (call stack sampling, context switches, vsync) is compiled
+		-- in. It only activates when the process has the required privileges - on
+		-- Windows that means running elevated, otherwise SysTraceStart() silently
+		-- returns false. Set TRACY_NO_SYS_TRACE=1 in the environment to disable it at
+		-- run time without rebuilding.
+		if os.istarget("windows") then
+			if arch ~= "amd64" then
+				-- ...except on 32-bit Windows, where it is not an option: Tracy's ETW
+				-- decoder is x64-only (client/windows/TracyETW.cpp static_asserts
+				-- sizeof(VSyncDPC) == 64, which only holds for 64-bit pointers, so
+				-- the client does not even compile). ETW kernel stack walking does
+				-- not work for WOW64 processes either, so profile the x64 build -
+				-- see build/workspaces/vs2022-x64 and HOSTTYPE=amd64.
+				table.insert(extra_defines, "TRACY_NO_SYSTEM_TRACING=1")
+			end
+
+			-- dbghelp is not thread-safe and lib/sysdep/os/win/wdbg_sym.cpp already
+			-- drives it under WDBG_SYM_CS. Tracy's symbol worker hits dbghelp hard
+			-- once sampling is on, so hand it that same lock; see wdbg_tracy.cpp.
+			-- The prefix must not be "DbgHelp": Tracy's own tracy::DbgHelpInit()
+			-- contains the DBGHELP_INIT call site and would recurse into itself.
+			table.insert(extra_defines, "TRACY_DBGHELP_LOCK=wdbg_tracy_Sym")
+		end
+		includedirs { rootdir .. "/source/third_party/tracy/include" }
+	end
+
+	if _OPTIONS["without-audio"] then
+		table.insert(extra_defines, "CONFIG2_AUDIO=0")
+	end
+
+	if _OPTIONS["without-nvtt"] then
+		table.insert(extra_defines, "CONFIG2_NVTT=0")
+	end
+
+	if _OPTIONS["without-lobby"] then
+		table.insert(extra_defines, "CONFIG2_LOBBY=0")
+	end
+
+	if _OPTIONS["without-miniupnpc"] then
+		table.insert(extra_defines, "CONFIG2_MINIUPNPC=0")
+	end
+
+	if _OPTIONS["without-dap-interface"] then
+		table.insert(extra_defines, "CONFIG2_DAP_INTERFACE=0")
+	end
+
+	local debug_defines = { "DEBUG" }
+	for _, d in ipairs(extra_defines) do
+		table.insert(debug_defines, d)
+	end
+
+	local release_defines = { "NDEBUG", "CONFIG_FINAL=1" }
+	for _, d in ipairs(extra_defines) do
+		table.insert(release_defines, d)
+	end
+
+	filter "Debug"
+		defines(debug_defines)
 
 	filter "Release"
 		if os.istarget("windows") or not _OPTIONS["minimal-flags"] then
@@ -266,42 +342,9 @@ function project_set_build_flags()
 		if _OPTIONS["with-lto"] then
 			linktimeoptimization("On")
 		end
-		defines { "NDEBUG", "CONFIG_FINAL=1" }
+		defines(release_defines)
 
 	filter { }
-
-	if mozjs_is_debug_build then
-		defines "DEBUG"
-	end
-
-	if _OPTIONS["gles"] then
-		defines { "CONFIG2_GLES=1" }
-	end
-
-	if _OPTIONS["with-tracy"] then
-		defines { "TRACY_ENABLE=1", "TRACY_ON_DEMAND=1", "TRACY_DELAYED_INIT=1", "TRACY_MANUAL_LIFETIME=1", "TRACY_NO_SYSTEM_TRACING=1", "TRACY_NO_CALLSTACK=1" }
-		includedirs { rootdir .. "/source/third_party/tracy/include" }
-	end
-
-	if _OPTIONS["without-audio"] then
-		defines { "CONFIG2_AUDIO=0" }
-	end
-
-	if _OPTIONS["without-nvtt"] then
-		defines { "CONFIG2_NVTT=0" }
-	end
-
-	if _OPTIONS["without-lobby"] then
-		defines { "CONFIG2_LOBBY=0" }
-	end
-
-	if _OPTIONS["without-miniupnpc"] then
-		defines { "CONFIG2_MINIUPNPC=0" }
-	end
-
-	if _OPTIONS["without-dap-interface"] then
-		defines { "CONFIG2_DAP_INTERFACE=0" }
-	end
 
 	-- hide warnings caused by library includes
 	externalwarnings "Off"

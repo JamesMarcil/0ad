@@ -303,7 +303,30 @@ The following preprocessor defines are managed automatically by Premake when `--
 | Define | Purpose |
 |---|---|
 | `TRACY_ENABLE=1` | Activates Tracy client instrumentation. |
-| `TRACY_ON_DEMAND=1` | Keeps client dormant until Tracy GUI connects (no memory buffer bloat while disconnected). |
 | `TRACY_DELAYED_INIT=1` & `TRACY_MANUAL_LIFETIME=1` | Ties profiler lifecycle cleanly to `CProfiler2::Initialise()` / `CProfiler2::Shutdown()`. |
-| `TRACY_NO_SYSTEM_TRACING=1` | Disables Windows ETW kernel logger requirements so standard non-admin users/test harnesses run without permission prompts or stalls. |
-| `TRACY_NO_CALLSTACK=1` | Prevents blocking kernel device driver symbol enumeration on Windows during startup. |
+| `TRACY_DBGHELP_LOCK=wdbg_tracy_Sym` (Windows) | Serializes Tracy's dbghelp calls against `wdbg_sym.cpp` using `WDBG_SYM_CS`. Implemented in `source/lib/sysdep/os/win/wdbg_tracy.cpp`. |
+
+Two defines that Tracy offers are deliberately **not** set:
+
+| Define | Why it is omitted |
+|---|---|
+| `TRACY_ON_DEMAND` | On-demand mode only begins collecting once the GUI connects, which truncates captures of runs driven from the command line (replays, benchmarks). Without it the client records from `TRACY_STARTUP()` onwards. The cost is that an unattended run buffers events in the client's heap until a connection is made, and that the server no longer tolerates a free without a matching allocation (see the comment on `Allocators::Pool` in `lib/allocators/pool.h`). |
+| `TRACY_NO_SYSTEM_TRACING` | Leaving it unset compiles in system tracing: call stack sampling, context switches and vsync capture. See section 6.1. |
+
+### 6.1 System Tracing
+
+System tracing needs privileges the game does not normally have, and fails quietly when they are missing - `SysTraceStart()` returns `false` and you simply get a capture with no CPU data.
+
+- **Windows.** Run `pyrogenesis.exe` **as Administrator**. Tracy checks for a full elevation token before doing anything else, then elevates `SeSystemProfilePrivilege` itself for sampling. Prefer an x64 build: ETW kernel stack walking is unreliable for WOW64 (32-bit) processes, so sampled call stacks from the Win32 build are largely useless. Tracy uses the singleton `NT Kernel Logger` session, so stop any competing consumer first (WPR, xperf, PIX, GPUView, or a second instrumented process) - `logman query -ets` lists them.
+- **Linux.** Needs a permissive `/proc/sys/kernel/perf_event_paranoid` (or `CAP_SYS_ADMIN`), plus access to `/sys/kernel/debug/tracing` for context switches.
+
+Run-time environment variables, no rebuild required:
+
+| Variable | Effect |
+|---|---|
+| `TRACY_NO_SYS_TRACE=1` | Disables system tracing entirely. |
+| `TRACY_SAMPLING_HZ=<n>` | Sampling frequency; default and hard cap 8000 on Windows. |
+| `TRACY_NO_SAMPLING=1`, `TRACY_NO_CONTEXT_SWITCH=1`, `TRACY_NO_VSYNC_CAPTURE=1` | Disable individual features. |
+| `TRACY_NO_DBGHELP_INIT_LOAD=1` | Skips module and driver symbol enumeration at startup, cutting startup latency. |
+
+Note that in an elevated Tracy-enabled build, a crash while Tracy's symbol worker holds `WDBG_SYM_CS` makes `wdbg_exception_filter` show its "Exception raised while critical section is held - may deadlock.." warning before the normal crash report. That is expected and does not indicate a hang; the worker releases the lock.
