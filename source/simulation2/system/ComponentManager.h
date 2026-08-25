@@ -357,6 +357,11 @@ private:
 #if CONFIG_ENTT_ENTITY_REGISTRY
 	entt::registry m_Registry;
 #endif
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	mutable std::vector<IComponent*> m_DispatchStack;
+	std::vector<std::vector<ComponentTypeId>> m_LocalSubscriptionsFlat;
+	std::vector<std::vector<ComponentTypeId>> m_GlobalSubscriptionsFlat;
+#endif
 
 	ComponentTypeId m_CurrentComponent; // used when loading component types
 	bool m_CurrentlyHotloading;

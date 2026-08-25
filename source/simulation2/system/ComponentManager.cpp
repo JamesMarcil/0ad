@@ -242,6 +242,10 @@ void CComponentManager::Script_RegisterComponentType_Common(int iid, const std::
 			std::vector<ComponentTypeId>::iterator ctit = find(types.begin(), types.end(), cid);
 			if (ctit != types.end())
 				types.erase(ctit);
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+			if ((size_t)it->first < m_LocalSubscriptionsFlat.size())
+				m_LocalSubscriptionsFlat[it->first] = types;
+#endif
 		}
 		for (it = m_GlobalMessageSubscriptions.begin(); it != m_GlobalMessageSubscriptions.end(); ++it)
 		{
@@ -249,6 +253,10 @@ void CComponentManager::Script_RegisterComponentType_Common(int iid, const std::
 			std::vector<ComponentTypeId>::iterator ctit = find(types.begin(), types.end(), cid);
 			if (ctit != types.end())
 				types.erase(ctit);
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+			if ((size_t)it->first < m_GlobalSubscriptionsFlat.size())
+				m_GlobalSubscriptionsFlat[it->first] = types;
+#endif
 		}
 
 		mustReloadComponents = true;
@@ -541,6 +549,9 @@ void CComponentManager::ResetState()
 #if CONFIG_ENTT_ENTITY_REGISTRY
 	m_Registry.clear();
 #endif
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	m_DispatchStack.clear();
+#endif
 }
 
 void CComponentManager::SetRNGSeed(u32 seed)
@@ -585,6 +596,11 @@ void CComponentManager::SubscribeToMessageType(MessageTypeId mtid)
 	std::vector<ComponentTypeId>& types = m_LocalMessageSubscriptions[mtid];
 	types.push_back(m_CurrentComponent);
 	std::sort(types.begin(), types.end()); // TODO: just sort once at the end of LoadComponents
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	if ((size_t)mtid >= m_LocalSubscriptionsFlat.size())
+		m_LocalSubscriptionsFlat.resize(mtid + 1);
+	m_LocalSubscriptionsFlat[mtid] = types;
+#endif
 }
 
 void CComponentManager::SubscribeGloballyToMessageType(MessageTypeId mtid)
@@ -594,6 +610,11 @@ void CComponentManager::SubscribeGloballyToMessageType(MessageTypeId mtid)
 	std::vector<ComponentTypeId>& types = m_GlobalMessageSubscriptions[mtid];
 	types.push_back(m_CurrentComponent);
 	std::sort(types.begin(), types.end()); // TODO: just sort once at the end of LoadComponents
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	if ((size_t)mtid >= m_GlobalSubscriptionsFlat.size())
+		m_GlobalSubscriptionsFlat.resize(mtid + 1);
+	m_GlobalSubscriptionsFlat[mtid] = types;
+#endif
 }
 
 bool CComponentManager::IsLocallySubscribed(MessageTypeId mtid)
@@ -1100,13 +1121,12 @@ const CComponentManager::InterfaceListUnordered& CComponentManager::GetEntitiesW
 void CComponentManager::PostMessage(entity_id_t ent, const CMessage& msg)
 {
 #if CONFIG_ENTT_MESSAGE_DISPATCH
-	entt::entity enttEntity = static_cast<entt::entity>(ent);
-	bool entIsLocal = ENTITY_IS_LOCAL(ent);
-	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
-	it = m_LocalMessageSubscriptions.find(msg.GetType());
-	if (it != m_LocalMessageSubscriptions.end())
+	MessageTypeId mtid = msg.GetType();
+	if (mtid >= 0 && (size_t)mtid < m_LocalSubscriptionsFlat.size())
 	{
-		for (ComponentTypeId cid : it->second)
+		entt::entity enttEntity = static_cast<entt::entity>(ent);
+		bool entIsLocal = ENTITY_IS_LOCAL(ent);
+		for (ComponentTypeId cid : m_LocalSubscriptionsFlat[mtid])
 		{
 			const auto* storage = std::as_const(m_Registry).storage<IComponent*>(GetComponentStorageId(cid, entIsLocal));
 			if (storage && storage->contains(enttEntity))
@@ -1150,6 +1170,53 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 		TRACY_ZONE_TEXT(m_MessageTypeNamesById[msg.GetType()].c_str(), m_MessageTypeNamesById[msg.GetType()].length());
 	}
 
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	MessageTypeId mtid = msg.GetType();
+	if (mtid >= 0 && (size_t)mtid < m_LocalSubscriptionsFlat.size())
+	{
+		for (ComponentTypeId cid : m_LocalSubscriptionsFlat[mtid])
+		{
+			size_t startIdx = m_DispatchStack.size();
+
+			// Normal entities
+			const auto* storageNormal = std::as_const(m_Registry).storage<IComponent*>(GetComponentStorageId(cid, false));
+			if (storageNormal)
+			{
+				size_t normalStart = m_DispatchStack.size();
+				for (IComponent* comp : *storageNormal)
+				{
+					if (comp)
+						m_DispatchStack.push_back(comp);
+				}
+				std::sort(m_DispatchStack.begin() + normalStart, m_DispatchStack.end(), [](IComponent* a, IComponent* b) {
+					return a->GetEntityId() < b->GetEntityId();
+				});
+			}
+
+			// Local entities
+			const auto* storageLocal = std::as_const(m_Registry).storage<IComponent*>(GetComponentStorageId(cid, true));
+			if (storageLocal)
+			{
+				size_t localStart = m_DispatchStack.size();
+				for (IComponent* comp : *storageLocal)
+				{
+					if (comp)
+						m_DispatchStack.push_back(comp);
+				}
+				std::sort(m_DispatchStack.begin() + localStart, m_DispatchStack.end(), [](IComponent* a, IComponent* b) {
+					return a->GetEntityId() < b->GetEntityId();
+				});
+			}
+
+			size_t endIdx = m_DispatchStack.size();
+			for (size_t i = startIdx; i < endIdx; ++i)
+			{
+				m_DispatchStack[i]->HandleMessage(msg, false);
+			}
+			m_DispatchStack.resize(startIdx);
+		}
+	}
+#else
 	// Send the message to components of all entities that subscribed locally to this message
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_LocalMessageSubscriptions.find(msg.GetType());
@@ -1169,6 +1236,7 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 				eit->second->HandleMessage(msg, false);
 		}
 	}
+#endif
 
 	SendGlobalMessage(INVALID_ENTITY, msg);
 }
@@ -1177,6 +1245,63 @@ void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
 {
 	// (Common functionality for PostMessage and BroadcastMessage)
 
+#if CONFIG_ENTT_MESSAGE_DISPATCH
+	MessageTypeId mtid = msg.GetType();
+	if (mtid >= 0 && (size_t)mtid < m_GlobalSubscriptionsFlat.size())
+	{
+		for (ComponentTypeId cid : m_GlobalSubscriptionsFlat[mtid])
+		{
+			// Special case: Messages for local entities shouldn't be sent to script
+			// components that subscribed globally, so that we don't have to worry about
+			// them accidentally picking up non-network-synchronised data.
+			if (ENTITY_IS_LOCAL(ent))
+			{
+				std::map<ComponentTypeId, ComponentType>::const_iterator cit = m_ComponentTypesById.find(cid);
+				if (cit != m_ComponentTypesById.end() && cit->second.type == CT_Script)
+					continue;
+			}
+
+			size_t startIdx = m_DispatchStack.size();
+
+			// Normal entities
+			const auto* storageNormal = std::as_const(m_Registry).storage<IComponent*>(GetComponentStorageId(cid, false));
+			if (storageNormal)
+			{
+				size_t normalStart = m_DispatchStack.size();
+				for (IComponent* comp : *storageNormal)
+				{
+					if (comp)
+						m_DispatchStack.push_back(comp);
+				}
+				std::sort(m_DispatchStack.begin() + normalStart, m_DispatchStack.end(), [](IComponent* a, IComponent* b) {
+					return a->GetEntityId() < b->GetEntityId();
+				});
+			}
+
+			// Local entities
+			const auto* storageLocal = std::as_const(m_Registry).storage<IComponent*>(GetComponentStorageId(cid, true));
+			if (storageLocal)
+			{
+				size_t localStart = m_DispatchStack.size();
+				for (IComponent* comp : *storageLocal)
+				{
+					if (comp)
+						m_DispatchStack.push_back(comp);
+				}
+				std::sort(m_DispatchStack.begin() + localStart, m_DispatchStack.end(), [](IComponent* a, IComponent* b) {
+					return a->GetEntityId() < b->GetEntityId();
+				});
+			}
+
+			size_t endIdx = m_DispatchStack.size();
+			for (size_t i = startIdx; i < endIdx; ++i)
+			{
+				m_DispatchStack[i]->HandleMessage(msg, true);
+			}
+			m_DispatchStack.resize(startIdx);
+		}
+	}
+#else
 	// Send the message to components of all entities that subscribed globally to this message
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_GlobalMessageSubscriptions.find(msg.GetType());
@@ -1206,6 +1331,7 @@ void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
 				eit->second->HandleMessage(msg, true);
 		}
 	}
+#endif
 
 	// Send the message to component instances that dynamically subscribed to this message
 	std::map<MessageTypeId, CDynamicSubscription>::iterator dit = m_DynamicMessageSubscriptionsNonsync.find(msg.GetType());
