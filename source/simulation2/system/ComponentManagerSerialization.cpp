@@ -118,6 +118,40 @@ bool CComponentManager::ComputeStateHash(std::string& outHash, bool quick) const
 	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, 32);
 	serializer.NumberU32_Unbounded("next entity id", m_NextEntityId);
 
+#if CONFIG_ENTT_ENTITY_REGISTRY
+	for (const auto& [cid, ct] : m_ComponentTypesById)
+	{
+		// In quick mode, only check unit positions
+		if (quick && !(cid == CID_Position))
+			continue;
+
+		const auto* storage = std::as_const(m_Registry).storage<IComponent*>(GetComponentStorageId(cid, false));
+		if (!storage || storage->empty())
+			continue;
+
+		std::vector<IComponent*> comps;
+		comps.reserve(storage->size());
+		for (IComponent* comp : *storage)
+		{
+			if (comp && !ENTITY_IS_LOCAL(comp->GetEntityId()))
+				comps.push_back(comp);
+		}
+
+		if (comps.empty())
+			continue;
+
+		std::sort(comps.begin(), comps.end(), [](IComponent* a, IComponent* b) {
+			return a->GetEntityId() < b->GetEntityId();
+		});
+
+		serializer.NumberI32_Unbounded("component type id", cid);
+		for (IComponent* comp : comps)
+		{
+			serializer.NumberU32_Unbounded("entity id", comp->GetEntityId());
+			comp->Serialize(serializer);
+		}
+	}
+#else
 	std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator cit = m_ComponentsByTypeId.begin();
 	for (; cit != m_ComponentsByTypeId.end(); ++cit)
 	{
@@ -142,6 +176,7 @@ bool CComponentManager::ComputeStateHash(std::string& outHash, bool quick) const
 			eit->second->Serialize(serializer);
 		}
 	}
+#endif
 
 	outHash = std::string((const char*)serializer.ComputeHash(), serializer.GetHashLength());
 

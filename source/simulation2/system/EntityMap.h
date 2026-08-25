@@ -72,6 +72,36 @@ public:
 		m_Buffer[0].first = INVALID_ENTITY;
 		m_Buffer[1].first = 0xFFFFFFFF; // ensure end() always has 0xFFFFFFFF
 	}
+
+	inline EntityMap(EntityMap&& other) noexcept
+		: m_BufferSize(other.m_BufferSize)
+		, m_BufferCapacity(other.m_BufferCapacity)
+		, m_Buffer(other.m_Buffer)
+		, m_Count(other.m_Count)
+	{
+		other.m_BufferSize = 1;
+		other.m_BufferCapacity = 0;
+		other.m_Buffer = nullptr;
+		other.m_Count = 0;
+	}
+
+	inline EntityMap& operator=(EntityMap&& other) noexcept
+	{
+		if (this != &other)
+		{
+			free(m_Buffer);
+			m_BufferSize = other.m_BufferSize;
+			m_BufferCapacity = other.m_BufferCapacity;
+			m_Buffer = other.m_Buffer;
+			m_Count = other.m_Count;
+			other.m_BufferSize = 1;
+			other.m_BufferCapacity = 0;
+			other.m_Buffer = nullptr;
+			other.m_Count = 0;
+		}
+		return *this;
+	}
+
 	inline ~EntityMap()
 	{
 		free(m_Buffer);
