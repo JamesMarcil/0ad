@@ -1,0 +1,131 @@
+// ----------------------------------------------------------------------------
+// 0 A.D. Dedicated Server Log Ingestion Pipeline for Grafana Alloy
+// Tailored for Headless Linux Servers, Multi-instance Hosts, and systemd/Docker
+// ----------------------------------------------------------------------------
+
+declare "0ad_server_pipeline" {
+  argument "loki_receiver" {
+    comment = "The Loki write endpoint receiver"
+  }
+}
+
+// 1. Loki Push Endpoint (Remote or Centralized Loki Cluster)
+loki.write "central_loki" {
+  endpoint {
+    url = sys.env("LOKI_URL") // Defaults to http://localhost:3100/loki/api/v1/push if not set
+    batch_wait = "1s"
+    batch_size = "256KiB"
+  }
+}
+
+// 2. Discover Linux default and custom server log locations
+local.file_match "server_logs" {
+  path_targets = [
+    // Standard XDG State path on Linux
+    {
+      __path__    = "/home/*/.local/state/0ad/log/*.html",
+      environment = "production-server",
+      app         = "0ad-server",
+      log_type    = "html",
+    },
+    {
+      __path__    = "/home/*/.local/state/0ad/log/*.txt",
+      environment = "production-server",
+      app         = "0ad-server",
+      log_type    = "text",
+    },
+    {
+      __path__    = "/home/*/.local/state/0ad/log/oos_logs/**/*.txt",
+      environment = "production-server",
+      app         = "0ad-server",
+      log_type    = "oos",
+    },
+    // Custom dedicated server directory (e.g. /var/log/0ad-server/)
+    {
+      __path__    = "/var/log/0ad-server/**/*.log",
+      environment = "production-server",
+      app         = "0ad-server",
+      log_type    = "text",
+    },
+  ]
+  sync_period = "5s"
+}
+
+// 3. Tail server logs
+loki.source.file "tail_server_logs" {
+  targets       = local.file_match.server_logs.targets
+  forward_to    = [loki.process.process_server_logs.receiver]
+  tail_from_end = true
+}
+
+// 4. Processing Pipeline
+loki.process "process_server_logs" {
+  forward_to = [loki.write.central_loki.receiver]
+
+  // Drop HTML document boilerplates
+  stage.drop {
+    expression = "(?i)^(<!DOCTYPE|<meta|<title|<style|body|<h2|h2|p {)"
+  }
+
+  // Multiline grouping for crash traces & simulation exceptions
+  stage.multiline {
+    firstline     = "^(<p|Crash log|Simulation error|Error:|\\[Net\\])"
+    max_wait_time = "2s"
+    max_lines     = 500
+  }
+
+  // Parse HTML log entries if server writes HTML format
+  stage.regex {
+    expression = "^<p(?:\\s+class=[\"'](?P<raw_level>error|warning)[\"'])?>(?:(?P<prefix_level>ERROR|WARNING|INFO):\\s*)?(?P<log_message>.*)(?:</p>)?$"
+  }
+
+  // Unescape HTML entities
+  stage.replace {
+    expression = "&amp;"
+    replace    = "&"
+  }
+  stage.replace {
+    expression = "&lt;"
+    replace    = "<"
+  }
+  stage.replace {
+    expression = "&gt;"
+    replace    = ">"
+  }
+
+  // Normalize level
+  stage.template {
+    source   = "level"
+    template = "{{ if or (eq .raw_level \"error\") (eq .prefix_level \"ERROR\") }}error{{ else if or (eq .raw_level \"warning\") (eq .prefix_level \"WARNING\") }}warn{{ else }}info{{ end }}"
+  }
+
+  // Extract server subsystem ([Net], [Simulation], [Lobby], [STUN], [UPnP])
+  stage.regex {
+    expression = "^\\[(?P<subsystem>[a-zA-Z0-9_-]+)\\]"
+  }
+
+  // Extract turn number if present (e.g. Turn 1245)
+  stage.regex {
+    expression = "(?i)turn\\s+(?P<turn>\\d+)"
+  }
+
+  // Set indexed labels
+  stage.labels {
+    values = {
+      level       = "level",
+      subsystem   = "subsystem",
+      environment = "environment",
+      filename    = "filename",
+    }
+  }
+
+  // Clean log message output
+  stage.template {
+    source   = "output_msg"
+    template = "{{ if .log_message }}{{ .log_message }}{{ else }}{{ .Entry }}{{ end }}"
+  }
+
+  stage.output {
+    source = "output_msg"
+  }
+}

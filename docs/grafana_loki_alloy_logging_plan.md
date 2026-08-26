@@ -427,10 +427,10 @@ Below are essential **LogQL** queries for diagnosing 0 A.D. sessions and multipl
   - Live color-coded log tail stream with dynamic level and subsystem filters.
 - [x] Configure automated alert rules (`deploy/loki/grafana/provisioning/alerting/rules.yaml`) for high error rates and multiplayer Out-of-Sync desyncs.
 
-### Phase 4: Dedicated Server & Production Readiness (Optional)
-- [ ] Adapt `config.alloy` for headless Linux dedicated servers running in Docker / systemd.
-- [ ] Set up log retention policies and disk storage limits in `loki-config.yaml`.
-- [ ] Document developer workflow in `docs/` for troubleshooting mod errors via Loki.
+### Phase 4: Dedicated Server & Production Readiness
+- [x] Adapt Alloy pipeline for headless Linux dedicated servers (`deploy/loki/server.alloy` and `deploy/loki/systemd/0ad-alloy.service`).
+- [x] Set up production log retention policies, write-ahead logging (WAL), and disk limits in `deploy/loki/loki-config.yaml`.
+- [x] Document operator and mod developer workflows in `deploy/loki/OPERATOR_GUIDE.md` for JS error tracing, subsystem filtering, and multiplayer OOS triaging.
 
 ---
 

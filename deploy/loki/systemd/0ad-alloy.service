@@ -1,0 +1,20 @@
+[Unit]
+Description=Grafana Alloy Telemetry Collector for 0 A.D. Dedicated Servers
+Documentation=https://grafana.com/docs/alloy/latest/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=alloy
+Group=alloy
+Environment="LOKI_URL=http://loki.internal:3100/loki/api/v1/push"
+ExecStart=/usr/bin/alloy run /etc/alloy/server.alloy --storage.path=/var/lib/alloy/data --server.http.listen-addr=127.0.0.1:12345
+Restart=always
+RestartSec=5s
+LimitNOFILE=65536
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+
+[Install]
+WantedBy=multi-user.target
