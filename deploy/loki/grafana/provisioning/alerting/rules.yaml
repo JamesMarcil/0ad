@@ -14,7 +14,7 @@ groups:
             relativeTimeRange:
               from: 300
               to: 0
-            datasourceUid: "Loki"
+            datasourceUid: "loki"
             model:
               editorMode: "code"
               expr: "sum(rate({app=\"0ad\", level=\"error\"}[1m]))"
@@ -58,7 +58,7 @@ groups:
             relativeTimeRange:
               from: 300
               to: 0
-            datasourceUid: "Loki"
+            datasourceUid: "loki"
             model:
               editorMode: "code"
               expr: "sum(count_over_time({app=\"0ad\"} |= \"Out of sync\" [1m]))"

@@ -1,17 +1,18 @@
-version: "3.8"
-
 networks:
   monitoring:
     driver: bridge
 
 volumes:
   loki_data:
+    name: 0ad_loki_data
   grafana_data:
+    name: 0ad_grafana_data
   alloy_data:
+    name: 0ad_alloy_data
 
 services:
   loki:
-    image: grafana/loki:3.1.0
+    image: grafana/loki:3.7.6
     container_name: 0ad-loki
     restart: unless-stopped
     ports:
@@ -22,14 +23,9 @@ services:
       - loki_data:/loki
     networks:
       - monitoring
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   grafana:
-    image: grafana/grafana:11.1.0
+    image: grafana/grafana:13.2.0
     container_name: 0ad-grafana
     restart: unless-stopped
     ports:
@@ -44,13 +40,12 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
-      loki:
-        condition: service_healthy
+      - loki
     networks:
       - monitoring
 
   alloy:
-    image: grafana/alloy:v1.3.0
+    image: grafana/alloy:v1.18.1
     container_name: 0ad-alloy
     restart: unless-stopped
     ports:
@@ -69,7 +64,6 @@ services:
       # For Linux / macOS hosts, adjust the path:
       # - ~/.local/state/0ad/log:/var/log/0ad:ro
     depends_on:
-      loki:
-        condition: service_healthy
+      - loki
     networks:
       - monitoring
