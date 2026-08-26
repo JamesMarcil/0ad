@@ -46,7 +46,7 @@ loki.process "process_0ad_logs" {
 
   // Stage 4.1: Drop HTML document header/footer lines that are not log messages
   stage.drop {
-    expression = "(?i)^(<!DOCTYPE|<meta|<title|<style|body|h2|p {)"
+    expression = "(?i)^(<!DOCTYPE|<meta|<title|<style|body|<h2|h2|p {)"
   }
 
   // Stage 4.2: Multiline grouping for stack traces / crash logs
