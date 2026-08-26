@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "0AD Observability"
+    orgId: 1
+    folder: "0 A.D. Game Engine"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

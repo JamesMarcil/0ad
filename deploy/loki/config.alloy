@@ -1,0 +1,107 @@
+// ----------------------------------------------------------------------------
+// 0 A.D. (Pyrogenesis) Log Ingestion Pipeline for Grafana Alloy
+// ----------------------------------------------------------------------------
+
+// 1. Loki Push Endpoint
+loki.write "local_loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+    batch_wait = "1s"
+    batch_size = "100KiB"
+  }
+}
+
+// 2. Discover 0 A.D. log files
+local.file_match "game_logs" {
+  path_targets = [
+    {
+      __path__  = "/var/log/0ad/*.html",
+      app       = "0ad",
+      log_type  = "html",
+    },
+    {
+      __path__  = "/var/log/0ad/*.txt",
+      app       = "0ad",
+      log_type  = "text",
+    },
+    {
+      __path__  = "/var/log/0ad/oos_logs/**/*.txt",
+      app       = "0ad",
+      log_type  = "oos",
+    },
+  ]
+  sync_period = "5s"
+}
+
+// 3. Tail discovered files with persistent cursor positions
+loki.source.file "tail_0ad_logs" {
+  targets       = local.file_match.game_logs.targets
+  forward_to    = [loki.process.process_0ad_logs.receiver]
+  tail_from_end = false
+}
+
+// 4. Processing Pipeline: Parse HTML, multiline stack traces, and extract labels
+loki.process "process_0ad_logs" {
+  forward_to = [loki.write.local_loki.receiver]
+
+  // Stage 4.1: Drop HTML document header/footer lines that are not log messages
+  stage.drop {
+    expression = "(?i)^(<!DOCTYPE|<meta|<title|<style|body|h2|p {)"
+  }
+
+  // Stage 4.2: Multiline grouping for stack traces / crash logs
+  stage.multiline {
+    firstline     = "^(<p|Crash log|Simulation error|Error:)"
+    max_wait_time = "2s"
+    max_lines     = 500
+  }
+
+  // Stage 4.3: Parse HTML log entries (<p class="error">ERROR: ...</p> or <p>...</p>)
+  stage.regex {
+    expression = "^<p(?:\\s+class=[\"'](?P<raw_level>error|warning)[\"'])?>(?:(?P<prefix_level>ERROR|WARNING|INFO):\\s*)?(?P<log_message>.*)(?:</p>)?$"
+  }
+
+  // Stage 4.4: Unescape common HTML entities
+  stage.replace {
+    expression = "&amp;"
+    replace    = "&"
+  }
+  stage.replace {
+    expression = "&lt;"
+    replace    = "<"
+  }
+  stage.replace {
+    expression = "&gt;"
+    replace    = ">"
+  }
+
+  // Stage 4.5: Determine normalized log level (error, warn, info)
+  stage.template {
+    source   = "level"
+    template = "{{ if or (eq .raw_level \"error\") (eq .prefix_level \"ERROR\") }}error{{ else if or (eq .raw_level \"warning\") (eq .prefix_level \"WARNING\") }}warn{{ else }}info{{ end }}"
+  }
+
+  // Stage 4.6: Extract game subsystem or module if present (e.g., [Sound], [Renderer], [Script])
+  stage.regex {
+    expression = "^\\[(?P<subsystem>[a-zA-Z0-9_-]+)\\]"
+  }
+
+  // Stage 4.7: Apply extracted labels
+  stage.labels {
+    values = {
+      level     = "level",
+      subsystem = "subsystem",
+      filename  = "filename",
+    }
+  }
+
+  // Stage 4.8: Clean the output message to remove surrounding HTML tags
+  stage.template {
+    source   = "output_msg"
+    template = "{{ if .log_message }}{{ .log_message }}{{ else }}{{ .Entry }}{{ end }}"
+  }
+
+  stage.output {
+    source = "output_msg"
+  }
+}
