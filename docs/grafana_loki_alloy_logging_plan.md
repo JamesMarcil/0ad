@@ -419,13 +419,13 @@ Below are essential **LogQL** queries for diagnosing 0 A.D. sessions and multipl
 - [x] Verify HTML tags (`<p>`, `</p>`) are properly stripped, entities unescaped (`&amp;`, `&lt;`, `&gt;`), and severity levels normalized.
 
 ### Phase 3: Dashboard & Alerting Setup
-- [ ] Open Grafana at `http://localhost:3000` (admin/admin).
-- [ ] Verify pre-provisioned Loki data source.
-- [ ] Import/create `0 A.D. Game Engine Overview` dashboard featuring:
-  - Error and warning rate gauge.
+- [x] Configure auto-provisioned Loki data source (`deploy/loki/grafana/provisioning/datasources/datasources.yaml`).
+- [x] Create and provision `0 A.D. Game Engine Overview` dashboard (`deploy/loki/grafana/dashboards/0ad_overview.json`) featuring:
+  - Error and warning rate gauge and stat counters.
   - Subsystem breakdown pie chart.
-  - Live color-coded log tail stream.
-- [ ] Configure alert rule notifying on recurring JavaScript script errors or desync events.
+  - Severity event timeline graph.
+  - Live color-coded log tail stream with dynamic level and subsystem filters.
+- [x] Configure automated alert rules (`deploy/loki/grafana/provisioning/alerting/rules.yaml`) for high error rates and multiplayer Out-of-Sync desyncs.
 
 ### Phase 4: Dedicated Server & Production Readiness (Optional)
 - [ ] Adapt `config.alloy` for headless Linux dedicated servers running in Docker / systemd.

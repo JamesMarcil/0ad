@@ -1,0 +1,95 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: "0AD Engine Alerts"
+    folder: "0 A.D. Game Engine"
+    interval: 1m
+    rules:
+      - uid: "0ad_high_error_rate"
+        title: "0 A.D. Engine High Error Rate"
+        condition: "B"
+        data:
+          - refId: "A"
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "Loki"
+            model:
+              editorMode: "code"
+              expr: "sum(rate({app=\"0ad\", level=\"error\"}[1m]))"
+              queryType: "range"
+              refId: "A"
+          - refId: "B"
+            datasourceUid: "__expr__"
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0.1
+                    type: "gt"
+                  operator:
+                    type: "and"
+                  query:
+                    params:
+                      - "A"
+                  reducer:
+                    params: []
+                    type: "last"
+                  type: "query"
+              expression: "A"
+              reducer: "last"
+              type: "threshold"
+        noDataState: "OK"
+        execErrState: "Error"
+        for: "1m"
+        annotations:
+          summary: "Elevated error rate detected in 0 A.D. engine logs"
+          description: "0 A.D. is logging more than 6 errors per minute. Check the live log stream in Grafana."
+        labels:
+          severity: "warning"
+          app: "0ad"
+
+      - uid: "0ad_multiplayer_oos"
+        title: "0 A.D. Multiplayer Out-of-Sync (OOS) Detected"
+        condition: "B"
+        data:
+          - refId: "A"
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "Loki"
+            model:
+              editorMode: "code"
+              expr: "sum(count_over_time({app=\"0ad\"} |= \"Out of sync\" [1m]))"
+              queryType: "range"
+              refId: "A"
+          - refId: "B"
+            datasourceUid: "__expr__"
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: "gt"
+                  operator:
+                    type: "and"
+                  query:
+                    params:
+                      - "A"
+                  reducer:
+                    params: []
+                    type: "last"
+                  type: "query"
+              expression: "A"
+              reducer: "last"
+              type: "threshold"
+        noDataState: "OK"
+        execErrState: "Error"
+        for: "0m"
+        annotations:
+          summary: "Multiplayer Out-of-Sync desync event occurred"
+          description: "A multiplayer client or server experienced a simulation state mismatch. Check oos_logs for turn dumps."
+        labels:
+          severity: "critical"
+          app: "0ad"
