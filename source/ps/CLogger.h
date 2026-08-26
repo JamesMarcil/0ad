@@ -59,7 +59,8 @@ public:
 		Warning
 	};
 
-	CLogger(std::ostream& mainLog, std::ostream& interestingLog, const bool useDebugPrintf);
+	CLogger(std::ostream& mainLog, std::ostream& interestingLog, const bool useDebugPrintf,
+		std::ostream* mainJsonLog = nullptr, std::ostream* interestingJsonLog = nullptr);
 
 	~CLogger();
 
@@ -80,9 +81,13 @@ private:
 	// Delete old timed-out entries from the list of text to render
 	void CleanupRenderQueue();
 
+	void WriteJson(std::ostream* stream, const char* level, const char* message);
+
 	// the output streams
 	std::ostream& m_MainLog;
 	std::ostream& m_InterestingLog;
+	std::ostream* m_MainJsonLog{nullptr};
+	std::ostream* m_InterestingJsonLog{nullptr};
 
 	// whether errors should be reported via debug_printf (default)
 	// or suppressed (for tests that intentionally trigger errors)
@@ -120,7 +125,8 @@ private:
 class CLogger::ScopedReplacement
 {
 public:
-	ScopedReplacement(std::ostream& mainLog, std::ostream& interestingLog, const bool useDebugPrintf);
+	ScopedReplacement(std::ostream& mainLog, std::ostream& interestingLog, const bool useDebugPrintf,
+		std::ostream* mainJsonLog = nullptr, std::ostream* interestingJsonLog = nullptr);
 
 	ScopedReplacement(const ScopedReplacement&) = delete;
 	ScopedReplacement& operator=(const ScopedReplacement&) = delete;
@@ -143,6 +149,8 @@ public:
 private:
 	std::ofstream m_MainLog;
 	std::ofstream m_InterestingLog;
+	std::ofstream m_MainJsonLog;
+	std::ofstream m_InterestingJsonLog;
 	CLogger::ScopedReplacement m_ScopedReplacement;
 };
 

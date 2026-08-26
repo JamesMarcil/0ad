@@ -29,6 +29,12 @@ local.file_match "server_logs" {
       log_type    = "html",
     },
     {
+      __path__    = "/home/*/.local/state/0ad/log/*.ndjson",
+      environment = "production-server",
+      app         = "0ad-server",
+      log_type    = "ndjson",
+    },
+    {
       __path__    = "/home/*/.local/state/0ad/log/*.txt",
       environment = "production-server",
       app         = "0ad-server",

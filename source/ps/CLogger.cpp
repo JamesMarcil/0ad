@@ -32,6 +32,7 @@
 #include "ps/CConsole.h"
 #include "ps/CStr.h"
 #include "ps/CStrIntern.h"
+#include "ps/GameSetup/CmdLineArgs.h"
 #include "ps/Profile.h"
 #include "ps/Pyrogenesis.h"
 
@@ -72,9 +73,12 @@ const char* html_header0 =
 
 const char* html_header1 = "</h2>\n";
 
-CLogger::CLogger(std::ostream& mainLog, std::ostream& interestingLog, const bool useDebugPrintf) :
+CLogger::CLogger(std::ostream& mainLog, std::ostream& interestingLog, const bool useDebugPrintf,
+	std::ostream* mainJsonLog, std::ostream* interestingJsonLog) :
 	m_MainLog{mainLog},
 	m_InterestingLog{interestingLog},
+	m_MainJsonLog{mainJsonLog},
+	m_InterestingJsonLog{interestingJsonLog},
 	m_UseDebugPrintf{useDebugPrintf}
 {
 	m_MainLog << html_header0 << PS_VERSION << ") Main log" << html_header1;
@@ -100,6 +104,11 @@ CLogger::~CLogger()
 
 	m_InterestingLog << "<p>Engine exited successfully on " << currentDate;
 	m_InterestingLog << " at " << currentTime << buffer << "</p>\n";
+
+	if (m_MainJsonLog)
+		WriteJson(m_MainJsonLog, "info", "Engine exited successfully.");
+	if (m_InterestingJsonLog)
+		WriteJson(m_InterestingJsonLog, "info", "Engine exited successfully.");
 }
 
 static std::string ToHTML(const char* message)
@@ -108,6 +117,51 @@ static std::string ToHTML(const char* message)
 	boost::algorithm::replace_all(cmessage, "&", "&amp;");
 	boost::algorithm::replace_all(cmessage, "<", "&lt;");
 	return cmessage;
+}
+
+static std::string EscapeJSON(const char* message)
+{
+	std::string res;
+	if (!message)
+		return res;
+	res.reserve(strlen(message) + 16);
+	for (const char* p = message; *p; ++p)
+	{
+		switch (*p)
+		{
+		case '"':  res += "\\\""; break;
+		case '\\': res += "\\\\"; break;
+		case '\b': res += "\\b"; break;
+		case '\f': res += "\\f"; break;
+		case '\n': res += "\\n"; break;
+		case '\r': res += "\\r"; break;
+		case '\t': res += "\\t"; break;
+		default:
+			if (static_cast<unsigned char>(*p) < 0x20)
+			{
+				char buf[8];
+				sprintf_s(buf, ARRAY_SIZE(buf), "\\u%04x", static_cast<unsigned char>(*p));
+				res += buf;
+			}
+			else
+			{
+				res += *p;
+			}
+			break;
+		}
+	}
+	return res;
+}
+
+void CLogger::WriteJson(std::ostream* stream, const char* level, const char* message)
+{
+	if (!stream || !stream->good())
+		return;
+
+	double now = timer_Time();
+	std::string escaped = EscapeJSON(message);
+	*stream << "{\"time\":" << fmt::sprintf("%.3f", now) << ",\"level\":\"" << level << "\",\"message\":\"" << escaped << "\"}\n";
+	stream->flush();
 }
 
 void CLogger::WriteMessage(const char* message, bool doRender = false)
@@ -122,6 +176,9 @@ void CLogger::WriteMessage(const char* message, bool doRender = false)
 
 	m_MainLog << "<p>" << cmessage << "</p>\n";
 	m_MainLog.flush();
+
+	if (m_MainJsonLog)
+		WriteJson(m_MainJsonLog, "info", message);
 
 	if (doRender)
 	{
@@ -148,6 +205,11 @@ void CLogger::WriteError(const char* message)
 	m_MainLog << "<p class=\"error\">ERROR: " << cmessage << "</p>\n";
 	m_MainLog.flush();
 
+	if (m_MainJsonLog)
+		WriteJson(m_MainJsonLog, "error", message);
+	if (m_InterestingJsonLog)
+		WriteJson(m_InterestingJsonLog, "error", message);
+
 	PushRenderMessage(Error, message);
 }
 
@@ -167,6 +229,11 @@ void CLogger::WriteWarning(const char* message)
 
 	m_MainLog << "<p class=\"warning\">WARNING: " << cmessage << "</p>\n";
 	m_MainLog.flush();
+
+	if (m_MainJsonLog)
+		WriteJson(m_MainJsonLog, "warn", message);
+	if (m_InterestingJsonLog)
+		WriteJson(m_InterestingJsonLog, "warn", message);
 
 	PushRenderMessage(Warning, message);
 }
@@ -279,8 +346,8 @@ void CLogger::CleanupRenderQueue()
 }
 
 CLogger::ScopedReplacement::ScopedReplacement(std::ostream& mainLog, std::ostream& interestingLog,
-	const bool useDebugPrintf) :
-	m_ThisLogger{mainLog, interestingLog, useDebugPrintf},
+	const bool useDebugPrintf, std::ostream* mainJsonLog, std::ostream* interestingJsonLog) :
+	m_ThisLogger{mainLog, interestingLog, useDebugPrintf, mainJsonLog, interestingJsonLog},
 	m_OldLogger{std::exchange(g_Logger, &m_ThisLogger)}
 {}
 
@@ -291,9 +358,9 @@ CLogger::ScopedReplacement::~ScopedReplacement()
 
 namespace
 {
-std::ofstream OpenLogFile(const wchar_t* filePrefix, const char* logName)
+std::ofstream OpenLogFile(const wchar_t* filePrefix, const char* logName, const wchar_t* ext = L".html")
 {
-	OsPath path{psLogDir() / (filePrefix + g_UniqueLogPostfix + L".html")};
+	OsPath path{psLogDir() / (filePrefix + g_UniqueLogPostfix + ext)};
 	debug_printf("FILES| %s written to '%s'\n", logName, path.string8().c_str());
 	return std::ofstream{OsString(path), std::ofstream::trunc};
 }
@@ -302,7 +369,11 @@ std::ofstream OpenLogFile(const wchar_t* filePrefix, const char* logName)
 FileLogger::FileLogger() :
 	m_MainLog{OpenLogFile(L"mainlog", "Main log")},
 	m_InterestingLog{OpenLogFile(L"interestinglog", "Interesting log")},
-	m_ScopedReplacement{m_MainLog, m_InterestingLog, true}
+	m_MainJsonLog{g_CmdLineArgs.Has("log-json") ? OpenLogFile(L"mainlog", "Main JSON log", L".ndjson") : std::ofstream{}},
+	m_InterestingJsonLog{g_CmdLineArgs.Has("log-json") ? OpenLogFile(L"interestinglog", "Interesting JSON log", L".ndjson") : std::ofstream{}},
+	m_ScopedReplacement{m_MainLog, m_InterestingLog, true,
+		m_MainJsonLog.is_open() ? &m_MainJsonLog : nullptr,
+		m_InterestingJsonLog.is_open() ? &m_InterestingJsonLog : nullptr}
 {}
 
 TestLogger::TestLogger() :

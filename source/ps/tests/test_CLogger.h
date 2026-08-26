@@ -61,6 +61,20 @@ public:
 		TS_ASSERT_EQUALS(lines[0], "Test&lt;a&amp;b>c&lt;d&amp;e>");
 	}
 
+	void test_json()
+	{
+		std::stringstream jsonStream;
+		CLogger jsonLogger(mainlog, interestinglog, false, &jsonStream, nullptr);
+		jsonLogger.WriteMessage("Test JSON \"quoted\" message", false);
+		jsonLogger.WriteError("Error & special chars: \n newline");
+
+		std::string jsonOut = jsonStream.str();
+		TS_ASSERT(jsonOut.find("\"level\":\"info\"") != std::string::npos);
+		TS_ASSERT(jsonOut.find("\"level\":\"error\"") != std::string::npos);
+		TS_ASSERT(jsonOut.find("\\\"quoted\\\"") != std::string::npos);
+		TS_ASSERT(jsonOut.find("\\n") != std::string::npos);
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 
 	CLogger* logger;

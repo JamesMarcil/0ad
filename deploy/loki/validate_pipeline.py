@@ -70,6 +70,28 @@ def parse_html_log_line(raw_line: str):
     }
 
 
+def parse_ndjson_line(raw_line: str):
+    """
+    Applies JSON decoding to a structured NDJSON log line.
+    """
+    line = raw_line.strip()
+    if not line:
+        return None
+    try:
+        data = json.loads(line)
+        msg = data.get("message", "")
+        sub_match = SUBSYSTEM_PATTERN.match(msg)
+        subsystem = sub_match.group("subsystem") if sub_match else "engine"
+        return {
+            "level": data.get("level", "info"),
+            "subsystem": subsystem,
+            "message": msg,
+            "time": data.get("time", 0.0),
+        }
+    except json.JSONDecodeError:
+        return None
+
+
 def run_unit_tests():
     """Run verification against known edge cases and sample log lines."""
     test_cases = [
@@ -97,6 +119,15 @@ def run_unit_tests():
             assert res["subsystem"] == exp_sub, f"Subsystem mismatch for '{raw}': {res['subsystem']} != {exp_sub}"
         passed += 1
 
+    # Test NDJSON structured parsing
+    ndjson_sample = '{"time":1787593.123,"level":"error","message":"[Net] Connection timeout"}'
+    ndjson_res = parse_ndjson_line(ndjson_sample)
+    assert ndjson_res is not None
+    assert ndjson_res["level"] == "error"
+    assert ndjson_res["subsystem"] == "Net"
+    assert ndjson_res["message"] == "[Net] Connection timeout"
+    passed += 1
+
     print(f"[PASS] {passed}/{passed} synthetic test cases passed.")
 
 
@@ -109,7 +140,7 @@ def test_real_logs():
         print(f"[INFO] No local log directory at {log_dir}. Skipping filesystem test.")
         return
 
-    log_files = glob.glob(os.path.join(log_dir, "*.html")) + glob.glob(os.path.join(log_dir, "*.txt"))
+    log_files = glob.glob(os.path.join(log_dir, "*.html")) + glob.glob(os.path.join(log_dir, "*.ndjson")) + glob.glob(os.path.join(log_dir, "*.txt"))
     print(f"[INFO] Found {len(log_files)} log files in {log_dir}:")
 
     total_parsed = 0
@@ -120,10 +151,11 @@ def test_real_logs():
         filename = os.path.basename(filepath)
         parsed_in_file = 0
         dropped_in_file = 0
+        is_ndjson = filename.endswith(".ndjson")
 
         with open(filepath, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
-                res = parse_html_log_line(line)
+                res = parse_ndjson_line(line) if is_ndjson else parse_html_log_line(line)
                 if res is None:
                     dropped_in_file += 1
                 else:

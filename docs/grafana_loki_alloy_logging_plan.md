@@ -432,12 +432,15 @@ Below are essential **LogQL** queries for diagnosing 0 A.D. sessions and multipl
 - [x] Set up production log retention policies, write-ahead logging (WAL), and disk limits in `deploy/loki/loki-config.yaml`.
 - [x] Document operator and mod developer workflows in `deploy/loki/OPERATOR_GUIDE.md` for JS error tracing, subsystem filtering, and multiplayer OOS triaging.
 
+### Phase 5: In-Engine Structured JSON Logging Mode (`--log-json`)
+- [x] Add `--log-json` command line option and JSON stream support to `CLogger` ([`source/ps/CLogger.cpp`](file:///C:/Users/james/0ad/source/ps/CLogger.cpp#L113-L175) / [`source/ps/CLogger.h`](file:///C:/Users/james/0ad/source/ps/CLogger.h#L59-L148)).
+- [x] Write structured newline-delimited JSON (`mainlog.ndjson` and `interestinglog.ndjson`) containing `time`, `level`, `subsystem`, and JSON-escaped `message`.
+- [x] Add unit test `test_json` to test suite ([`source/ps/tests/test_CLogger.h`](file:///C:/Users/james/0ad/source/ps/tests/test_CLogger.h#L64-L77)) (497/497 tests passing).
+- [x] Update Grafana Alloy configurations (`config.alloy` and `server.alloy`) and validation harness (`validate_pipeline.py`) to discover and parse `.ndjson` structured streams.
+
 ---
 
-## 6. Optional Engine Enhancements (Future Work)
+## 6. Future Engine Enhancements
 
-While Alloy file-tailing requires **zero C++ changes**, future engine upgrades could introduce:
-1. **JSON Log Output Mode (`--log-json`)**:
-   Add a flag in [`source/ps/CLogger.cpp`](file:///C:/Users/james/0ad/source/ps/CLogger.cpp#L113-L173) to emit structured newline-delimited JSON (`ndjson`) containing `timestamp_ns`, `level`, `thread_id`, `subsystem`, `sim_tick`, and `message`.
-2. **Session Correlation UUID**:
+1. **Session Correlation UUID**:
    Generate a unique match/session GUID at game startup and inject it into all log outputs to correlate multi-client multiplayer logs in Loki.

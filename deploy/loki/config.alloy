@@ -20,6 +20,11 @@ local.file_match "game_logs" {
       log_type  = "html",
     },
     {
+      __path__  = "/var/log/0ad/*.ndjson",
+      app       = "0ad",
+      log_type  = "ndjson",
+    },
+    {
       __path__  = "/var/log/0ad/*.txt",
       app       = "0ad",
       log_type  = "text",

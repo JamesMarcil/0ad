@@ -605,10 +605,9 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 	if (isNonVisualReplay)
 	{
+		InitVfs(args);
+		FileLogger logger;
 		Paths paths(args);
-		g_VFS = CreateVfs();
-		// Mount with highest priority, we don't want mods overwriting this.
-		g_VFS->Mount(L"cache/", paths.Cache(), VFS_MOUNT_ARCHIVABLE, VFS_MAX_PRIORITY);
 
 		{
 			CReplayPlayer replay;
