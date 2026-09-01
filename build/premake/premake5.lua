@@ -49,6 +49,7 @@ newoption { category = "Pyrogenesis", trigger = "sanitize-address", description 
 newoption { category = "Pyrogenesis", trigger = "sanitize-thread", description = "Enable TSAN if available" }
 newoption { category = "Pyrogenesis", trigger = "sanitize-undefined-behaviour", description = "Enable UBSAN if available" }
 newoption { category = "Pyrogenesis", trigger = "strip-binaries", description = "Strip created binaries" }
+newoption { category = "Pyrogenesis", trigger = "with-system-benchmark", description = "Search standard paths for Google Benchmark, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-cpp-httplib", description = "Search standard paths for cpp-httplib, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-cxxtest", description = "Search standard paths for cxxtest, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-lto", description = "Enable Link Time Optimization (LTO)" }
@@ -63,6 +64,7 @@ newoption { category = "Pyrogenesis", trigger = "without-miniupnpc", description
 newoption { category = "Pyrogenesis", trigger = "without-nvtt", description = "Disable use of NVTT" }
 newoption { category = "Pyrogenesis", trigger = "without-pch", description = "Disable generation and usage of precompiled headers" }
 newoption { category = "Pyrogenesis", trigger = "without-tests", description = "Disable generation of test projects" }
+newoption { category = "Pyrogenesis", trigger = "without-benchmarks", description = "Disable generation of the benchmarks project" }
 
 -- OS X specific options
 newoption { category = "Pyrogenesis", trigger = "macosx-version-min", description = "Set minimum required version of the OS X API, the build will possibly fail if an older SDK is used, while newer API functions will be weakly linked (i.e. resolved at runtime)" }
@@ -1655,6 +1657,95 @@ function setup_tests()
 	end
 end
 
+--------------------------------------------------------------------------------
+-- benchmarks
+--------------------------------------------------------------------------------
+
+-- Bundles engine code with Google Benchmark and any *.cpp files found in
+-- "benchmarks" subdirectories of the source tree, producing a standalone
+-- "benchmarks" executable. Application code adds a micro-benchmark by
+-- dropping a .cpp file (using the BENCHMARK() macros) into a "benchmarks"
+-- subdirectory of any module under source/ (e.g. "source/tools/benchmarks/",
+-- mirroring how "*/tests/*.h" is used for the "test" project below).
+-- Note: the "benchmarks" directory must be nested at least one level below
+-- source_root - premake's "**" glob doesn't match a "benchmarks" directory
+-- placed directly at source_root itself.
+function setup_benchmarks()
+
+	local benchmark_files = os.matchfiles(source_root .. "**/benchmarks/*.cpp")
+	if #benchmark_files == 0 then
+		-- Nothing to build; skip creating an (empty, unlinkable) project.
+		return
+	end
+
+	-- Console-only target on every platform; benchmarks are a developer tool,
+	-- not something that should ever produce a windowed/app-bundle target.
+	project_create("benchmarks", "ConsoleApp")
+
+	filter "system:not macosx"
+		linkgroups 'On'
+	filter {}
+
+	links { static_lib_names }
+	filter "Debug"
+		links { static_lib_names_debug }
+	filter "Release"
+		links { static_lib_names_release }
+	filter { }
+
+	if not _OPTIONS["without-atlas"] then
+		links { "AtlasObject" }
+	end
+
+	local extra_params = {
+		no_pch = 1,
+	}
+	project_add_contents(source_root, {}, {}, extra_params)
+	files { benchmark_files }
+
+	local benchmark_extern_libs = { "benchmark" }
+	for i,v in pairs(used_extern_libs) do
+		table.insert(benchmark_extern_libs, v)
+	end
+	project_add_extern_libs(benchmark_extern_libs, "ConsoleApp")
+
+	dependson { "Collada" }
+
+	rtti "off"
+
+	if os.istarget("windows") then
+		files { source_root.."lib/sysdep/os/win/error_dialog.rc" }
+		links { "delayimp" }
+		project_add_manifest(arch)
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
+	elseif os.istarget("linux") or os.istarget("bsd") then
+		if link_execinfo then
+			links { "execinfo" }
+		end
+		if not _OPTIONS["android"] and not (os.getversion().description == "OpenBSD") then
+			links { "rt" }
+		end
+		if os.istarget("linux") or os.getversion().description == "GNU/kFreeBSD" then
+			links { "dl" }
+			if arch == "riscv64" then
+				links { "atomic" }
+			end
+		end
+		buildoptions { "-pthread" }
+		linkoptions { "-pthread" }
+	elseif os.istarget("macosx") then
+		architecture(macos_arch)
+		buildoptions { "-arch " .. macos_arch }
+		linkoptions { "-arch " .. macos_arch }
+		xcodebuildsettings { ARCHS = macos_arch }
+		if _OPTIONS["macosx-version-min"] then
+			xcodebuildsettings { MACOSX_DEPLOYMENT_TARGET = _OPTIONS["macosx-version-min"] }
+		end
+	end
+end
+
 -- must come first, so that VC sets it as the default project and therefore
 -- allows running via F5 without the "where is the EXE" dialog.
 setup_main_exe()
@@ -1683,4 +1774,8 @@ setup_collada_projects()
 
 if not _OPTIONS["without-tests"] then
 	setup_tests()
+end
+
+if not _OPTIONS["without-benchmarks"] then
+	setup_benchmarks()
 end

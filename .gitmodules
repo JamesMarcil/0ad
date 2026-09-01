@@ -1,3 +1,6 @@
 [submodule "source/third_party/tracy"]
 	path = source/third_party/tracy
 	url = https://github.com/wolfpld/tracy.git
+[submodule "libraries/source/benchmark/benchmark"]
+	path = libraries/source/benchmark/benchmark
+	url = https://github.com/google/benchmark.git

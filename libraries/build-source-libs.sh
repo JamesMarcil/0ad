@@ -32,6 +32,7 @@ options:
 	--fetch-only            - only fetch sources
 	--force-rebuild         - rebuild all
 	--without-nvtt          - don't build nvtt
+	--with-system-benchmark - don't build Google Benchmark
 	--with-system-cxxtest   - don't build cxxtest
 	--with-system-nvtt      - don't build nvtt
 	--with-system-mozjs     - don't build spidermonkey
@@ -42,6 +43,7 @@ EOF
 }
 
 without_nvtt=false
+with_system_benchmark=false
 with_system_cpp_httplib=false
 with_system_cxxtest=false
 with_system_nvtt=false
@@ -60,6 +62,7 @@ while [ "$#" -gt 0 ]; do
 		--fetch-only) build_sh_options="$build_sh_options --fetch-only" ;;
 		--force-rebuild) build_sh_options="$build_sh_options --force-rebuild" ;;
 		--without-nvtt) without_nvtt=true ;;
+		--with-system-benchmark) with_system_benchmark=true ;;
 		--with-system-cpp-httplib) with_system_cpp_httplib=true ;;
 		--with-system-cxxtest) with_system_cxxtest=true ;;
 		--with-system-nvtt) with_system_nvtt=true ;;
@@ -92,6 +95,10 @@ export MAKE JOBS
 # Build/update bundled external libraries
 echo "Building third-party dependencies..."
 
+if [ "$with_system_benchmark" = "false" ]; then
+	# shellcheck disable=SC2086
+	./source/benchmark/build.sh $build_sh_options || die "Google Benchmark build failed"
+fi
 if [ "$with_system_cpp_httplib" = "false" ]; then
 	# shellcheck disable=SC2086
 	./source/cpp-httplib/build.sh $build_sh_options || die "cpp-httplib build failed"

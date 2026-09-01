@@ -1238,6 +1238,10 @@ export ARCH CXXFLAGS CFLAGS LDFLAGS CMAKE_FLAGS JOBS
 
 # --------------------------------------------------------------
 # shellcheck disable=SC2086
+./../source/benchmark/build.sh $build_sh_options || die "Google Benchmark build failed"
+
+# --------------------------------------------------------------
+# shellcheck disable=SC2086
 ./../source/cpp-httplib/build.sh $build_sh_options || die "cpp-httplib build failed"
 
 # --------------------------------------------------------------

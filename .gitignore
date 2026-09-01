@@ -14,6 +14,8 @@ libraries/macos
 libraries/win32
 libraries/win64
 
+libraries/source/benchmark/*
+!libraries/source/benchmark/benchmark
 libraries/source/cpp-httplib/*
 libraries/source/cxxtest-4.4/*
 libraries/source/fcollada/*

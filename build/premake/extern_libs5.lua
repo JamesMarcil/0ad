@@ -209,6 +209,42 @@ end
 --        e.g. Xerces (which is so stupid as to export variables).
 
 extern_lib_defs = {
+	benchmark = {
+		compile_settings = function()
+			-- We always link the static archive, never the DLL; without this
+			-- define, benchmark's generated export.h annotates its symbols
+			-- with __declspec(dllimport) on Windows and the link step fails.
+			defines { "BENCHMARK_STATIC_DEFINE" }
+			if not _OPTIONS["with-system-benchmark"] then
+				add_source_include_paths("benchmark")
+			end
+		end,
+		link_settings = function()
+			if not _OPTIONS["with-system-benchmark"] then
+				add_source_lib_paths("benchmark")
+			end
+			add_default_links({
+				win_names  = { "benchmark" },
+				unix_names = { "benchmark" },
+				osx_names = { "benchmark" },
+				dbg_suffix = "",
+				no_delayload = 1,
+			})
+			if os.istarget("windows") then
+				add_default_links({
+					win_names = { "shlwapi" },
+					dbg_suffix = "",
+					no_delayload = 1,
+				})
+			elseif not os.istarget("macosx") then
+				add_default_links({
+					unix_names = { "pthread" },
+					dbg_suffix = "",
+					no_delayload = 1,
+				})
+			end
+		end,
+	},
 	boost = {
 		compile_settings = function()
 			if os.istarget("windows") then
