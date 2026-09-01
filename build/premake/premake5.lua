@@ -739,6 +739,7 @@ function setup_all_libs ()
 		"fmt",
 		"libxml2",
 		"iconv",
+		"tracy", -- Profile.h/Profiler2.h are included here; keep TRACY_ENABLE consistent across TUs.
 	}
 	if not _OPTIONS["without-miniupnpc"] then
 		table.insert(extern_libs, "miniupnpc")
@@ -753,6 +754,7 @@ function setup_all_libs ()
 		"fmt",
 		"spidermonkey",
 		"cpp_httplib",
+		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
 	}
 	setup_static_lib_project("rlinterface", source_dirs, extern_libs, { no_pch = 1 })
 
@@ -764,7 +766,8 @@ function setup_all_libs ()
 			"boost", -- dragged in via simulation.h and scriptinterface.h
 			"fmt",
 			"spidermonkey",
-			"sockets"
+			"sockets",
+			"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
 		}
 		setup_static_lib_project("dapinterface", source_dirs, extern_libs, { no_pch = 1 })
 	end
@@ -776,6 +779,7 @@ function setup_all_libs ()
 		"iconv",
 		"boost",
 		"fmt",
+		"tracy", -- pulled in transitively via the common lib/precompiled.h -> ps/Profile.h -> ps/Profiler2.h; must agree on TRACY_ENABLE.
 	}
 	setup_third_party_static_lib_project("tinygettext", source_dirs, extern_libs, { } )
 
@@ -811,6 +815,7 @@ function setup_all_libs ()
 			"libsodium",
 			"tinygettext",
 			"fmt",
+			"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
 	else
@@ -823,6 +828,7 @@ function setup_all_libs ()
 			"boost",
 			"libsodium",
 			"fmt",
+			"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
 		files { source_root.."lobby/Globals.cpp" }
@@ -861,6 +867,7 @@ function setup_all_libs ()
 		"valgrind",
 		"sdl",
 		"fmt",
+		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
 	}
 	setup_static_lib_project("scriptinterface", source_dirs, extern_libs, {})
 
@@ -960,6 +967,7 @@ function setup_all_libs ()
 		"fmt",
 		"libxml2",
 		"iconv",
+		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
 	}
 	setup_static_lib_project("atlas", source_dirs, extern_libs, {})
 
@@ -982,6 +990,7 @@ function setup_all_libs ()
 		"iconv",
 		"fmt",
 		"libxml2",
+		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
 	}
 	if not _OPTIONS["without-audio"] then
 		table.insert(extern_libs, "openal")
@@ -1371,6 +1380,7 @@ function setup_atlas_projects()
 		"sdl",	-- key definitions
 		"wxwidgets",
 		"zlib",
+		"tracy", -- links against the "atlas" static lib, which includes Profile.h/Profiler2.h; must agree on TRACY_ENABLE.
 	}
 
 	setup_atlas_project("AtlasUI", "SharedLib", atlas_src,

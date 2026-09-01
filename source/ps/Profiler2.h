@@ -84,6 +84,8 @@
 #include "lib/types.h"
 #include "ps/ThreadUtil.h"
 
+#include <tracy/Tracy.hpp>
+
 #include <atomic>
 #include <cstdarg>
 #include <cstring>
@@ -450,8 +452,20 @@ private:
  * Regions may be nested, but preferably shouldn't be nested deeply since
  * it hurts the visualisation.
  */
-#define PROFILE2(region) CProfile2Region profile2__(region)
+// NOTE: PROFILE2 must be used as a full statement (not e.g. as the body of an
+// unbraced if/else, and not inside another expression), since it expands to
+// multiple statements introducing scoped RAII objects. It is deliberately not
+// wrapped in a do{}while(0) block, since that would end the scope of the RAII
+// objects immediately instead of at the end of the enclosing block.
+// "region" must be a compile-time string literal (this is required by
+// ZoneScopedN, and is true for every current call site).
+#define PROFILE2(region) CProfile2Region profile2__(region); ZoneScopedN(region)
 
+// NOTE: deliberately NOT adding a Tracy zone here. PROFILE2_GPU is combined
+// with PROFILE2 in PROFILE3_GPU (see Profile.h), and ZoneScoped always uses a
+// fixed internal variable name, so a second ZoneScoped in the same statement
+// sequence would fail to compile (variable redefinition). GPU regions timed
+// via PROFILE3_GPU are still covered by the CPU-side Tracy zone from PROFILE2.
 #define PROFILE2_GPU(deviceCommandContext, region) CProfile2GPURegion profile2gpu__(deviceCommandContext, region)
 
 /**

@@ -455,6 +455,7 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 	g_Profiler.Frame();
 
 	LimitFPS();
+	FrameMark;
 }
 
 static void NonVisualFrame()
@@ -478,6 +479,7 @@ static void NonVisualFrame()
 	}
 
 	g_Profiler.Frame();
+	FrameMark;
 
 	if (g_Game->IsGameFinished())
 		QuitEngine(EXIT_SUCCESS);
