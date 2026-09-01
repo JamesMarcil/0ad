@@ -24,6 +24,8 @@
 #include "ps/Profiler2.h"
 #include "ps/Threading.h"
 
+#include <tracy/Tracy.hpp>
+
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -251,6 +253,7 @@ void WorkerThread::RunUntilDeath()
 	static std::atomic<int> n = 0;
 	std::string name = "Task Mgr #" + std::to_string(n++);
 	debug_SetThreadName(name.c_str());
+	tracy::SetThreadName(name.c_str());
 	g_Profiler2.RegisterCurrentThread(name);
 
 
