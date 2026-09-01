@@ -41,6 +41,7 @@ print("")
 
 newoption { category = "Pyrogenesis", trigger = "android", description = "Use non-working Android cross-compiling mode" }
 newoption { category = "Pyrogenesis", trigger = "coverage", description = "Enable code coverage data collection (GCC only)" }
+newoption { category = "Pyrogenesis", trigger = "enable-tracy", description = "Enable Tracy profiler instrumentation (defines TRACY_ENABLE); without this the Tracy client compiles to no-ops" }
 newoption { category = "Pyrogenesis", trigger = "gles", description = "Use non-working OpenGL ES 2.0 mode" }
 newoption { category = "Pyrogenesis", trigger = "minimal-flags", description = "Only set compiler/linker flags that are really needed. Has no effect on Windows builds" }
 newoption { category = "Pyrogenesis", trigger = "outpath", description = "Location for generated project files", default="../workspaces/default" }
@@ -842,6 +843,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"cxxtest",
+		"tracy",
 	}
 	setup_static_lib_project("simulation2", source_dirs, extern_libs, {})
 
@@ -892,6 +894,7 @@ function setup_all_libs ()
 		"fmt",
 		"freetype",
 		"cpp_httplib",
+		"tracy",
 	}
 
 	if not _OPTIONS["without-lobby"] then
@@ -935,6 +938,7 @@ function setup_all_libs ()
 		"icu",
 		"libxml2",
 		"iconv",
+		"tracy",
 	}
 	if not _OPTIONS["without-nvtt"] then
 		table.insert(extern_libs, "nvtt")
@@ -1008,6 +1012,7 @@ function setup_all_libs ()
 		"valgrind",
 		"cxxtest",
 		"fmt",
+		"tracy",
 	}
 
 	-- CPU architecture-specific
@@ -1084,6 +1089,16 @@ function setup_all_libs ()
 	filter "action:vs*"
 		buildoptions { "/wd4551" }
 	filter {}
+
+
+	-- Tracy client (https://github.com/wolfpld/tracy), pulled in as a git submodule
+	-- pinned to v0.14.1 under source/third_party/tracy. TracyClient.cpp / Tracy.hpp
+	-- compile to no-ops unless built with --enable-tracy, so it's always safe to
+	-- include this in the build. Upstream's real layout puts the client source and
+	-- headers under public/ (not include/), see extern_lib_defs["tracy"].
+	extern_libs = { "tracy" }
+	setup_static_lib_project("tracywrapper", {}, extern_libs, { no_pch = 1 })
+	files { third_party_source_dir.."tracy/public/TracyClient.cpp" }
 end
 
 --------------------------------------------------------------------------------
@@ -1112,6 +1127,7 @@ used_extern_libs = {
 	"libsodium",
 	"fmt",
 	"freetype",
+	"tracy",
 
 	"valgrind",
 

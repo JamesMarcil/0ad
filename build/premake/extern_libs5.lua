@@ -694,6 +694,19 @@ extern_lib_defs = {
 			add_third_party_include_paths("tinygettext")
 		end,
 	},
+	tracy = {
+		compile_settings = function()
+			-- Tracy's upstream repo layout (source/third_party/tracy is a git submodule
+			-- pinned to v0.14.1) puts the public headers under public/tracy/*.hpp rather
+			-- than the include/tracy/*.hpp layout used by our other third_party libs.
+			externalincludedirs { third_party_source_dir .. "tracy/public" }
+			-- Tracy.hpp/TracyClient.cpp compile to no-ops unless TRACY_ENABLE is defined,
+			-- so only turn on instrumentation when explicitly requested.
+			if _OPTIONS["enable-tracy"] then
+				defines { "TRACY_ENABLE" }
+			end
+		end,
+	},
 	valgrind = {
 		compile_settings = function()
 			-- Optional dependency
