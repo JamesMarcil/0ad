@@ -34,6 +34,7 @@
 #include "simulation2/system/Entity.h"
 
 #include <cstddef>
+#include <entt/entt.hpp>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -908,6 +909,119 @@ entities:\n\
 
 		man.DestroyComponentsSoon(ent1);
 		man.FlushDestroyedComponents();
+	}
+
+	// EnTT coexistence layer (ADR-001, bd_0ad-1u1.1.2). No component uses the registry yet;
+	// these tests only assert the lifecycle plumbing (registry + entity_id_t <-> entt::entity
+	// mapping) stays consistent across a fresh sim, a ResetState, and a save/load cycle.
+
+	void test_EnTT_freshSim()
+	{
+		CSimContext context;
+		CComponentManager man(context, *g_ScriptContext);
+		man.LoadComponentTypes();
+		man.InitSystemEntity();
+
+		// SYSTEM_ENTITY is always the first registry entity, deterministically.
+		entt::entity sysHandle = man.LookupRegistryEntity(SYSTEM_ENTITY);
+		TS_ASSERT(man.GetRegistry().valid(sysHandle));
+		TS_ASSERT(man.GetRegistry().get<SimEntityId>(sysHandle).id == SYSTEM_ENTITY);
+
+		entity_id_t ent1 = man.AllocateNewEntity();
+		CEntityHandle hnd1 = man.AllocateEntityHandle(ent1);
+		entt::entity handle1 = man.LookupRegistryEntity(ent1);
+		TS_ASSERT(man.GetRegistry().valid(handle1));
+		TS_ASSERT(man.GetRegistry().get<SimEntityId>(handle1).id == ent1);
+
+		entity_id_t localEnt = man.AllocateNewLocalEntity();
+		CEntityHandle localHnd = man.AllocateEntityHandle(localEnt);
+		entt::entity localHandle = man.LookupRegistryEntity(localEnt);
+		TS_ASSERT(man.GetRegistry().valid(localHandle));
+		TS_ASSERT(man.GetRegistry().get<SimEntityId>(localHandle).id == localEnt);
+
+		// Destroying an entity removes its registry entity and mapping.
+		man.DestroyComponentsSoon(ent1);
+		man.FlushDestroyedComponents();
+		TS_ASSERT(man.LookupRegistryEntity(ent1) == entt::null);
+		TS_ASSERT(!man.GetRegistry().valid(handle1));
+
+		(void)hnd1;
+		(void)localHnd;
+	}
+
+	void test_EnTT_resetState()
+	{
+		CSimContext context;
+		CComponentManager man(context, *g_ScriptContext);
+		man.LoadComponentTypes();
+		man.InitSystemEntity();
+
+		entity_id_t ent1 = man.AllocateNewEntity();
+		man.AllocateEntityHandle(ent1);
+		TS_ASSERT(man.GetRegistry().valid(man.LookupRegistryEntity(ent1)));
+
+		man.ResetState();
+
+		// The mapping is fully cleared, and SYSTEM_ENTITY no longer resolves.
+		TS_ASSERT(man.LookupRegistryEntity(SYSTEM_ENTITY) == entt::null);
+		TS_ASSERT(man.LookupRegistryEntity(ent1) == entt::null);
+
+		// A subsequent fresh init produces the same deterministic first registry entity id
+		// (index 0) as an untouched, freshly-constructed manager would.
+		man.InitSystemEntity();
+		entt::entity sysHandleAfterReset = man.LookupRegistryEntity(SYSTEM_ENTITY);
+		TS_ASSERT(man.GetRegistry().valid(sysHandleAfterReset));
+
+		CSimContext freshContext;
+		CComponentManager freshMan(freshContext, *g_ScriptContext);
+		freshMan.LoadComponentTypes();
+		freshMan.InitSystemEntity();
+		entt::entity freshSysHandle = freshMan.LookupRegistryEntity(SYSTEM_ENTITY);
+		TS_ASSERT_EQUALS((u32)entt::to_integral(sysHandleAfterReset), (u32)entt::to_integral(freshSysHandle));
+	}
+
+	void test_EnTT_saveLoadCycle()
+	{
+		CSimContext context;
+		CComponentManager man(context, *g_ScriptContext);
+		man.LoadComponentTypes();
+
+		entity_id_t ent1 = 10, ent2 = 20;
+		CEntityHandle hnd1 = man.AllocateEntityHandle(ent1);
+		CEntityHandle hnd2 = man.AllocateEntityHandle(ent2);
+		CParamNode noParam;
+
+		man.AddComponent(hnd1, CID_Test1A, noParam);
+		man.AddComponent(hnd2, CID_Test1A, noParam);
+
+		TS_ASSERT(man.GetRegistry().valid(man.LookupRegistryEntity(ent1)));
+		TS_ASSERT(man.GetRegistry().valid(man.LookupRegistryEntity(ent2)));
+
+		std::stringstream stateStream;
+		TS_ASSERT(man.SerializeState(stateStream));
+
+		CSimContext context2;
+		CComponentManager man2(context2, *g_ScriptContext);
+		man2.LoadComponentTypes();
+
+		TS_ASSERT(man2.LookupRegistryEntity(ent1) == entt::null);
+
+		TS_ASSERT(man2.DeserializeState(stateStream));
+
+		// DeserializeState resets, re-inits the system entity, and reconstructs every
+		// component; the registry mapping must come back in lockstep for every entity ID
+		// that was in the save.
+		entt::entity sysHandle = man2.LookupRegistryEntity(SYSTEM_ENTITY);
+		TS_ASSERT(man2.GetRegistry().valid(sysHandle));
+		TS_ASSERT(man2.GetRegistry().get<SimEntityId>(sysHandle).id == SYSTEM_ENTITY);
+
+		entt::entity handle1 = man2.LookupRegistryEntity(ent1);
+		TS_ASSERT(man2.GetRegistry().valid(handle1));
+		TS_ASSERT(man2.GetRegistry().get<SimEntityId>(handle1).id == ent1);
+
+		entt::entity handle2 = man2.LookupRegistryEntity(ent2);
+		TS_ASSERT(man2.GetRegistry().valid(handle2));
+		TS_ASSERT(man2.GetRegistry().get<SimEntityId>(handle2).id == ent2);
 	}
 
 };

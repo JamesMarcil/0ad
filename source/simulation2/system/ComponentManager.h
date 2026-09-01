@@ -27,6 +27,7 @@
 #include "simulation2/system/Entity.h"
 
 #include <boost/random/linear_congruential.hpp>
+#include <entt/entity/fwd.hpp>
 #include <iosfwd>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -42,6 +43,17 @@
 class CMessage;
 class JSTracer;
 namespace Script { class Context; }
+
+/**
+ * Reverse-lookup component attached to every entity that has a live entry in
+ * CComponentManager's entt::registry. See ADR-001
+ * (source/simulation2/docs/ADR-001-EnTT-IComponent-Coexistence.md) for the
+ * rationale behind this bidirectional-map scheme.
+ */
+struct SimEntityId
+{
+	entity_id_t id;
+};
 
 class CComponentManager
 {
@@ -258,6 +270,23 @@ public:
 
 	IComponent* QueryInterface(entity_id_t ent, InterfaceId iid) const;
 
+	/**
+	 * Returns the entt::registry backing EnTT-migrated components. Not yet used by any
+	 * gameplay component (see ADR-001); its lifecycle (create/reset/destroy) is kept in
+	 * lockstep with the legacy entity/component state by this manager.
+	 * (Declared out-of-line, and the registry held by pointer, so that this header - included
+	 * by most of the engine - does not need to drag in the full <entt/entity/registry.hpp>
+	 * and its include path; only code that actually touches the registry needs that.)
+	 */
+	entt::registry& GetRegistry();
+	const entt::registry& GetRegistry() const;
+
+	/**
+	 * Returns the entt::entity mapped to @p ent, or entt::null if @p ent has no registry
+	 * entry (e.g. it doesn't exist).
+	 */
+	entt::entity LookupRegistryEntity(entity_id_t ent) const;
+
 	using InterfacePair = std::pair<entity_id_t, IComponent*>;
 	using InterfaceList = std::vector<InterfacePair>;
 	using InterfaceListUnordered = std::unordered_map<entity_id_t, IComponent*>;
@@ -328,6 +357,19 @@ private:
 
 	CEntityHandle AllocateEntityHandle(entity_id_t ent);
 
+	/**
+	 * Creates the registry entity for @p ent and records the entity_id_t <-> entt::entity
+	 * mapping (forward hash map + reverse SimEntityId component). Called once from
+	 * AllocateEntityHandle, the single choke point where an entity_id_t first becomes live.
+	 */
+	void CreateRegistryEntity(entity_id_t ent);
+
+	/**
+	 * Destroys the registry entity for @p ent (if any) and removes the mapping. Called from
+	 * FlushDestroyedComponents, next to the rest of the entity teardown.
+	 */
+	void DestroyRegistryEntity(entity_id_t ent);
+
 	Script::Interface m_ScriptInterface;
 	CSimContext& m_SimContext;
 
@@ -364,6 +406,13 @@ private:
 	entity_id_t m_NextLocalEntityId;
 
 	boost::rand48 m_RNG;
+
+	// EnTT coexistence layer (ADR-001): registry owned by the manager, plus the
+	// bidirectional entity_id_t <-> entt::entity mapping. Not yet used by any component.
+	// Held by pointer (see GetRegistry() comment) so this header doesn't need the full EnTT
+	// registry include path.
+	std::unique_ptr<entt::registry> m_Registry;
+	std::unordered_map<entity_id_t, entt::entity> m_EntityMap;
 
 	friend class TestComponentManager;
 };

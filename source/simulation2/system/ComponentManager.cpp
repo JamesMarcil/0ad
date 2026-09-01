@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <entt/entity/registry.hpp>
 #include <fmt/format.h>
 #include <iterator>
 #include <js/GCAPI.h>
@@ -532,6 +533,15 @@ void CComponentManager::ResetState()
 	m_ComponentCaches.clear();
 	m_SystemEntity = CEntityHandle();
 
+	// Reset the EnTT coexistence layer (ADR-001). We replace the registry object outright
+	// rather than call registry.clear(): clear() is not guaranteed (and wasn't verified for
+	// entt 4.0's storage pools with our usage pattern) to return every pool to a state
+	// observably identical to a freshly constructed registry, and a fresh-vs-reset divergence
+	// here would silently desync SerializeState/ComputeStateHash after "reset then load" vs.
+	// "fresh load". Replacing the object side-steps the question entirely.
+	m_Registry = std::make_unique<entt::registry>();
+	m_EntityMap.clear();
+
 	m_DestructionQueue.clear();
 
 	// Reset IDs
@@ -854,7 +864,46 @@ CEntityHandle CComponentManager::AllocateEntityHandle(entity_id_t ent)
 
 	m_ComponentCaches[ent] = cache;
 
+	CreateRegistryEntity(ent);
+
 	return CEntityHandle(ent, cache);
+}
+
+entt::registry& CComponentManager::GetRegistry()
+{
+	return *m_Registry;
+}
+
+const entt::registry& CComponentManager::GetRegistry() const
+{
+	return *m_Registry;
+}
+
+void CComponentManager::CreateRegistryEntity(entity_id_t ent)
+{
+	ENSURE(m_EntityMap.find(ent) == m_EntityMap.end());
+
+	const entt::entity handle = m_Registry->create();
+	m_Registry->emplace<SimEntityId>(handle, SimEntityId{ ent });
+	m_EntityMap.emplace(ent, handle);
+}
+
+void CComponentManager::DestroyRegistryEntity(entity_id_t ent)
+{
+	auto it = m_EntityMap.find(ent);
+	if (it == m_EntityMap.end())
+		return;
+
+	m_Registry->destroy(it->second);
+	m_EntityMap.erase(it);
+}
+
+entt::entity CComponentManager::LookupRegistryEntity(entity_id_t ent) const
+{
+	auto it = m_EntityMap.find(ent);
+	if (it == m_EntityMap.end())
+		return entt::null;
+	return it->second;
 }
 
 CEntityHandle CComponentManager::LookupEntityHandle(entity_id_t ent, bool allowCreate)
@@ -980,6 +1029,8 @@ void CComponentManager::FlushDestroyedComponents()
 
 			free(handle.GetComponentCache());
 			m_ComponentCaches.erase(ent);
+
+			DestroyRegistryEntity(ent);
 
 			auto hit = m_TraceCache.find(ent);
 			if (hit != m_TraceCache.end())

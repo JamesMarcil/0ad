@@ -740,6 +740,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"tracy", -- Profile.h/Profiler2.h are included here; keep TRACY_ENABLE consistent across TUs.
+		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	if not _OPTIONS["without-miniupnpc"] then
 		table.insert(extern_libs, "miniupnpc")
@@ -755,6 +756,7 @@ function setup_all_libs ()
 		"spidermonkey",
 		"cpp_httplib",
 		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	setup_static_lib_project("rlinterface", source_dirs, extern_libs, { no_pch = 1 })
 
@@ -816,6 +818,7 @@ function setup_all_libs ()
 			"tinygettext",
 			"fmt",
 			"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+			"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
 	else
@@ -829,6 +832,7 @@ function setup_all_libs ()
 			"libsodium",
 			"fmt",
 			"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+			"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
 		files { source_root.."lobby/Globals.cpp" }
@@ -905,6 +909,7 @@ function setup_all_libs ()
 		"freetype",
 		"cpp_httplib",
 		"tracy",
+		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 
 	if not _OPTIONS["without-lobby"] then
@@ -949,6 +954,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"tracy",
+		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	if not _OPTIONS["without-nvtt"] then
 		table.insert(extern_libs, "nvtt")
@@ -968,6 +974,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	setup_static_lib_project("atlas", source_dirs, extern_libs, {})
 
@@ -991,6 +998,7 @@ function setup_all_libs ()
 		"fmt",
 		"libxml2",
 		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	if not _OPTIONS["without-audio"] then
 		table.insert(extern_libs, "openal")
