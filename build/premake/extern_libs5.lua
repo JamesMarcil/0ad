@@ -319,6 +319,13 @@ extern_lib_defs = {
 			end
 		end,
 	},
+	entt = {
+		compile_settings = function()
+			-- EnTT (https://github.com/skypjack/entt) is a header-only library;
+			-- there's nothing to link against, just an include path to add.
+			add_source_include_paths("entt")
+		end,
+	},
 	fcollada = {
 		compile_settings = function()
 			add_source_include_paths("fcollada")

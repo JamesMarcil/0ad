@@ -1246,6 +1246,10 @@ export ARCH CXXFLAGS CFLAGS LDFLAGS CMAKE_FLAGS JOBS
 
 # --------------------------------------------------------------
 # shellcheck disable=SC2086
+./../source/entt/build.sh $build_sh_options || die "EnTT install failed"
+
+# --------------------------------------------------------------
+# shellcheck disable=SC2086
 ./../source/cxxtest-4.4/build.sh $build_sh_options || die "cxxtest build failed"
 
 # --------------------------------------------------------------

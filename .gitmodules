@@ -4,3 +4,6 @@
 [submodule "libraries/source/benchmark/benchmark"]
 	path = libraries/source/benchmark/benchmark
 	url = https://github.com/google/benchmark.git
+[submodule "libraries/source/entt/entt"]
+	path = libraries/source/entt/entt
+	url = https://github.com/skypjack/entt.git

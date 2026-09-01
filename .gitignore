@@ -16,6 +16,8 @@ libraries/win64
 
 libraries/source/benchmark/*
 !libraries/source/benchmark/benchmark
+libraries/source/entt/*
+!libraries/source/entt/entt
 libraries/source/cpp-httplib/*
 libraries/source/cxxtest-4.4/*
 libraries/source/fcollada/*

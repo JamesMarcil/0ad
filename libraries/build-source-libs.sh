@@ -103,6 +103,8 @@ if [ "$with_system_cpp_httplib" = "false" ]; then
 	# shellcheck disable=SC2086
 	./source/cpp-httplib/build.sh $build_sh_options || die "cpp-httplib build failed"
 fi
+# shellcheck disable=SC2086
+./source/entt/build.sh $build_sh_options || die "EnTT install failed"
 if [ "$with_system_cxxtest" = "false" ]; then
 	# shellcheck disable=SC2086
 	./source/cxxtest-4.4/build.sh $build_sh_options || die "cxxtest build failed"
