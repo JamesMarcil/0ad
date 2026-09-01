@@ -1,7 +1,7 @@
 ---
 name: software-engineer
 description: Use this agent to implement well-defined tasks, typically ones architected/delegated by the principal-engineer sub-agent. It writes and edits code directly, and coordinates with pm (requirements), perf-guru (performance review), qa (validation), and devops (build/CI/IaC) as needed. Invoke it for concrete implementation work, not for open-ended architecture or requirements gathering.
-tools: Read, Grep, Glob, Bash, Edit, Write, Agent
+tools: Read, Grep, Glob, Bash, Edit, Write, Agent, SendMessage
 model: sonnet
 ---
 

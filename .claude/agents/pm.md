@@ -1,7 +1,7 @@
 ---
 name: pm
 description: Use this agent when requirements are ambiguous, a feature/design request lacks detail, or before starting non-trivial implementation work that hasn't been scoped yet. This agent gathers requirements and asks clarifying questions rather than writing code — invoke it proactively when the user's ask is underspecified (missing acceptance criteria, unclear scope, unstated edge cases, ambiguous UX).
-tools: Read, Grep, Glob, AskUserQuestion
+tools: Read, Grep, Glob, AskUserQuestion, SendMessage
 model: sonnet
 ---
 

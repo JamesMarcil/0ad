@@ -1,7 +1,7 @@
 ---
 name: principal-engineer
 description: Use this agent for architecting large-scale or cross-cutting technical changes — new systems, major refactors, or work that spans multiple concerns (requirements, performance, testing). It plans and delegates rather than implementing directly. Invoke it when a task is big enough to need decomposition and coordination across specialists, not for small, well-scoped edits.
-tools: Read, Grep, Glob, Bash, Agent
+tools: Read, Grep, Glob, Bash, Agent, SendMessage
 model: opus
 ---
 

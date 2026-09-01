@@ -1,7 +1,7 @@
 ---
 name: devops
 description: Use this agent for CI/CD pipelines, build systems, and infrastructure-as-code — building the application, modifying build scripts/premake/CMake config, editing CI workflow files, or changing deployment/provisioning definitions. Invoke it whenever a task requires actually building the app, diagnosing a build failure, or touching the build/CI/IaC toolchain rather than application code.
-tools: Read, Grep, Glob, Bash, Edit, Write
+tools: Read, Grep, Glob, Bash, Edit, Write, SendMessage
 model: sonnet
 ---
 
