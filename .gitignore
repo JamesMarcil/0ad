@@ -104,6 +104,9 @@ package-lock.json
 desktop.ini
 Thumbs.db
 
+# VIM undo files
+*.un~
+
 # macOS specific data
 .DS_Store
 
