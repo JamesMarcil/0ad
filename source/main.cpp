@@ -362,6 +362,10 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency, DAP
 static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 #endif // CONFIG2_DAP_INTERFACE
 {
+	// Scope the top-level "frame" zone so it closes before FrameMark is
+	// signalled below, keeping the Tracy frame boundary aligned with the
+	// zone instead of bisecting it.
+	{
 	g_Profiler2.RecordFrameStart();
 	PROFILE2("frame");
 	g_Profiler2.IncrementFrameNumber();
@@ -455,11 +459,16 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 	g_Profiler.Frame();
 
 	LimitFPS();
+	}
 	FrameMark;
 }
 
 static void NonVisualFrame()
 {
+	// Scope the top-level "frame" zone so it closes before FrameMark is
+	// signalled below, keeping the Tracy frame boundary aligned with the
+	// zone instead of bisecting it.
+	{
 	g_Profiler2.RecordFrameStart();
 	PROFILE2("frame");
 	g_Profiler2.IncrementFrameNumber();
@@ -479,6 +488,7 @@ static void NonVisualFrame()
 	}
 
 	g_Profiler.Frame();
+	}
 	FrameMark;
 
 	if (g_Game->IsGameFinished())
