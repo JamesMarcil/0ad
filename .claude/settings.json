@@ -1,4 +1,12 @@
 {
+  "permissions": {
+    "deny": [
+      "Task(claude)",
+      "Task(Explore)",
+      "Task(Plan)",
+      "Task(general-purpose)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
