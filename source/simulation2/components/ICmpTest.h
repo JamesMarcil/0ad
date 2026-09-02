@@ -21,7 +21,27 @@
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Interface.h"
 
+#include <cstdint>
 #include <js/Value.h>
+
+/**
+ * Storage structs for Test1EnTT component (declared here rather than in the .cpp
+ * purely so unit tests can assert on registry contents directly).
+ */
+struct Test1EnTTTemplate
+{
+	int32_t initialX;
+};
+
+struct Test1EnTTState
+{
+	int32_t x;
+};
+
+struct Test1EnTTDerived
+{
+	int32_t messagesHandled;
+};
 
 /**
  * Component for testing the simulation system.

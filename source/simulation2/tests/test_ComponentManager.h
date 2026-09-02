@@ -31,6 +31,7 @@
 #include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/components/ICmpTest.h"
 #include "simulation2/system/Component.h"
+#include "simulation2/system/ComponentTest.h"
 #include "simulation2/system/Entity.h"
 
 #include <cstddef>
@@ -47,6 +48,21 @@
 
 #define TS_ASSERT_THROWS_PSERROR(e, t, s) \
 	TS_ASSERT_THROWS_EQUALS(e, const t& ex, std::string(ex.what()), s)
+
+// Mock components for testing coexistence with EnTT-backed components.
+class MockTest1 : public ICmpTest1
+{
+public:
+	DEFAULT_MOCK_COMPONENT()
+	int GetX() override { return 9999; }
+};
+
+class MockTest2 : public ICmpTest2
+{
+public:
+	DEFAULT_MOCK_COMPONENT()
+	int GetX() override { return 4242; }
+};
 
 class TestComponentManager : public CxxTest::TestSuite
 {
@@ -1022,6 +1038,179 @@ entities:\n\
 		entt::entity handle2 = man2.LookupRegistryEntity(ent2);
 		TS_ASSERT(man2.GetRegistry().valid(handle2));
 		TS_ASSERT(man2.GetRegistry().get<SimEntityId>(handle2).id == ent2);
+	}
+
+	void test_EnTT_helperRoundtrip()
+	{
+		// Test the EnTTComponent mixin via Roundtrip, the literal acceptance criterion.
+		ComponentTestHelper helper(*g_ScriptContext);
+		ICmpTest1* cmp = helper.Add<ICmpTest1>(CID_Test1EnTT, "<x>1234</x>", 10);
+		TS_ASSERT_EQUALS(cmp->GetX(), 1234);
+		helper.Roundtrip();
+	}
+
+	void test_EnTT_helperLifecycle()
+	{
+		// Test the component lifecycle: add, access storage, handle messages, destroy.
+		CSimContext context;
+		CComponentManager man(context, *g_ScriptContext);
+		man.LoadComponentTypes();
+
+		entity_id_t ent = 42;
+		CEntityHandle handle = man.AllocateEntityHandle(ent);
+		CParamNode noParam;
+		TS_ASSERT(man.AddComponent(handle, CID_Test1EnTT, noParam));
+
+		ICmpTest1* cmp = static_cast<ICmpTest1*>(man.QueryInterface(ent, IID_Test1));
+		TS_ASSERT(cmp != NULL);
+
+		// Verify that all three storage structs are present on the registry entity.
+		entt::entity regEnt = man.LookupRegistryEntity(ent);
+		TS_ASSERT(man.GetRegistry().valid(regEnt));
+		bool hasAllStorage = man.GetRegistry().all_of<Test1EnTTTemplate, Test1EnTTState, Test1EnTTDerived>(regEnt);
+		TS_ASSERT(hasAllStorage);
+
+		// Initial value should be 11000 (default).
+		TS_ASSERT_EQUALS(cmp->GetX(), 11000);
+
+		// Access storage directly and verify it's live.
+		TS_ASSERT_EQUALS(man.GetRegistry().get<Test1EnTTState>(regEnt).x, 11000);
+		TS_ASSERT_EQUALS(man.GetRegistry().get<Test1EnTTDerived>(regEnt).messagesHandled, 0);
+
+		// Broadcast messages and verify both State and Derived update.
+		CMessageTurnStart turnMsg;
+		man.BroadcastMessage(turnMsg);
+		TS_ASSERT_EQUALS(cmp->GetX(), 11001);  // +1 from MT_TurnStart
+		TS_ASSERT_EQUALS(man.GetRegistry().get<Test1EnTTState>(regEnt).x, 11001);
+		TS_ASSERT_EQUALS(man.GetRegistry().get<Test1EnTTDerived>(regEnt).messagesHandled, 1);
+
+		CMessageInterpolate interpMsg(0, 0, 0);
+		man.BroadcastMessage(interpMsg);
+		TS_ASSERT_EQUALS(cmp->GetX(), 11003);  // +2 from MT_Interpolate
+		TS_ASSERT_EQUALS(man.GetRegistry().get<Test1EnTTState>(regEnt).x, 11003);
+		TS_ASSERT_EQUALS(man.GetRegistry().get<Test1EnTTDerived>(regEnt).messagesHandled, 2);
+
+		// Destroy and verify cleanup.
+		man.DestroyComponentsSoon(ent);
+		man.FlushDestroyedComponents();
+		TS_ASSERT(man.LookupRegistryEntity(ent) == entt::null);
+		TS_ASSERT(!man.GetRegistry().valid(regEnt));
+	}
+
+	void test_EnTT_helperMigrationIsByteInvariant()
+	{
+		// Verify that Test1EnTT and Test1A produce byte-identical serialization.
+		// This is the ADR-001 Decision 4 acceptance criterion.
+		// The Roundtrip test already verifies hash invariance; here we focus on debug/std streams.
+
+		std::stringstream stream_1a_debug, stream_1a_std;
+		std::stringstream stream_1entt_debug, stream_1entt_std;
+
+		{
+			ComponentTestHelper helper(*g_ScriptContext);
+			ICmpTest1* cmp1a = helper.Add<ICmpTest1>(CID_Test1A, "<x>5678</x>", 10);
+
+			CDebugSerializer dbg1a(helper.GetScriptInterface(), stream_1a_debug);
+			cmp1a->Serialize(dbg1a);
+
+			CStdSerializer std1a(helper.GetScriptInterface(), stream_1a_std);
+			cmp1a->Serialize(std1a);
+		}
+
+		{
+			ComponentTestHelper helper(*g_ScriptContext);
+			ICmpTest1* cmp1entt = helper.Add<ICmpTest1>(CID_Test1EnTT, "<x>5678</x>", 10);
+
+			CDebugSerializer dbg1entt(helper.GetScriptInterface(), stream_1entt_debug);
+			cmp1entt->Serialize(dbg1entt);
+
+			CStdSerializer std1entt(helper.GetScriptInterface(), stream_1entt_std);
+			cmp1entt->Serialize(std1entt);
+		}
+
+		// Compare byte streams; hash invariance is validated by test_EnTT_helperRoundtrip.
+		TS_ASSERT_EQUALS(stream_1a_debug.str(), stream_1entt_debug.str());
+		TS_ASSERT_EQUALS(stream_1a_std.str(), stream_1entt_std.str());
+	}
+
+	void test_EnTT_helperResetState()
+	{
+		// Verify that an EnTT-backed component survives ResetState() without crashing,
+		// and that the entity is properly cleaned up afterward.
+		CSimContext context;
+		CComponentManager man(context, *g_ScriptContext);
+		man.LoadComponentTypes();
+
+		entity_id_t ent = 77;
+		CEntityHandle handle = man.AllocateEntityHandle(ent);
+		CParamNode noParam;
+		TS_ASSERT(man.AddComponent(handle, CID_Test1EnTT, noParam));
+
+		entt::entity regEnt = man.LookupRegistryEntity(ent);
+		TS_ASSERT(man.GetRegistry().valid(regEnt));
+
+		// ResetState() should not crash; Deinit() must cleanly detach storage.
+		man.ResetState();
+
+		// After reset, the mapping must be cleared.
+		TS_ASSERT(man.LookupRegistryEntity(ent) == entt::null);
+	}
+
+	void test_EnTT_helperMockComponentUnaffected()
+	{
+		// Verify that mock components coexist peacefully with EnTT-backed components,
+		// and that mocks do not create registry storage.
+		CSimContext context;
+		CComponentManager man(context, *g_ScriptContext);
+		man.LoadComponentTypes();
+
+		// First entity: real EnTT-backed Test1 + mock Test2 on the same entity.
+		entity_id_t ent1 = 55;
+		CEntityHandle handle1 = man.AllocateEntityHandle(ent1);
+
+		CParamNode paramNode;
+		TS_ASSERT(man.AddComponent(handle1, CID_Test1EnTT, paramNode));
+
+		ICmpTest1* realCmp = static_cast<ICmpTest1*>(man.QueryInterface(ent1, IID_Test1));
+		TS_ASSERT(realCmp != NULL);
+		TS_ASSERT_EQUALS(realCmp->GetX(), 11000);
+
+		// Add a mock Test2 component on the same entity to verify coexistence.
+		MockTest2 mockTest2;
+		man.AddMockComponent(handle1, IID_Test2, mockTest2);
+
+		ICmpTest2* test2Mock = static_cast<ICmpTest2*>(man.QueryInterface(ent1, IID_Test2));
+		TS_ASSERT(test2Mock != NULL);
+		TS_ASSERT_EQUALS(test2Mock->GetX(), 4242);
+
+		// Verify the real component still works.
+		TS_ASSERT_EQUALS(realCmp->GetX(), 11000);
+
+		// Verify the real Test1EnTT component's storage is intact alongside the mock.
+		entt::entity regEnt1 = man.LookupRegistryEntity(ent1);
+		TS_ASSERT(man.GetRegistry().valid(regEnt1));
+		bool hasRealStorage = man.GetRegistry().all_of<Test1EnTTTemplate, Test1EnTTState, Test1EnTTDerived>(regEnt1);
+		TS_ASSERT(hasRealStorage);
+
+		// Second entity: test that a mock can stand in for an EnTT-backed component type.
+		// This proves mocks are registry-independent and can coexist with any component type.
+		entity_id_t ent2 = 66;
+		CEntityHandle handle2 = man.AllocateEntityHandle(ent2);
+
+		MockTest1 mockTest1;
+		man.AddMockComponent(handle2, IID_Test1, mockTest1);
+
+		ICmpTest1* test1Mock = static_cast<ICmpTest1*>(man.QueryInterface(ent2, IID_Test1));
+		TS_ASSERT(test1Mock != NULL);
+		TS_ASSERT_EQUALS(test1Mock->GetX(), 9999);  // Mock value
+
+		// Verify the mock did NOT create registry-backed storage.
+		// The entity exists in the registry (AllocateEntityHandle creates one unconditionally),
+		// but it carries NONE of the Test1EnTT storage structs.
+		entt::entity regEnt2 = man.LookupRegistryEntity(ent2);
+		TS_ASSERT(man.GetRegistry().valid(regEnt2));
+		bool hasAnyStorage = man.GetRegistry().any_of<Test1EnTTTemplate, Test1EnTTState, Test1EnTTDerived>(regEnt2);
+		TS_ASSERT(!hasAnyStorage);
 	}
 
 };

@@ -28,6 +28,10 @@ COMPONENT(Test1Scripted)
 INTERFACE(Test2)
 COMPONENT(Test2A)
 COMPONENT(Test2Scripted)
+// IMPORTANT: Test1EnTT must come AFTER Test2Scripted to preserve CID ordering.
+// test_ComponentManager.h::test_serialization hardcodes MD5 hashes that depend on
+// CID_Test1A=1 and CID_Test2A=4. Inserting before Test2A would renumber Test2A and break those hashes.
+COMPONENT(Test1EnTT)
 
 // Message types:
 MESSAGE(TurnStart)

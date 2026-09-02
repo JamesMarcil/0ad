@@ -209,4 +209,158 @@ the existing message system. No new coupling is introduced.
 * The near-term win is data layout and cache locality within the storage of a migrated
   component, plus the ability to write real systems later. It is not an immediate reduction
   in per-access cost, and migration tasks should not be justified on that basis.
+
+## Appendix A: Storage struct conventions (bd_0ad-1u1.1.3)
+
+Each migrated component splits its per-entity state into separate entt component structs by
+lifetime and serialization role, so that future cache-sensitive iteration does not drag
+cold data through the CPU cache:
+
+1. **`<Name>Template`** — Values parsed from the entity's template in `Init()`. Read-only
+   thereafter. This struct is cold and accessed infrequently. It is re-derived on
+   `Deserialize()` (which is why `Deserialize` receives the `CParamNode`). Never written to
+   the save stream.
+
+2. **`<Name>State`** — Mutable simulation state, the **only** struct whose contents are
+   read/written by `Serialize`/`Deserialize` and hashed by `ComputeStateHash`. Must be POD-ish
+   and small; this is the hot struct that future systems will iterate at high frequency.
+
+3. **`<Name>Derived`** — Non-serialized derived/interpolation/render-facing state, fully
+   reconstructible from `<Name>Template` + `<Name>State`. Must never be serialized or hashed,
+   and must be re-derived on `Deserialize()`.
+
+**Rules:**
+* One struct per kind (Template, State, Derived) per `IComponent` type.
+* Never share a struct between two `IComponent` types.
+* No self-referential pointers or pointers-into-sibling-structs (entt pools reallocate on
+  emplace/remove, so inter-struct references are invalid after pool reallocation).
+* A component may only `Get<T>()` its own declared structs (enforced by the mixin's
+  static_assert in `source/simulation2/system/EnTTComponent.h`), never another component's
+  storage. Cross-component access goes through `ICmpX` interfaces per Decision 5.
+* Corollary from Decision 3: never hold a `T&`/`T*` obtained from `Get<T>()` across any call
+  that could emplace or remove that storage type, because pools reallocate. Read into a
+  local, or re-`Get()` at point of use.
+
+**Allocator / proxy lifetime:**
+`DEFAULT_COMPONENT_ALLOCATOR`'s plain `new CCmpX()` already produces the individually-
+heap-allocated, address-stable proxy that Decision 3 requires (see ComponentManager.cpp:793).
+The `EnTTComponent` mixin adds only a couple of words of member data and requires no custom
+construction. **These proxies must NEVER be pooled or arena-allocated**, as that would move
+them and break `SEntityComponentCache`, `CmpPtr`, and the unit motion manager.
+
+**Determinism:**
+See Decision 4 for the constraints on state-observing code (serialization, hashing, debug
+dumps). The EnTT backing changes only per-component storage layout, not the traversal order
+of state-observable functions; they still iterate `m_ComponentsByTypeId` in ascending
+`ComponentTypeId` order, so serialization output is byte-identical before and after migration.
+
+### Cost of the indirection
+
+The Consequences section states the migration is "not an immediate reduction in per-access
+cost". That understates the regression and deserves sharpening: even with the pool pointer
+cached, `Get<T>()` is `basic_storage::get` → `element_at(index(entity))`, and both the sparse
+index and the payload are paged (`ENTT_SPARSE_PAGE=4096`, `ENTT_PACKED_PAGE=1024`). This means
+~5-6 serially dependent loads across 3-4 cache lines, versus 1 load (usually already-hot) for
+the plain member variable it replaces. That is ~15-30 extra L1-latency cycles per access.
+
+However, each accessor call already sits behind a virtual `ICmpX` interface boundary (and
+often a `CComponentManager::QueryInterface` hash lookup to fetch the proxy), so the marginal
+cost per accessor *call* is more like +30-60% than 6x. But it is a measurable *increase*, not
+neutral.
+
+**The payoff arrives only when real systems iterate pools directly**, i.e. when migration
+enables a system to hold the registry lock and walk all instances of a single storage struct
+in tight-loop order without the virtual-call indirection. Until then, porting a component
+should be justified on per-component code clarity and future-proofing, not immediate
+performance.
+
+### Why `Get<T>()` does not call `registry::get<T>()`
+
+This is the central reason the `EnTTComponent` mixin exists at all. `entt::registry::get<T>()`
+(registry.hpp:857) routes through `assure<T>()` (registry.hpp:221), which does
+`pools.find(type_hash<T>::value())` on an `entt::dense_map`: ~4-5 serially dependent loads
+across 3 cache lines, roughly doubling the access path.
+
+Also: `type_hash<T>::value()` is a compile-time constant *only* because the build does not
+define `ENTT_STANDARD_CPP`; if that ever changes, it degrades to a non-inlinable `ENTT_API`
+function call with a function-local static guard per access.
+
+Finally: in any "release with asserts" configuration, `registry.hpp:229`'s
+`ENTT_ASSERT(it->second->info() == type_id<Type>())` is a **virtual call per access**. The
+mixin's cached pool pointer makes the entire implementation immune to all three.
+
+### Cached-pool-pointer validity rules
+
+Pool addresses are stable for the registry object's lifetime because `pools` holds
+`std::allocate_shared`'d storage objects; growing/rehashing `pools` moves shared_ptrs, not
+the pooled storage objects themselves.
+
+The only operations that invalidate a cached pool pointer:
+
+* **`registry::reset(id)` (registry.hpp:435)** — erases the pool outright. **Must never be called
+  on an active EnTT-backed component's storage id.** ResetState() is safe because it destroys
+  all component proxies (and calls Deinit, which detaches storage) before resetting pools.
+
+* **`registry::swap()` and `operator=(basic_registry&&)`** (registry.hpp:343) — implemented as
+  swap, which orphans the old registry. **Hard invariant: every proxy must be destroyed before
+  the registry object is replaced.** `ResetState()` satisfies this (Deinit + dealloc loop
+  runs before `m_Registry = std::make_unique<...>()`). This invariant is currently only
+  implied; a follow-up bead will add ENSURE-guards at ComponentManager call sites.
+
+* **NOT an invalidator: `registry::clear()`** (registry.hpp:922) — clears pool contents, never
+  erases pools themselves.
+
+* **Named-id storage:** `storage<T>(id)` accepts a non-default id; two different ids give two
+  distinct pools of the same type. Storage structs **must use default ids only**.
+
+* **Owning groups:** permanently reorder an owned pool's packed array (moves elements, not the
+  pool). Safe here because the mixin never caches element addresses, only the pool itself.
+
+### Mandated access idiom
+
+An accessor (whether public `GetX()` or message handler) must do **one `Get<T>()` call per
+storage struct and read/write multiple fields off that single reference**, never one `Get<T>()`
+per field. Each `Get()` is a fresh sparse-set walk (index lookup), so grouping accesses saves
+time and helps readability. Bind the result to a reference at the top of the function, e.g.:
+
+```cpp
+Test1EnTTState& state = Get<Test1EnTTState>();
+Test1EnTTDerived& derived = Get<Test1EnTTDerived>();
+state.x += 1;
+derived.messagesHandled += 1;
+```
+
+This idiom is safe because nothing in that scope can emplace or remove storage — exactly the
+ADR-001 Decision 3 corollary.
+
+Mock components (`AddMockComponent`) are **not registry-backed** and must not inherit
+`EnTTComponent`. They are registered only in `m_ComponentsByInterface`, never in the registry.
+
+### Open question: the three-way split
+
+The Template/State/Derived convention is specified above and kept for now, but the perf review
+has raised a valid concern: it may be wrong for random per-entity access patterns in the
+proxy era.
+
+Three pools means up to 3x the dependent-load chains and up to 12 cache lines touched (vs 4)
+when reading multiple structs together, plus ~3x the per-entity index overhead (each pool
+carries its own sparse pages and packed entity arrays — roughly 240 KB vs 80 KB of pure index
+at 10k entities for a component like CCmpPosition). The real win comes only when a system
+streams **one struct** across many entities; the split loses if one entity's structs are read
+together.
+
+**Splitting wins when:** a system iterates all `Position::State` (and only State) across 10k
+entities in tight cache-efficient order.
+
+**Splitting loses when:** an accessor always touches State + Derived together (wasted indices,
+wasted cache lines, wasted page faults).
+
+**Crossover rule:** if an accessor is found touching `Template` per-frame, that field is
+misclassified and belongs in `State`. If `Derived` is *always* accessed together with `State`,
+consider merging them (breaking the three-way split). Both are reversible.
+
+A benchmark bead will settle this empirically before CCmpPosition is ported. Until then, the
+convention is deliberately reversible and should be left as specified.
+
+See also: `source/simulation2/system/EnTTComponent.h` for the CRTP helper and usage pattern.
 </content>

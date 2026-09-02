@@ -22,6 +22,7 @@
 #include "simulation2/MessageTypes.h"
 #include "simulation2/scripting/ScriptComponent.h"
 #include "simulation2/system/Component.h"
+#include "simulation2/system/EnTTComponent.h"
 #include "simulation2/system/Message.h"
 
 #include <cstdint>
@@ -246,3 +247,94 @@ public:
 };
 
 REGISTER_COMPONENT_SCRIPT_WRAPPER(Test2Scripted)
+
+////////////////////////////////////////////////////////////////
+
+class CCmpTest1EnTT : public ICmpTest1, public EnTTComponent<CCmpTest1EnTT, Test1EnTTTemplate, Test1EnTTState, Test1EnTTDerived>
+{
+public:
+	static void ClassInit(CComponentManager& componentManager)
+	{
+		componentManager.SubscribeToMessageType(MT_TurnStart);
+		componentManager.SubscribeToMessageType(MT_Interpolate);
+	}
+
+	DEFAULT_COMPONENT_ALLOCATOR(Test1EnTT)
+
+	static std::string GetSchema()
+	{
+		return "<a:component type='test'/><ref name='anything'/>";
+	}
+
+	void Init(const CParamNode& paramNode) override
+	{
+		AttachStorage();
+
+		int32_t initialX = 11000;
+		if (paramNode.GetChild("x").IsOk())
+			initialX = paramNode.GetChild("x").ToInt();
+
+		// Demonstrate the mandated idiom (ADR-001 Appendix A, D4): bind references once per
+		// storage struct and read/write multiple fields through them. This is safe because
+		// nothing in this scope emplaces or removes storage.
+		Test1EnTTTemplate& templ = Get<Test1EnTTTemplate>();
+		Test1EnTTState& state = Get<Test1EnTTState>();
+		Test1EnTTDerived& derived = Get<Test1EnTTDerived>();
+
+		templ.initialX = initialX;
+		state.x = initialX;
+		derived.messagesHandled = 0;
+	}
+
+	void Deinit() override
+	{
+		DetachStorage();
+	}
+
+	void Serialize(ISerializer& serialize) override
+	{
+		serialize.NumberI32_Unbounded("x", Get<Test1EnTTState>().x);
+	}
+
+	void Deserialize(const CParamNode& paramNode, IDeserializer& deserialize) override
+	{
+		Init(paramNode);
+		// Use a local variable to receive the deserialized value, then assign it to pool storage.
+		// This models the ADR-001 Decision 3 corollary: avoid holding references into pool storage
+		// across calls that might reallocate it.
+		int32_t x;
+		deserialize.NumberI32_Unbounded("x", x);
+		Get<Test1EnTTState>().x = x;
+	}
+
+	int GetX() override
+	{
+		return Get<Test1EnTTState>().x;
+	}
+
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
+	{
+		// Demonstrate the mandated idiom (ADR-001 Appendix A, D4): bind references once per
+		// storage struct at the top of the function. This is safe because nothing in this scope
+		// emplaces or removes storage.
+		Test1EnTTState& state = Get<Test1EnTTState>();
+		Test1EnTTDerived& derived = Get<Test1EnTTDerived>();
+
+		switch (msg.GetType())
+		{
+		case MT_TurnStart:
+			state.x += 1;
+			derived.messagesHandled += 1;
+			break;
+		case MT_Interpolate:
+			state.x += 2;
+			derived.messagesHandled += 1;
+			break;
+		default:
+			state.x = 0;
+			break;
+		}
+	}
+};
+
+REGISTER_COMPONENT_TYPE(Test1EnTT)
