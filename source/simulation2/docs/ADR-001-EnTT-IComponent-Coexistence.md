@@ -182,7 +182,7 @@ and is not stable across equivalent-but-differently-ordered histories. Therefore
   sorted by `entity_id_t` before being consumed. Where a system needs deterministic order,
   sort a gathered `entity_id_t` list, or use `registry.sort<T>()` with an `entity_id_t`
   comparator, and state that in a comment at the loop.
-* `bd_0ad-1u1.1.4` (determinism guard rails) is the enforcement vehicle for these rules.
+* Determinism guard rails are documented in [source/simulation2/docs/EnTT-Determinism-Rules.md](EnTT-Determinism-Rules.md), delivered by `bd_0ad-1u1.1.4`.
 
 ## Decision 5: boundary with not-yet-migrated components
 

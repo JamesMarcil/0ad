@@ -78,9 +78,14 @@
  * Get<T>() across any call that could emplace or remove that storage type, because
  * entt pools reallocate. Read into a local, or re-Get at point of use.
  *
- * Component-data access only: this mixin provides per-entity access and introduces
- * no registry views or pool iteration. See ADR-001 Decision 4 for cross-component
- * ordering guarantees and the determinism rules that apply.
+ * **Determinism rules** (see source/simulation2/docs/EnTT-Determinism-Rules.md):
+ * R1 — No order-dependent mutation during view iteration. EnTT views and pools iterate
+ *       in swap-and-pop packed order, not entity_id_t. Use ForEachOrderedByEntityId
+ *       (source/simulation2/system/EnTTOrderedIteration.h) for order-sensitive work.
+ * R2 — Serialized output must never depend on storage order. Serialize/Deserialize
+ *       must traverse by entity_id_t (via m_ComponentsByTypeId), never by pool iteration.
+ * R3 — No reinterpret_cast between entity_id_t and entt::entity. Convert only via
+ *       CComponentManager::LookupRegistryEntity() and the SimEntityId reverse-lookup component.
  *
  * Important: EnTTComponent.h is opt-in and must only be included by .cpp files
  * of components actually backed by the registry. It pulls in entt/entity/registry.hpp

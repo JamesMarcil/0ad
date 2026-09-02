@@ -23,6 +23,7 @@
 #include "simulation2/scripting/ScriptComponent.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/EnTTComponent.h"
+#include "simulation2/system/EnTTOrderedIteration.h"
 #include "simulation2/system/Message.h"
 
 #include <cstdint>
@@ -338,3 +339,23 @@ public:
 };
 
 REGISTER_COMPONENT_TYPE(Test1EnTT)
+
+// Sanity check: compile-time instantiation test for ForEachOrderedByEntityId (debug only)
+#ifndef NDEBUG
+namespace {
+// This function forces the template to be instantiated and compiled.
+// Any compilation errors in EnTTOrderedIteration.h will be caught here.
+extern void CCmpTest_ForEachOrderedByEntityId_InstantiationCheck(entt::registry&);
+void CCmpTest_ForEachOrderedByEntityId_InstantiationCheck(entt::registry& registry)
+{
+	EnTTDeterminism::ForEachOrderedByEntityId<Test1EnTTState>(registry,
+		[](entity_id_t, entt::entity, Test1EnTTState&) { /* no-op */ });
+
+	const entt::registry& creg = registry;
+	EnTTDeterminism::ForEachOrderedByEntityId<const Test1EnTTTemplate>(creg,
+		[](entity_id_t, entt::entity) { /* no-op */ });
+}
+// Force instantiation by taking the address
+[[maybe_unused]] static auto g_forEachCheck = &CCmpTest_ForEachOrderedByEntityId_InstantiationCheck;
+}  // anonymous namespace
+#endif  // NDEBUG
