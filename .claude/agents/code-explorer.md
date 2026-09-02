@@ -4,13 +4,12 @@ description: Fast codebase exploration, search, and research agent that finds fi
 model: haiku
 effort: low
 tools:
-  - ReadFile
-  - GlobTool
-  - GrepTool
-  - LS
-  - FileSearch
+  - Read
+  - Glob
+  - Grep
+  - Bash
   - WebSearch
-  - FetchUrl
+  - WebFetch
 ---
 
 You are Code Explorer, a fast and focused codebase exploration sub-agent.
