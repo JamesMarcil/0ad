@@ -28,6 +28,7 @@ else
 	libraries_source_dir = rootdir.."/libraries/source/"
 end
 third_party_source_dir = rootdir.."/source/third_party/"
+header_only_source_dir = rootdir.."/libraries/source/"
 
 local function add_default_lib_paths(extern_lib)
 	libdirs { libraries_dir .. extern_lib .. "/lib" }
@@ -43,6 +44,14 @@ end
 
 local function add_source_include_paths(extern_lib)
 	externalincludedirs { libraries_source_dir .. extern_lib .. "/include" }
+end
+
+-- Header-only libs vendored as git submodules under libraries/source/<lib>/<lib>.
+-- These have no per-platform binaries, so the path is the same on every OS and
+-- must NOT go through libraries_source_dir (which is the prebuilt win64 bundle
+-- on Windows).
+local function add_header_only_source_include_paths(extern_lib, subpath)
+	externalincludedirs { header_only_source_dir .. extern_lib .. "/" .. subpath }
 end
 
 local function add_third_party_include_paths(extern_lib)
@@ -323,7 +332,10 @@ extern_lib_defs = {
 		compile_settings = function()
 			-- EnTT (https://github.com/skypjack/entt) is a header-only library;
 			-- there's nothing to link against, just an include path to add.
-			add_source_include_paths("entt")
+			-- libraries/source/entt/entt/src is the submodule checkout's own include root
+			-- (contains entt/entt.hpp, entt/entity/registry.hpp, etc.), so no install/copy
+			-- step is needed on any platform.
+			add_header_only_source_include_paths("entt", "entt/src")
 		end,
 	},
 	fcollada = {
