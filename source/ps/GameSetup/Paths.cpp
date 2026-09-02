@@ -164,6 +164,17 @@ Paths::Paths(const CmdLineArgs& args)
 
 #endif
 	}
+
+	// Override log directory if -logDir is specified.
+	// This takes precedence over all OS-specific and -writableRoot settings.
+	if (args.Has("logDir"))
+	{
+		const CStr logDirArg = args.Get("logDir");
+		if (!logDirArg.empty())
+		{
+			m_logs = OsPath(logDirArg) / "";
+		}
+	}
 }
 
 
