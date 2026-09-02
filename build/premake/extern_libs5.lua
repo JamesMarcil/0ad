@@ -236,7 +236,7 @@ extern_lib_defs = {
 				win_names  = { "benchmark" },
 				unix_names = { "benchmark" },
 				osx_names = { "benchmark" },
-				dbg_suffix = "",
+				dbg_suffix = "d",
 				no_delayload = 1,
 			})
 			if os.istarget("windows") then
