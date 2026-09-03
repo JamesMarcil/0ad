@@ -1182,18 +1182,35 @@ public:
 	{
 		PROFILE3("ExecuteActiveQueries");
 
-		std::mutex mtx;
-
-		// Points to the first unexecuted query (to be processed next).
-		std::map<tag_t, Query>::iterator it = m_Queries.begin();
+		// Flatten m_Queries into a vector to avoid per-query lock overhead.
+		// CRITICAL for determinism: include ALL queries (enabled and disabled), in ascending tag_t order,
+		// so that activeQueries[i] always corresponds to the i-th query in m_Queries.
+		// The original code assigned indices strictly by map iteration rank (never filtered before indexing);
+		// disabling/enabling queries on one copy vs another would not affect determinism because indices
+		// were independent of enabled state. Filtering here would couple indices to mutable state, breaking
+		// that guarantee. The enabled check happens inside the batch loop instead.
+		std::vector<std::pair<tag_t, Query*>> activeQueries;
+		activeQueries.reserve(m_Queries.size());
+		for (auto& kv : m_Queries)
+		{
+			activeQueries.push_back({kv.first, &kv.second});
+		}
+		const size_t n = activeQueries.size();
 
 		// Store a queue of all range update messages before sending any, since they modify the state of the simulation
 		// (including this component), which would interfere with the asynchronous tasks.
 		// Important: The order of messages must be fully deterministic.
-		std::vector<std::optional<RangeUpdateMessage>> messages(m_Queries.size());
+		// Index i in messages[] corresponds to index i in activeQueries[] (and m_Queries rank i).
+		std::vector<std::optional<RangeUpdateMessage>> messages(n);
 
-		// Used to write update messages to the corresponding index in the message vector and maintain the original order.
-		size_t messageIdx = 0;
+		// Padded atomic cursor to avoid false sharing with other captured locals.
+		// Workers batch-process queries to amortize the cost of synchronization.
+		struct alignas(64) BatchCursor { std::atomic<size_t> value{0}; char pad[64 - sizeof(std::atomic<size_t>)]; } cursor;
+
+		size_t numFutures = std::min(g_TaskManager.GetNumberOfWorkers(), n);
+
+		// Compute batch size to balance task granularity and synchronization overhead.
+		const size_t batchSize = std::clamp<size_t>(n / ((numFutures + 1) * 4), size_t(1), size_t(16));
 
 		const auto ProcessQueriesAsync = [&](std::vector<entity_id_t>& subdivisionResultsBuffer) {
 				PROFILE2("Async range query execution");
@@ -1204,60 +1221,53 @@ public:
 
 				while (true)
 				{
-					size_t idxCopy;
-					std::map<tag_t, Query>::iterator itCopy;
+					// Claim a batch of queries without holding any lock.
+					const size_t begin = cursor.value.fetch_add(batchSize, std::memory_order_relaxed);
+					if (begin >= n)
+						break;
 
+					const size_t end = std::min(begin + batchSize, n);
+					for (size_t idx = begin; idx < end; ++idx)
 					{
-						// Critical section:
-						// Retrieve the next query to process or stop if none are left.
+						const tag_t tag = activeQueries[idx].first;
+						Query& query = *activeQueries[idx].second;
 
-						std::lock_guard lg(mtx);
-						if (it == m_Queries.end())
-							break;
+						if (!query.enabled)
+							continue;
 
-						itCopy = it++; // Only copy the iterator now and dereference it later, outside the critical section.
-						idxCopy = messageIdx++;
+						results.clear();
+						CmpPtr<ICmpPosition> cmpSourcePosition(query.source);
+						if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
+						{
+							results.reserve(query.lastMatch.size());
+							PerformQuery(query, results, cmpSourcePosition->GetPosition2D(), subdivisionResultsBuffer);
+						}
+
+						// Compute the changes vs the last match
+						added.clear();
+						removed.clear();
+						// Return the 'added' list sorted by distance from the entity
+						// (Don't bother sorting 'removed' because they might not even have positions or exist any more)
+						std::set_difference(results.begin(), results.end(), query.lastMatch.begin(), query.lastMatch.end(),
+							std::back_inserter(added));
+						std::set_difference(query.lastMatch.begin(), query.lastMatch.end(), results.begin(), results.end(),
+							std::back_inserter(removed));
+						if (added.empty() && removed.empty())
+							continue;
+
+						if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
+							std::stable_sort(added.begin(), added.end(), EntityDistanceOrdering(m_EntityData, cmpSourcePosition->GetPosition2D()));
+
+						// Safe because it's guaranteed that no two threads can write to the same index anyway.
+						messages[idx].emplace(
+							query.source.GetId(),
+							CMessageRangeUpdate(tag, std::move(added), std::move(removed))
+						);
+						query.lastMatch.swap(results);
 					}
-
-					tag_t tag = itCopy->first;
-					Query& query = itCopy->second;
-
-					if (!query.enabled)
-						continue;
-
-					results.clear();
-					CmpPtr<ICmpPosition> cmpSourcePosition(query.source);
-					if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
-					{
-						results.reserve(query.lastMatch.size());
-						PerformQuery(query, results, cmpSourcePosition->GetPosition2D(), subdivisionResultsBuffer);
-					}
-
-					// Compute the changes vs the last match
-					added.clear();
-					removed.clear();
-					// Return the 'added' list sorted by distance from the entity
-					// (Don't bother sorting 'removed' because they might not even have positions or exist any more)
-					std::set_difference(results.begin(), results.end(), query.lastMatch.begin(), query.lastMatch.end(),
-						std::back_inserter(added));
-					std::set_difference(query.lastMatch.begin(), query.lastMatch.end(), results.begin(), results.end(),
-						std::back_inserter(removed));
-					if (added.empty() && removed.empty())
-						continue;
-
-					if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
-						std::stable_sort(added.begin(), added.end(), EntityDistanceOrdering(m_EntityData, cmpSourcePosition->GetPosition2D()));
-
-					// Safe because it's guaranteed that no two threads can write to the same index anyway.
-					messages[idxCopy].emplace(
-						query.source.GetId(),
-						CMessageRangeUpdate(tag, std::move(added), std::move(removed))
-					);
-					query.lastMatch.swap(results);
 				}
 			};
 
-		size_t numFutures = std::min(g_TaskManager.GetNumberOfWorkers(), m_Queries.size());
 		std::vector<Future<void>> futures;
 		futures.reserve(numFutures);
 		for (size_t i = 0; i < numFutures; i++)
