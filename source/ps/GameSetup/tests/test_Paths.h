@@ -85,20 +85,25 @@ public:
 	void test_logdir_precedence()
 	{
 		// -logDir should take precedence over -writableRoot
+#if OS_WIN
+		constexpr std::array<const char*, 3> argv = {
+			"program",
+			"-writableRoot",
+			"-logDir=C:\\custom\\logs"
+		};
+		const OsPath expectedLogs(L"C:\\custom\\logs\\");
+#else
 		constexpr std::array<const char*, 3> argv = {
 			"program",
 			"-writableRoot",
 			"-logDir=/custom/logs"
 		};
+		const OsPath expectedLogs(L"/custom/logs/");
+#endif
 		CmdLineArgs args(argv);
 		Paths paths(args);
 
 		// The logs path should be the overridden value, not from writableRoot
-#if OS_WIN
-		const OsPath expectedLogs(L"/custom/logs\\");
-#else
-		const OsPath expectedLogs(L"/custom/logs/");
-#endif
 		TS_ASSERT_EQUALS(paths.Logs(), expectedLogs);
 	}
 
