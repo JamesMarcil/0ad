@@ -137,6 +137,14 @@ bool g_CheckedIfInDevelopmentCopy = false;
 
 ErrorReactionInternal psDisplayError(const wchar_t* /*text*/, size_t /*flags*/)
 {
+	// In headless/nonvisual mode there is no user present to click a dialog
+	// button, so showing one would hang the process forever (e.g. automated
+	// -autostart-nonvisual game runs, non-visual replay playback, CI, scripted runs).
+	// The error text is already written to stderr/log and the crash log by
+	// debug_DisplayError regardless of this return value, so nothing is lost.
+	if (g_CmdLineArgs.Has("autostart-nonvisual") || g_CmdLineArgs.Has("replay"))
+		return ERI_CONTINUE;
+
 	// If we're fullscreen, then sometimes (at least on some particular drivers on Linux)
 	// displaying the error dialog hangs the desktop since the dialog box is behind the
 	// fullscreen window. So we just force the game to windowed mode before displaying the dialog.

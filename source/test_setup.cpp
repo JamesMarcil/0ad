@@ -26,6 +26,7 @@
 
 #include "lib/self_test.h"
 
+#include "lib/app_hooks.h"
 #include "lib/code_generation.h"
 #include "lib/debug.h"
 #include "lib/os_path.h"
@@ -49,6 +50,16 @@
 #include <memory>
 #include <optional>
 #include <string>
+
+// The test binary is fully headless/non-interactive: there is no user to
+// click a dialog button, so showing one (e.g. for an ENSURE/debug_assert
+// failure hit during a test) would hang the test run forever. The error
+// text is still logged unconditionally by debug_DisplayError regardless of
+// this return value, so nothing is lost by suppressing the dialog.
+static ErrorReactionInternal test_DisplayError(const wchar_t* /*text*/, size_t /*flags*/)
+{
+	return ERI_CONTINUE;
+}
 
 class LeakReporter : public CxxTest::GlobalFixture
 {
@@ -82,6 +93,10 @@ class MiscSetup : public CxxTest::GlobalFixture
 #endif
 
 		Threading::SetMainThread();
+
+		app_hooks_update({
+			.display_error = test_DisplayError
+		});
 
 		g_Profiler2.Initialise();
 		m_ScriptEngine = new Script::Engine;

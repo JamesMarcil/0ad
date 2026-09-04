@@ -35,6 +35,7 @@ that of Atlas depending on commandline parameters.
 #include "graphics/GameView.h"
 #include "graphics/TextureManager.h"
 #include "gui/GUIManager.h"
+#include "lib/app_hooks.h"
 #include "lib/config2.h"
 #include "lib/debug.h"
 #include "lib/external_libraries/libsdl.h"
@@ -609,6 +610,12 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 	if (isNonVisualReplay)
 	{
+		// This path intentionally skips InitVfs()/Init() (see below), which is
+		// normally what registers this hook — register it explicitly here so
+		// an assertion during headless replay playback doesn't pop a modal
+		// dialog and hang forever (see bd_0ad-5zm).
+		app_hooks_update({ .display_error = psDisplayError });
+
 		Paths paths(args);
 		g_VFS = CreateVfs();
 		// Mount with highest priority, we don't want mods overwriting this.

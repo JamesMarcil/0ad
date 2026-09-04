@@ -18,6 +18,7 @@
 #ifndef INCLUDED_GAMESETUP
 #define INCLUDED_GAMESETUP
 
+#include "lib/debug.h"
 #include "ps/CStr.h"
 #include "ps/Input.h"
 
@@ -65,6 +66,14 @@ extern const std::vector<CStr>& GetMods(const CmdLineArgs& args, int flags);
 extern void MountMods(const Paths& paths, const std::vector<CStr>& mods);
 
 void InitVfs(const CmdLineArgs& args);
+
+/**
+ * Error-display app hook used by InitVfs. Suppresses the GUI error dialog
+ * in headless contexts (see bd_0ad-5zm). Exposed here so callers that
+ * intentionally skip InitVfs (e.g. non-visual replay playback in main.cpp)
+ * can still register it explicitly.
+ **/
+ErrorReactionInternal psDisplayError(const wchar_t* text, size_t flags);
 
 /**
  * Returns true if successful, false if Init is aborted early (for instance if
