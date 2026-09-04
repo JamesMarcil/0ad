@@ -54,6 +54,19 @@ local function add_header_only_source_include_paths(extern_lib, subpath)
 	externalincludedirs { header_only_source_dir .. extern_lib .. "/" .. subpath }
 end
 
+-- Source-built (compiled) libs vendored as git submodules under libraries/source/<lib>.
+-- These are built by build.sh and installed to libraries/source/<lib>/{include,lib}.
+-- Unlike prebuilt-bundle libs, they have no per-platform variants and must
+-- always resolve to libraries/source/ regardless of platform (never through
+-- libraries_source_dir, which is the prebuilt win64 bundle on Windows).
+local function add_source_only_include_paths(extern_lib)
+	externalincludedirs { header_only_source_dir .. extern_lib .. "/include" }
+end
+
+local function add_source_only_lib_paths(extern_lib)
+	libdirs { header_only_source_dir .. extern_lib .. "/lib" }
+end
+
 local function add_third_party_include_paths(extern_lib)
 	externalincludedirs { third_party_source_dir .. extern_lib .. "/include" }
 end
@@ -225,12 +238,12 @@ extern_lib_defs = {
 			-- with __declspec(dllimport) on Windows and the link step fails.
 			defines { "BENCHMARK_STATIC_DEFINE" }
 			if not _OPTIONS["with-system-benchmark"] then
-				add_source_include_paths("benchmark")
+				add_source_only_include_paths("benchmark")
 			end
 		end,
 		link_settings = function()
 			if not _OPTIONS["with-system-benchmark"] then
-				add_source_lib_paths("benchmark")
+				add_source_only_lib_paths("benchmark")
 			end
 			add_default_links({
 				win_names  = { "benchmark" },
