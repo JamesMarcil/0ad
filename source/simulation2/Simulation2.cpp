@@ -85,12 +85,16 @@ public:
 		// Tests won't have config initialised
 		m_EnableOOSLog{debugOptions.oosLog || CConfigDB::GetIfInitialised("ooslog", false)},
 		// Handle bogus values of the arg
-		m_SerializationTestTurn{[&]
+		m_SerializationTestTurn{[&]() -> std::optional<turn_id_t>
 		{
 			const auto* serializationTestOption{
 				std::get_if<SimulationDebugOptions::SerializationTest>(&debugOptions.test)};
-			return serializationTestOption ? serializationTestOption->turn :
-				std::max(CConfigDB::GetIfInitialised("serializationtest", -1), -1);
+			if (serializationTestOption)
+				return serializationTestOption->turn;
+			const turn_id_t configVal{CConfigDB::GetIfInitialised("serializationtest", -1)};
+			if (configVal >= 0)
+				return configVal;
+			return std::nullopt;
 		}()},
 		m_RejoinTestTurn{[&]() -> std::optional<turn_id_t>
 		{
@@ -107,6 +111,12 @@ public:
 		m_ComponentManager.LoadComponentTypes();
 
 		RegisterFileReloadFunc(ReloadChangedFileCB, this);
+
+		if (m_SerializationTestTurn.has_value())
+		{
+			LOGMESSAGE("Serialization test mode enabled: will start at turn %d. Note: secondary simulation rebuilds every turn after start, limiting throughput to ~2 turns/sec",
+				m_SerializationTestTurn.value());
+		}
 
 		if (m_EnableOOSLog)
 		{
@@ -430,7 +440,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 	if (m_TestingSerialization || startRejoinTest)
 	{
 		if (startSerializationTest)
-			debug_printf("Starting serializationtest\n");
+			LOGMESSAGE("Starting serialization test at turn %d", m_TurnNumber);
 		if (startRejoinTest)
 			debug_printf("Initializing the secondary simulation\n");
 
@@ -472,7 +482,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		if (mapType == "random")
 		{
 			// TODO: support random map scripts
-			debug_warn(L"Serialization test mode does not support random maps");
+			LOGERROR("Serialization test mode does not support random maps");
 		}
 		else
 		{

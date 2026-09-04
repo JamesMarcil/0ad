@@ -31,6 +31,7 @@
  *
  * -autostart-nonvisual            (partly handled in C++) disable any graphics and sounds
  * -autostart-disable-replay       disable saving of replays (handled in autostart*.js files)
+ * -autostart-max-turns=N          (handled in C++) limits the number of turns to run in headless autostart mode (default 0, unlimited)
  * -autostart-player=NUMBER        sets the playerID in non-networked games (default 1, use -1 for observer)
  *
  * Multiplayer (handled in specific autostart*.js files):

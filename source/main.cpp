@@ -477,14 +477,12 @@ static void NonVisualFrame()
 
 	if (g_NetClient)
 		g_NetClient->Poll();
-
-	static u32 turn = 0;
 	if (g_Game && g_Game->IsGameStarted() && g_Game->GetTurnManager())
 	{
 		if (g_Game->GetTurnManager()->Update(DEFAULT_TURN_LENGTH, 1,
 			std::bind_front(&CGUIManager::SendEventToAll, g_GUI)))
 		{
-			debug_printf("Turn %u (%u)...\n", turn++, DEFAULT_TURN_LENGTH);
+			debug_printf("Turn %u (%u)...\n", g_Game->GetTurnManager()->GetCurrentTurn(), DEFAULT_TURN_LENGTH);
 		}
 	}
 
@@ -492,8 +490,17 @@ static void NonVisualFrame()
 	}
 	FrameMark;
 
-	if (g_Game->IsGameFinished())
+	if (g_Game && g_Game->IsGameFinished())
 		QuitEngine(EXIT_SUCCESS);
+
+	// Check max-turns limit for bounded autostart runs
+	const u32 maxTurns{CConfigDB::GetIfInitialised("autostart-max-turns", 0u)};
+	if (maxTurns > 0 && g_Game && g_Game->GetTurnManager() &&
+		g_Game->GetTurnManager()->GetCurrentTurn() >= static_cast<int>(maxTurns))
+	{
+		LOGMESSAGE("Reached max turns (%u), quitting", maxTurns);
+		QuitEngine(EXIT_SUCCESS);
+	}
 }
 
 static std::optional<RL::Interface> CreateRLInterface(const CmdLineArgs& args)

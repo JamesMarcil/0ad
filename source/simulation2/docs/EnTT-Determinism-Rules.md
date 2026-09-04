@@ -52,7 +52,7 @@ Secondary findings:
 
 - **Replay hash testing** (-replay non-visual path uses CReplayPlayer::TestHash, source/ps/Replay.cpp:346-361), enabled by --hash/--hash-quick; -ooslog (source/main.cpp near line 630 → SimulationDebugOptions::oosLog → CSimulation2Impl::DumpState, Simulation2.cpp:535, 636-650) writes a per-turn full-hash + DumpDebugState text file to logs/oos_logs/<date-index>/NNNNN.txt.
 
-- **Serialization round-trip check**: -serializationtest=<turn> (Replay.cpp near line 194, SimulationDebugOptions::SerializationTest).
+- **Serialization round-trip check**: -serializationtest=<turn> (Replay.cpp near line 194, SimulationDebugOptions::SerializationTest). This mode works with both `-replay` and `-autostart` (headless multiplayer). With `-autostart`, the secondary simulation rebuilds every turn, limiting throughput to ~2 turns/sec; use `-autostart-max-turns=<N>` to bound the run. Random maps are unsupported (secondary would test against empty terrain); only scenario maps are supported.
 
 ### Recommended steps to diagnose
 
@@ -73,6 +73,6 @@ Secondary findings:
 
 6. **Confirm cheaply in a debug build**: `ForEachOrderedByEntityId` installs `CPoolStructureGuard` automatically, so mid-iteration structural mutation of a watched pool asserts with the pool type name and last-visited entity_id_t. Grep the suspect component for raw `view()`/`.each()` usages — those are the R1-exempt, unguarded loops. Wrapping one in a standalone `CPoolStructureGuard` is a one-line experiment.
 
-7. **Rule out serialization asymmetry first**: `pyrogenesis -replay=<path> -serializationtest=<divergent turn>` checks `Serialize`/`Deserialize` round-trip identically. A failure here is an R2 violation (in the component's own Serialize/Deserialize), not an R1 violation.
+7. **Rule out serialization asymmetry first**: `pyrogenesis -replay=<path> -serializationtest=<divergent turn>` checks `Serialize`/`Deserialize` round-trip identically. A failure here is an R2 violation (in the component's own Serialize/Deserialize), not an R1 violation. `-serializationtest` also works with `-autostart` (e.g., `pyrogenesis -autostart="scenarios/arcadia" -autostart-nonvisual -serializationtest=0 -autostart-max-turns=20` for a bounded headless run), but note: secondary simulation rebuilds every turn (~2 turns/sec throughput), random maps are unsupported, and you must use `-autostart-max-turns=<N>` to terminate the run.
 
 8. **Fix by construction**: replace the offending raw loop with `ForEachOrderedByEntityId`, or gather-and-sort by `entity_id_t` before consuming results. Do not "fix" by adding a `registry.sort<T>` at the call site (see section 4 verdict).

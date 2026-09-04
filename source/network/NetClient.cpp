@@ -159,13 +159,22 @@ CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
 
 CNetClient::~CNetClient()
 {
+	// IMPORTANT: Shut down the network connection FIRST to stop the polling thread
+	// before accessing any shared data structures that the thread might be using.
+	// The polling thread is detached, so we must ensure it has stopped before
+	// accessing m_ClientTurnManager and other shared objects.
+	DestroyConnection();
+
+	// Clear the GUI message poll to avoid accessing a potentially destroyed Script::Interface
+	// This is especially important in headless/non-visual modes where the GUI interface
+	// may have been destroyed earlier in the shutdown sequence.
+	m_GuiMessagePoll.reset();
+
 	Unregister(nullptr);
 
 	// Try to flush messages before dying (probably fails).
 	if (m_ClientTurnManager)
 		m_ClientTurnManager->OnDestroyConnection();
-
-	DestroyConnection();
 }
 
 

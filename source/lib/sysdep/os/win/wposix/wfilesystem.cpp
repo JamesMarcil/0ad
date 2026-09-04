@@ -33,6 +33,18 @@
 // fcntl.h
 //-----------------------------------------------------------------------------
 
+static int ShareMode(int oflag)
+{
+	// Derive share mode from open flags to allow concurrent access where safe.
+	// For read-only access, allow other processes to read; for write modes,
+	// deny read access to other processes (prevent data corruption/consistency issues).
+	// (c.f. waio.cpp ShareMode() which uses Windows API FILE_SHARE_* equivalents)
+	if((oflag & (O_WRONLY|O_RDWR)) == 0)  // O_RDONLY
+		return _SH_DENYWR;  // allow others to read, deny write
+	else  // O_WRONLY or O_RDWR
+		return _SH_DENYRD;  // keep current behavior - deny read to others
+}
+
 int wopen(const OsPath& pathname, int oflag)
 {
 	ENSURE(!(oflag & O_CREAT));	// must specify mode_arg if O_CREAT
@@ -60,7 +72,7 @@ int wopen(const OsPath& pathname, int oflag, mode_t mode)
 		if(oflag & O_WRONLY)
 			oflag |= O_CREAT|O_TRUNC;
 		// NB: _wsopen_s ignores mode unless oflag & O_CREAT
-		errno_t ret = _wsopen_s(&fd, OsString(pathname).c_str(), oflag, _SH_DENYRD, mode);
+		errno_t ret = _wsopen_s(&fd, OsString(pathname).c_str(), oflag, ShareMode(oflag), mode);
 		if(ret != 0)
 		{
 			errno = ret;

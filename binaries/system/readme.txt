@@ -25,6 +25,7 @@ Autostart:
 -autostart-reliccount=NUM       sets the number of relics for relic victory condition (default 2 relics)
 -autostart-revealed=BOOL        sets whether the map should be revealed
 -autostart-disable-replay       disable saving of replays
+-autostart-max-turns=N          limits the number of turns to run in headless autostart mode (default 0, unlimited)
 Multiplayer:
 -autostart-playername=NAME      sets local player NAME (default 'anonymous')
 -autostart-host                 sets multiplayer host mode

@@ -96,6 +96,9 @@ static void ProcessCommandLineArgs(const CmdLineArgs& args)
 
 	if (args.Has("rejointest"))
 		g_ConfigDB.SetValueString(CFG_COMMAND, "rejointest", args.Get("rejointest"));
+
+	if (args.Has("autostart-max-turns"))
+		g_ConfigDB.SetValueString(CFG_COMMAND, "autostart-max-turns", args.Get("autostart-max-turns"));
 }
 
 
