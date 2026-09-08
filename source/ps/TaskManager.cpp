@@ -97,16 +97,8 @@ public:
 	WorkerThread(TaskManager::Impl& taskManager);
 	~WorkerThread();
 
-	/**
-	 * Wake the worker.
-	 */
-	void Wake();
-
 protected:
 	void RunUntilDeath();
-
-	std::mutex m_Mutex;
-	std::condition_variable m_ConditionVariable;
 
 	TaskManager::Impl& m_TaskManager;
 };
@@ -120,18 +112,14 @@ class TaskManager::Impl
 {
 	friend class TaskManager;
 	friend class WorkerThread;
+	friend class TaskBatch;
 public:
 	Impl() = default;
 	~Impl()
 	{
-		{
-			std::lock_guard<std::mutex> lock(m_GlobalMutex);
-			ENSURE(m_GlobalQueue.empty());
-		}
-		{
-			std::lock_guard<std::mutex> lock(m_GlobalLowPriorityMutex);
-			ENSURE(m_GlobalLowPriorityQueue.empty());
-		}
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		ENSURE(m_GlobalQueue.empty());
+		ENSURE(m_GlobalLowPriorityQueue.empty());
 	}
 
 	/**
@@ -146,6 +134,13 @@ public:
 	 */
 	void PushTask(std::function<void()>&& task, TaskPriority priority);
 
+	/**
+	 * Push multiple tasks on the global queue at once.
+	 * Takes ownership of tasks.
+	 * May be called from any thread.
+	 */
+	void PushTasks(std::vector<std::function<void()>>&& tasks, TaskPriority priority);
+
 protected:
 	void ClearQueue();
 
@@ -154,8 +149,8 @@ protected:
 
 	std::atomic<bool> m_HasWork = false;
 	std::atomic<bool> m_HasLowPriorityWork = false;
-	std::mutex m_GlobalMutex;
-	std::mutex m_GlobalLowPriorityMutex;
+	std::mutex m_Mutex;
+	std::condition_variable m_ConditionVariable;
 	std::deque<QueueItem> m_GlobalQueue;
 	std::deque<QueueItem> m_GlobalLowPriorityQueue;
 
@@ -192,30 +187,54 @@ void TaskManager::PushTask(std::function<void()> task, TaskPriority priority)
 	m->PushTask(std::move(task), priority);
 }
 
+void TaskManager::PushTasks(std::vector<std::function<void()>> tasks, TaskPriority priority)
+{
+	m->PushTasks(std::move(tasks), priority);
+}
+
 void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority priority)
 {
-	std::mutex& mutex = priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
 	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 	std::atomic<bool>& hasWork = priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 	{
-		std::lock_guard<std::mutex> lock(mutex);
+		std::lock_guard<std::mutex> lock(m_Mutex);
 		queue.emplace_back(std::move(task));
 		hasWork = true;
 	}
+	m_ConditionVariable.notify_one();
+}
 
-	for (WorkerThread& worker : m_Workers)
-		worker.Wake();
+void TaskManager::Impl::PushTasks(std::vector<std::function<void()>>&& tasks, TaskPriority priority)
+{
+	if (tasks.empty())
+		return;
+
+	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
+	std::atomic<bool>& hasWork = priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
+
+	size_t numTasks = tasks.size();
+	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		for (auto& task : tasks)
+			queue.emplace_back(std::move(task));
+		hasWork = true;
+	}
+
+	if (numTasks >= m_Workers.size())
+		m_ConditionVariable.notify_all();
+	else
+		for (size_t i = 0; i < numTasks; ++i)
+			m_ConditionVariable.notify_one();
 }
 
 template<TaskPriority Priority>
 bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
 {
-	std::mutex& mutex = Priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
 	std::deque<QueueItem>& queue = Priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 	std::atomic<bool>& hasWork = Priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 
 	// Particularly critical section since we're locking the global queue.
-	std::lock_guard<std::mutex> globalLock(mutex);
+	std::lock_guard<std::mutex> lock(m_Mutex);
 	if (!queue.empty())
 	{
 		taskOut = std::move(queue.front());
@@ -237,14 +256,12 @@ WorkerThread::WorkerThread(TaskManager::Impl& taskManager)
 WorkerThread::~WorkerThread()
 {
 	m_Kill = true;
-	m_ConditionVariable.notify_one();
+	{
+		std::lock_guard<std::mutex> lock(m_TaskManager.m_Mutex);
+	}
+	m_TaskManager.m_ConditionVariable.notify_all();
 	if (m_Thread.joinable())
 		m_Thread.join();
-}
-
-void WorkerThread::Wake()
-{
-	m_ConditionVariable.notify_one();
 }
 
 void WorkerThread::RunUntilDeath()
@@ -259,11 +276,11 @@ void WorkerThread::RunUntilDeath()
 
 	std::function<void()> task;
 	bool hasTask = false;
-	std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);
+	std::unique_lock<std::mutex> lock(m_TaskManager.m_Mutex, std::defer_lock);
 	while (!m_Kill)
 	{
 		lock.lock();
-		m_ConditionVariable.wait(lock, [this](){
+		m_TaskManager.m_ConditionVariable.wait(lock, [this](){
 			return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
 		});
 		lock.unlock();
@@ -285,6 +302,31 @@ template<typename T, void(T::* callable)()>
 void Thread::DoStart(T* object)
 {
 	std::invoke(callable, object);
+}
+
+TaskBatch::TaskBatch(TaskManager& taskManager, size_t reserve)
+	: m_TaskManager(taskManager)
+{
+	m_Normal.reserve(reserve);
+}
+
+TaskBatch::~TaskBatch()
+{
+	Flush();
+}
+
+void TaskBatch::Flush()
+{
+	if (!m_Normal.empty())
+	{
+		m_TaskManager.PushTasks(std::move(m_Normal), TaskPriority::NORMAL);
+		m_Normal.clear();
+	}
+	if (!m_Low.empty())
+	{
+		m_TaskManager.PushTasks(std::move(m_Low), TaskPriority::LOW);
+		m_Low.clear();
+	}
 }
 
 } // namespace Threading

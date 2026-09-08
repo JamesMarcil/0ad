@@ -1303,14 +1303,17 @@ public:
 				}
 			};
 
+		Threading::TaskBatch batch{g_TaskManager, numFutures};
 		std::vector<Future<void>> futures;
 		futures.reserve(numFutures);
 		for (size_t i = 0; i < numFutures; i++)
-			futures.push_back({g_TaskManager,
+			futures.push_back({batch,
 				[&ProcessQueriesAsync]() {
 					ProcessQueriesAsync();
 				}
 			});
+
+		batch.Flush();
 
 		// Start working in the main thread as well.
 		ProcessQueriesAsync();

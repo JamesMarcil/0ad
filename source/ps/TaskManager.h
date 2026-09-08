@@ -25,6 +25,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace Threading
 {
@@ -32,6 +33,36 @@ enum class TaskPriority
 {
 	NORMAL,
 	LOW
+};
+
+class TaskManager;
+
+/**
+ * Helper class to batch multiple tasks before pushing them all at once.
+ * This reduces lock contention and wakes compared to pushing tasks individually.
+ */
+class TaskBatch
+{
+public:
+	explicit TaskBatch(TaskManager& taskManager, size_t reserve = 0);
+	~TaskBatch();
+	TaskBatch(const TaskBatch&) = delete;
+	TaskBatch& operator=(const TaskBatch&) = delete;
+	TaskBatch(TaskBatch&&) = delete;
+	TaskBatch& operator=(TaskBatch&&) = delete;
+
+	template<typename F>
+	void PushTask(F&& f, TaskPriority priority = TaskPriority::NORMAL)
+	{
+		(priority == TaskPriority::NORMAL ? m_Normal : m_Low).emplace_back(std::forward<F>(f));
+	}
+
+	void Flush();
+
+private:
+	TaskManager& m_TaskManager;
+	std::vector<std::function<void()>> m_Normal;
+	std::vector<std::function<void()>> m_Low;
 };
 
 /**
@@ -42,6 +73,7 @@ enum class TaskPriority
 class TaskManager : public Singleton<TaskManager>
 {
 	friend class WorkerThread;
+	friend class TaskBatch;
 public:
 	TaskManager();
 	~TaskManager();
@@ -59,6 +91,12 @@ public:
 	 * Push a task to be executed.
 	 */
 	void PushTask(std::function<void()> func, TaskPriority priority = TaskPriority::NORMAL);
+
+	/**
+	 * Push multiple tasks to be executed at once.
+	 * More efficient than calling PushTask multiple times.
+	 */
+	void PushTasks(std::vector<std::function<void()>> tasks, TaskPriority priority = TaskPriority::NORMAL);
 
 private:
 	TaskManager(size_t numberOfWorkers);
