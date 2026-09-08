@@ -244,7 +244,7 @@ enum FlagMasks
 	Injured = 0x02,
 	AllQuery = Normal | Injured,
 
-	// 0x04 reserved for future use
+	Mirage = 0x04,
 
 	// general flags
 	InWorld = 0x08,
@@ -628,6 +628,10 @@ public:
 			CmpPtr<ICmpObstruction> cmpObstruction(GetSimContext(), ent);
 			if (cmpObstruction)
 				entdata.size = cmpObstruction->GetSize().ToInt_RoundToInfinity();
+
+			// Check if this is a mirage entity
+			CmpPtr<ICmpMirage> cmpMirage(GetSimContext(), ent);
+			entdata.SetFlag<FlagMasks::Mirage>(!!cmpMirage);
 
 			// Remember this entity
 			m_EntityData.insert(ent, entdata);
@@ -1311,8 +1315,7 @@ public:
 			return false;
 
 		// Check if this is a mirage entity
-		CmpPtr<ICmpMirage> cmpMirage(GetSimContext(), id);
-		bool isMirage = !!cmpMirage;
+		const bool isMirage = entity.HasFlag<FlagMasks::Mirage>();
 
 		// If it's a mirage and we're not including mirages, skip it
 		if (isMirage && !q.preferMirages)
