@@ -258,7 +258,8 @@ struct EntityData
 {
 	EntityData() :
 		visibilities(0), size(0), visionSharing(0),
-		owner(-1), flags(FlagMasks::Normal), y(entity_pos_t::Zero())
+		owner(-1), flags(FlagMasks::Normal), y(entity_pos_t::Zero()),
+		componentCache(nullptr)
 		{ }
 	entity_pos_t x, z, y;
 	entity_pos_t visionRange;
@@ -267,6 +268,7 @@ struct EntityData
 	u16 visionSharing; // 1-bit per player
 	i8 owner;
 	u8 flags; // See the FlagMasks enum
+	SEntityComponentCache* componentCache; // non-owning; valid for entity lifetime
 
 	template<int mask>
 	inline bool HasFlag() const { return (flags & mask) != 0; }
@@ -277,7 +279,7 @@ struct EntityData
 	inline void SetFlag(u8 mask, bool val) { flags = val ? (flags | mask) : (flags & ~mask); }
 };
 
-static_assert(sizeof(EntityData) == 28);
+static_assert(sizeof(EntityData) == 40);
 
 // Convert world-space circle to tile-space bounds
 struct TileCircle
@@ -593,6 +595,7 @@ public:
 			// other components have been deserialized.
 			m_Deserializing = true;
 			RecomputeAllCachedHeights();
+			RepopulateComponentCaches();
 			ResetDerivedData();
 			m_Deserializing = false;
 			break;
@@ -635,6 +638,9 @@ public:
 			// Check if this is a mirage entity
 			CmpPtr<ICmpMirage> cmpMirage(GetSimContext(), ent);
 			entdata.SetFlag<FlagMasks::Mirage>(!!cmpMirage);
+
+			// Cache the component cache for fast QueryInterface lookups
+			entdata.componentCache = GetSimContext().GetComponentManager().LookupEntityHandle(ent).GetComponentCache();
 
 			// Remember this entity
 			m_EntityData.insert(ent, entdata);
@@ -1025,6 +1031,14 @@ public:
 		}
 	}
 
+	void RepopulateComponentCaches()
+	{
+		for (EntityMap<EntityData>::iterator it = m_EntityData.begin(); it != m_EntityData.end(); ++it)
+		{
+			it->second.componentCache = GetSimContext().GetComponentManager().LookupEntityHandle(it->first).GetComponentCache();
+		}
+	}
+
 	tag_t CreateActiveQuery(entity_id_t source,
 		entity_pos_t minRange, entity_pos_t maxRange,
 		const std::vector<int>& owners, int requiredInterface, u8 flags,
@@ -1349,8 +1363,12 @@ public:
 			return false;
 
 		// If it's not a mirage, check interface normally
-		if (!isMirage && q.interface && !GetSimContext().GetComponentManager().QueryInterface(id, q.interface))
-			return false;
+		if (!isMirage && q.interface)
+		{
+			const SEntityComponentCache* cache = entity.componentCache;
+			if (!cache || static_cast<size_t>(q.interface) >= cache->numInterfaces || !cache->interfaces[q.interface])
+				return false;
+		}
 
 		// Filter hidden entities when we want mirages (i.e., we care about visibility)
 		if (q.preferMirages && q.source.GetId() != INVALID_ENTITY)
