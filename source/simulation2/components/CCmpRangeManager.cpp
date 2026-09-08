@@ -458,11 +458,6 @@ public:
 
 	FastSpatialSubdivision m_Subdivision; // spatial index of m_EntityData
 
-	// One persistent buffer for each hardware thread including the main thread.
-	// Used to temporarily store the results of all the asynchronous spatial subdivision queries
-	// (which can get quite long) always in the same place to minimize reallocations and memory fragmentation.
-	std::vector<std::vector<entity_id_t>> m_SubdivisionResultBuffers;
-
 	// LOS state:
 	static const player_id_t MAX_LOS_PLAYER_ID = 16;
 
@@ -523,11 +518,6 @@ public:
 		// Initialise with bogus values (these will get replaced when
 		// SetBounds is called)
 		ResetSubdivisions(entity_pos_t::FromInt(1024), entity_pos_t::FromInt(1024));
-
-
-		m_SubdivisionResultBuffers.resize(g_TaskManager.GetNumberOfWorkers() + 1);
-		for (std::vector<entity_id_t>& buffer : m_SubdivisionResultBuffers)
-			buffer.reserve(4096);
 
 		// The whole map should be visible to Gaia by default, else e.g. animals
 		// will get confused when trying to run from enemies
@@ -1114,7 +1104,7 @@ public:
 	{
 		Query q = ConstructQuery(INVALID_ENTITY, minRange, maxRange, owners, requiredInterface, GetEntityFlagMask("normal"), accountForSize);
 		std::vector<entity_id_t> r;
-		PerformQuery(q, r, pos, m_SubdivisionResultBuffers[0]);
+		PerformQuery(q, r, pos);
 
 		// Return the list sorted by distance from the entity
 		std::stable_sort(r.begin(), r.end(), EntityDistanceOrdering(m_EntityData, pos));
@@ -1140,7 +1130,7 @@ public:
 		}
 
 		CFixedVector2D pos = cmpSourcePosition->GetPosition2D();
-		PerformQuery(q, r, pos, m_SubdivisionResultBuffers[0]);
+		PerformQuery(q, r, pos);
 
 		// Return the list sorted by distance from the entity
 		std::stable_sort(r.begin(), r.end(), EntityDistanceOrdering(m_EntityData, pos));
@@ -1173,7 +1163,7 @@ public:
 		}
 
 		CFixedVector2D pos = cmpSourcePosition->GetPosition2D();
-		PerformQuery(q, r, pos, m_SubdivisionResultBuffers[0]);
+		PerformQuery(q, r, pos);
 
 		q.lastMatch = r;
 
@@ -1257,7 +1247,7 @@ public:
 		// Compute batch size to balance task granularity and synchronization overhead.
 		const size_t batchSize = std::clamp<size_t>(n / ((numFutures + 1) * 4), size_t(1), size_t(16));
 
-		const auto ProcessQueriesAsync = [&](std::vector<entity_id_t>& subdivisionResultsBuffer) {
+		const auto ProcessQueriesAsync = [&]() {
 				PROFILE2("Async range query execution");
 
 				std::vector<entity_id_t> results;
@@ -1285,7 +1275,7 @@ public:
 						if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
 						{
 							results.reserve(query.lastMatch.size());
-							PerformQuery(query, results, cmpSourcePosition->GetPosition2D(), subdivisionResultsBuffer);
+							PerformQuery(query, results, cmpSourcePosition->GetPosition2D());
 						}
 
 						// Compute the changes vs the last match
@@ -1317,13 +1307,13 @@ public:
 		futures.reserve(numFutures);
 		for (size_t i = 0; i < numFutures; i++)
 			futures.push_back({g_TaskManager,
-				[&ProcessQueriesAsync, &subdivisionResultsBuffer = m_SubdivisionResultBuffers[i]]() {
-					ProcessQueriesAsync(subdivisionResultsBuffer);
+				[&ProcessQueriesAsync]() {
+					ProcessQueriesAsync();
 				}
 			});
 
 		// Start working in the main thread as well.
-		ProcessQueriesAsync(m_SubdivisionResultBuffers[numFutures]);
+		ProcessQueriesAsync();
 
 		for (Future<void>& future : futures)
 			future.Get();
@@ -1393,7 +1383,7 @@ public:
 	/**
 	 * Returns a list of distinct entity IDs that match the given query, sorted by ID.
 	 */
-	void PerformQuery(const Query& q, std::vector<entity_id_t>& r, CFixedVector2D pos, std::vector<uint32_t>& subdivisionResultsBuffer)
+	void PerformQuery(const Query& q, std::vector<entity_id_t>& r, CFixedVector2D pos)
 	{
 
 		// Special case: range is ALWAYS_IN_RANGE means check all entities ignoring distance.
@@ -1420,16 +1410,13 @@ public:
 			//   2. The maximum possible horizontal extent of the parabolic range
 			// Multiplying maxRange by 2 provides a safe upper bound for all possible height differences.
 			entity_pos_t subdivisionRange = std::max(q.baseRange, q.maxRange * 2);
-			subdivisionResultsBuffer.clear();
-			m_Subdivision.GetNear(subdivisionResultsBuffer, pos, subdivisionRange);
-
-			for (size_t i = 0; i < subdivisionResultsBuffer.size(); ++i)
+			m_Subdivision.ForEachNear(pos, subdivisionRange, [&](entity_id_t candidate)
 			{
-				EntityMap<EntityData>::const_iterator it = m_EntityData.find(subdivisionResultsBuffer[i]);
+				EntityMap<EntityData>::const_iterator it = m_EntityData.find(candidate);
 				ENSURE(it != m_EntityData.end());
 
 				if (!TestEntityQuery(q, it->first, it->second))
-					continue;
+					return;
 
 				CFixedVector2D delta2D = CFixedVector2D(it->second.x, it->second.z) - pos;
 
@@ -1441,7 +1428,7 @@ public:
 					// In base range - no need for parabolic check
 					if (q.minRange.IsZero() || delta2D.CompareLength(q.minRange) >= 0)
 						r.push_back(it->first);
-					continue;
+					return;
 				}
 
 				// Parabolic check for entities outside base range
@@ -1454,42 +1441,39 @@ public:
 				// if we did, we would also need to artificially 'raise' the source over the target.
 				entity_pos_t range = q.maxRange + (q.accountForSize ? fixed::FromInt(it->second.size) : fixed::Zero());
 				if (!InParabolicRange(CFixedVector3D(it->second.x, it->second.y, it->second.z) - pos3d, range))
-					continue;
+					return;
 
 				if (!q.minRange.IsZero())
 					if (delta2D.CompareLength(q.minRange) < 0)
-						continue;
+						return;
 
 				r.push_back(it->first);
-			}
+			});
 			std::sort(r.begin(), r.end());
 		}
 		// check a regular range (i.e. not the entire world, and not parabolic)
 		else
 		{
 			// Get a quick list of entities that are potentially in range
-			subdivisionResultsBuffer.clear();
-			m_Subdivision.GetNear(subdivisionResultsBuffer, pos, q.maxRange);
-
-			for (size_t i = 0; i < subdivisionResultsBuffer.size(); ++i)
+			m_Subdivision.ForEachNear(pos, q.maxRange, [&](entity_id_t candidate)
 			{
-				EntityMap<EntityData>::const_iterator it = m_EntityData.find(subdivisionResultsBuffer[i]);
+				EntityMap<EntityData>::const_iterator it = m_EntityData.find(candidate);
 				ENSURE(it != m_EntityData.end());
 
 				if (!TestEntityQuery(q, it->first, it->second))
-					continue;
+					return;
 
 				// Restrict based on approximate circle-circle distance.
 				entity_pos_t range = q.maxRange + (q.accountForSize ? fixed::FromInt(it->second.size) : fixed::Zero());
 				if ((CFixedVector2D(it->second.x, it->second.z) - pos).CompareLength(range) > 0)
-					continue;
+					return;
 
 				if (!q.minRange.IsZero())
 					if ((CFixedVector2D(it->second.x, it->second.z) - pos).CompareLength(q.minRange) < 0)
-						continue;
+						return;
 
 				r.push_back(it->first);
-			}
+			});
 			std::sort(r.begin(), r.end());
 		}
 	}

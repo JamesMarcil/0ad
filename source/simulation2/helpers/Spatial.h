@@ -525,10 +525,15 @@ public:
 	}
 
 	/**
-	 * Returns a (non sorted) list of items that are either in the square or close to it.
-	 * It's the responsibility of the querier to do proper distance checking and entity sorting.
+	 * Invokes visitor(entity_id_t) once per candidate entity in range.
+	 * Order: oversized items first, then tiles in Y-major/X-minor order (matches
+	 * the historical vector-filling behaviour; callers must not rely on this but
+	 * it is preserved for easy diffing/verification).
+	 * NOTE: visitor must not mutate this FastSpatialSubdivision (no Add/Remove/Move)
+	 * or invalidate the bucket vectors being iterated.
 	 */
-	void GetInRange(std::vector<entity_id_t>& out, CFixedVector2D posMin, CFixedVector2D posMax) const
+	template<typename Visitor>
+	void ForEachInRange(CFixedVector2D posMin, CFixedVector2D posMax, Visitor&& visitor) const
 	{
 		size_t minX = Index(posMin.X);
 		size_t minY = Index(posMin.Y);
@@ -542,20 +547,34 @@ public:
 		maxX = maxX < m_ArrayWidth ? maxX+1 : m_ArrayWidth;
 		maxY = maxY < m_ArrayWidth ? maxY+1 : m_ArrayWidth;
 
-		ENSURE(out.empty() && "GetInRange: out is not clean");
-
-		// Add oversized items, they can be anywhere
-		out.insert(out.end(), m_OverSizedData.begin(), m_OverSizedData.end());
+		// Oversized items can be anywhere.
+		for (entity_id_t id : m_OverSizedData)
+			visitor(id);
 
 		for (size_t Y = minY; Y < maxY; ++Y)
 		{
-			for (size_t X = minX; X < maxX; ++X)
-			{
-				std::vector<entity_id_t>& subdivision = m_SpatialDivisionsData[X + Y*m_ArrayWidth];
-				if (!subdivision.empty())
-					out.insert(out.end(), subdivision.begin(), subdivision.end());
-			}
+			const std::vector<entity_id_t>* row = &m_SpatialDivisionsData[minX + Y*m_ArrayWidth];
+			for (size_t X = minX; X < maxX; ++X, ++row)
+				for (entity_id_t id : *row)
+					visitor(id);
 		}
+	}
+
+	template<typename Visitor>
+	void ForEachNear(CFixedVector2D pos, entity_pos_t range, Visitor&& visitor) const
+	{
+		CFixedVector2D r(range, range);
+		ForEachInRange(pos - r, pos + r, visitor);
+	}
+
+	/**
+	 * Returns a (non sorted) list of items that are either in the square or close to it.
+	 * It's the responsibility of the querier to do proper distance checking and entity sorting.
+	 */
+	void GetInRange(std::vector<entity_id_t>& out, CFixedVector2D posMin, CFixedVector2D posMax) const
+	{
+		ENSURE(out.empty() && "GetInRange: out is not clean");
+		ForEachInRange(posMin, posMax, [&out](entity_id_t id) { out.push_back(id); });
 	}
 
 	/**
@@ -564,10 +583,8 @@ public:
 	 */
 	void GetNear(std::vector<entity_id_t>& out, CFixedVector2D pos, entity_pos_t range) const
 	{
-		// Because the subdivision size is rather big wrt typical ranges,
-		// this square over-approximation is hopefully not too bad.
-		CFixedVector2D r(range, range);
-		GetInRange(out, pos - r, pos + r);
+		ENSURE(out.empty() && "GetNear: out is not clean");
+		ForEachNear(pos, range, [&out](entity_id_t id) { out.push_back(id); });
 	}
 
 	size_t GetDivisionSize() const
