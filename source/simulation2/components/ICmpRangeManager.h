@@ -298,6 +298,15 @@ public:
 	 */
 	virtual void SetEntityFlag(entity_id_t ent, const std::string& identifier, bool value) = 0;
 
+	/**
+	 * Update the cached world height (Y coordinate) for an entity.
+	 * Called by CCmpPosition when height-only setters are used.
+	 * Internal C++-only method, not exposed to scripts.
+	 * @param ent the entity whose cached height will be updated.
+	 * @param y the new cached world height.
+	 */
+	virtual void UpdateCachedHeight(entity_id_t ent, entity_pos_t y) = 0;
+
 
 	//////////////////////////////////////////////////////////////////
 	////              LOS interface below this line               ////

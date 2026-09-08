@@ -258,9 +258,9 @@ struct EntityData
 {
 	EntityData() :
 		visibilities(0), size(0), visionSharing(0),
-		owner(-1), flags(FlagMasks::Normal)
+		owner(-1), flags(FlagMasks::Normal), y(entity_pos_t::Zero())
 		{ }
-	entity_pos_t x, z;
+	entity_pos_t x, z, y;
 	entity_pos_t visionRange;
 	u32 visibilities; // 2-bit visibility, per player
 	u32 size;
@@ -277,7 +277,7 @@ struct EntityData
 	inline void SetFlag(u8 mask, bool val) { flags = val ? (flags | mask) : (flags & ~mask); }
 };
 
-static_assert(sizeof(EntityData) == 24);
+static_assert(sizeof(EntityData) == 28);
 
 // Convert world-space circle to tile-space bounds
 struct TileCircle
@@ -423,6 +423,8 @@ public:
 		componentManager.SubscribeGloballyToMessageType(MT_Destroy);
 		componentManager.SubscribeGloballyToMessageType(MT_VisionRangeChanged);
 		componentManager.SubscribeGloballyToMessageType(MT_VisionSharingChanged);
+		componentManager.SubscribeGloballyToMessageType(MT_TerrainChanged);
+		componentManager.SubscribeGloballyToMessageType(MT_WaterChanged);
 
 		componentManager.SubscribeToMessageType(MT_Deserialized);
 		componentManager.SubscribeToMessageType(MT_Update);
@@ -590,6 +592,7 @@ public:
 			// Reinitialize subdivisions and LOS data after all
 			// other components have been deserialized.
 			m_Deserializing = true;
+			RecomputeAllCachedHeights();
 			ResetDerivedData();
 			m_Deserializing = false;
 			break;
@@ -681,6 +684,8 @@ public:
 				it->second.SetFlag<FlagMasks::InWorld>(true);
 				it->second.x = msgData.x;
 				it->second.z = msgData.z;
+				CmpPtr<ICmpPosition> cmpPosition(GetSimContext(), ent);
+				it->second.y = cmpPosition ? cmpPosition->GetHeightAtFixed(msgData.x, msgData.z) : entity_pos_t::Zero();
 			}
 			else
 			{
@@ -698,6 +703,7 @@ public:
 				it->second.SetFlag<FlagMasks::InWorld>(false);
 				it->second.x = entity_pos_t::Zero();
 				it->second.z = entity_pos_t::Zero();
+				it->second.y = entity_pos_t::Zero();
 			}
 
 			RequestVisibilityUpdate(ent);
@@ -840,6 +846,12 @@ public:
 				it->second.visionSharing |= visionChanged;
 			else
 				it->second.visionSharing &= ~visionChanged;
+			break;
+		}
+		case MT_TerrainChanged:
+		case MT_WaterChanged:
+		{
+			RecomputeAllCachedHeights();
 			break;
 		}
 		case MT_Update:
@@ -996,6 +1008,21 @@ public:
 		for (EntityMap<EntityData>::const_iterator it = m_EntityData.begin(); it != m_EntityData.end(); ++it)
 			if (it->second.HasFlag<FlagMasks::InWorld>())
 				m_Subdivision.Add(it->first, CFixedVector2D(it->second.x, it->second.z), it->second.size);
+	}
+
+	void RecomputeAllCachedHeights()
+	{
+		for (EntityMap<EntityData>::iterator it = m_EntityData.begin(); it != m_EntityData.end(); ++it)
+		{
+			if (it->second.HasFlag<FlagMasks::InWorld>())
+			{
+				CmpPtr<ICmpPosition> cmpPosition(GetSimContext(), it->first);
+				if (cmpPosition)
+					it->second.y = cmpPosition->GetHeightAtFixed(it->second.x, it->second.z);
+				else
+					it->second.y = entity_pos_t::Zero();
+			}
+		}
 	}
 
 	tag_t CreateActiveQuery(entity_id_t source,
@@ -1400,11 +1427,6 @@ public:
 				}
 
 				// Parabolic check for entities outside base range
-				CmpPtr<ICmpPosition> cmpSecondPosition(GetSimContext(), subdivisionResultsBuffer[i]);
-				if (!cmpSecondPosition || !cmpSecondPosition->IsInWorld())
-					continue;
-				CFixedVector3D secondPosition = cmpSecondPosition->GetPosition();
-
 				// Doing an exact check for parabolas with obstruction sizes is not really possible.
 				// However, we can prove that InParabolicRange(d, range + size) > InParabolicRange(d, range)
 				// in the sense that it always returns true when the latter would, which is enough.
@@ -1413,7 +1435,7 @@ public:
 				// Note that this is only true because we do not account for vertical size here,
 				// if we did, we would also need to artificially 'raise' the source over the target.
 				entity_pos_t range = q.maxRange + (q.accountForSize ? fixed::FromInt(it->second.size) : fixed::Zero());
-				if (!InParabolicRange(CFixedVector3D(it->second.x, secondPosition.Y, it->second.z) - pos3d, range))
+				if (!InParabolicRange(CFixedVector3D(it->second.x, it->second.y, it->second.z) - pos3d, range))
 					continue;
 
 				if (!q.minRange.IsZero())
@@ -1845,6 +1867,19 @@ public:
 			LOGWARNING("CCmpRangeManager: Invalid flag identifier %s for entity %u", identifier.c_str(), ent);
 		else
 			it->second.SetFlag(flag, value);
+	}
+
+	void UpdateCachedHeight(entity_id_t ent, entity_pos_t y) override
+	{
+		EntityMap<EntityData>::iterator it = m_EntityData.find(ent);
+
+		// We don't have this entity
+		if (it == m_EntityData.end())
+			return;
+
+		// Only update if in-world
+		if (it->second.HasFlag<FlagMasks::InWorld>())
+			it->second.y = y;
 	}
 
 	// ****************************************************************

@@ -31,6 +31,7 @@
 #include "ps/CStr.h"
 #include "ps/Profile.h"
 #include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpVisual.h"
 #include "simulation2/components/ICmpWaterManager.h"
@@ -416,6 +417,7 @@ public:
 		m_LastYDifference = dy - GetHeightOffset();
 		m_Y += m_LastYDifference;
 		AdvertiseInterpolatedPositionChanges();
+		NotifyHeightChanged();
 	}
 
 	entity_pos_t GetHeightOffset() const override
@@ -444,6 +446,7 @@ public:
 		m_LastYDifference = y - GetHeightFixed();
 		m_Y += m_LastYDifference;
 		AdvertiseInterpolatedPositionChanges();
+		NotifyHeightChanged();
 	}
 
 	entity_pos_t GetHeightFixed() const override
@@ -483,6 +486,7 @@ public:
 		m_RelativeToGround = relative;
 		m_LastYDifference = entity_pos_t::Zero();
 		AdvertiseInterpolatedPositionChanges();
+		NotifyHeightChanged();
 	}
 
 	bool CanFloat() const override
@@ -494,6 +498,7 @@ public:
 	{
 		m_Floating = flag;
 		AdvertiseInterpolatedPositionChanges();
+		NotifyHeightChanged();
 	}
 
 	void SetActorFloating(bool flag) override
@@ -511,6 +516,7 @@ public:
 	{
 		m_ConstructionProgress = progress;
 		AdvertiseInterpolatedPositionChanges();
+		NotifyHeightChanged();
 	}
 
 	CFixedVector3D GetPosition() const override
@@ -949,6 +955,20 @@ private:
 		{
 			CMessageInterpolatedPositionChanged msg(GetEntityId(), false, CVector3D(), CVector3D());
 			GetSimContext().GetComponentManager().PostMessage(GetEntityId(), msg);
+		}
+	}
+
+	/**
+	 * Notify RangeManager of height changes when height-only setters are used.
+	 * Must be called whenever m_Y changes without X/Z changing (i.e., not during MoveTo/JumpTo).
+	 */
+	void NotifyHeightChanged() const
+	{
+		if (m_InWorld)
+		{
+			CmpPtr<ICmpRangeManager> cmpRangeManager(GetSystemEntity());
+			if (cmpRangeManager)
+				cmpRangeManager->UpdateCachedHeight(GetEntityId(), GetHeightAtFixed(m_X, m_Z));
 		}
 	}
 
