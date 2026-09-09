@@ -757,6 +757,14 @@ extern_lib_defs = {
 			end
 		end,
 	},
+	superluminal = {
+		compile_settings = function()
+			add_third_party_include_paths("superluminal")
+			if _OPTIONS["enable-superluminal"] and os.istarget("windows") then
+				defines { "CONFIG2_SUPERLUMINAL" }
+			end
+		end,
+	},
 	tinygettext = {
 		compile_settings = function()
 			add_third_party_include_paths("tinygettext")

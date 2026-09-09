@@ -42,6 +42,7 @@ print("")
 newoption { category = "Pyrogenesis", trigger = "android", description = "Use non-working Android cross-compiling mode" }
 newoption { category = "Pyrogenesis", trigger = "coverage", description = "Enable code coverage data collection (GCC only)" }
 newoption { category = "Pyrogenesis", trigger = "enable-tracy", description = "Enable Tracy profiler instrumentation (defines TRACY_ENABLE); without this the Tracy client compiles to no-ops" }
+newoption { category = "Pyrogenesis", trigger = "enable-superluminal", description = "Enable Superluminal instrumentation API (Windows only; defines CONFIG2_SUPERLUMINAL)" }
 newoption { category = "Pyrogenesis", trigger = "gles", description = "Use non-working OpenGL ES 2.0 mode" }
 newoption { category = "Pyrogenesis", trigger = "minimal-flags", description = "Only set compiler/linker flags that are really needed. Has no effect on Windows builds" }
 newoption { category = "Pyrogenesis", trigger = "outpath", description = "Location for generated project files", default="../workspaces/default" }
@@ -740,6 +741,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"tracy", -- Profile.h/Profiler2.h are included here; keep TRACY_ENABLE consistent across TUs.
+		"superluminal",
 		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	if not _OPTIONS["without-miniupnpc"] then
@@ -756,6 +758,7 @@ function setup_all_libs ()
 		"spidermonkey",
 		"cpp_httplib",
 		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+		"superluminal",
 		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	setup_static_lib_project("rlinterface", source_dirs, extern_libs, { no_pch = 1 })
@@ -770,6 +773,7 @@ function setup_all_libs ()
 			"spidermonkey",
 			"sockets",
 			"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+			"superluminal",
 		}
 		setup_static_lib_project("dapinterface", source_dirs, extern_libs, { no_pch = 1 })
 	end
@@ -782,6 +786,7 @@ function setup_all_libs ()
 		"boost",
 		"fmt",
 		"tracy", -- pulled in transitively via the common lib/precompiled.h -> ps/Profile.h -> ps/Profiler2.h; must agree on TRACY_ENABLE.
+		"superluminal",
 	}
 	setup_third_party_static_lib_project("tinygettext", source_dirs, extern_libs, { } )
 
@@ -818,6 +823,7 @@ function setup_all_libs ()
 			"tinygettext",
 			"fmt",
 			"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+			"superluminal",
 			"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
@@ -832,6 +838,7 @@ function setup_all_libs ()
 			"libsodium",
 			"fmt",
 			"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+			"superluminal",
 			"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
@@ -856,6 +863,7 @@ function setup_all_libs ()
 		"iconv",
 		"cxxtest",
 		"tracy",
+		"superluminal",
 		"entt",
 	}
 	setup_static_lib_project("simulation2", source_dirs, extern_libs, {})
@@ -872,6 +880,7 @@ function setup_all_libs ()
 		"sdl",
 		"fmt",
 		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+		"superluminal",
 	}
 	setup_static_lib_project("scriptinterface", source_dirs, extern_libs, {})
 
@@ -909,6 +918,7 @@ function setup_all_libs ()
 		"freetype",
 		"cpp_httplib",
 		"tracy",
+		"superluminal",
 		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 
@@ -954,6 +964,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"tracy",
+		"superluminal",
 		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	if not _OPTIONS["without-nvtt"] then
@@ -974,6 +985,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+		"superluminal",
 		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	setup_static_lib_project("atlas", source_dirs, extern_libs, {})
@@ -998,6 +1010,7 @@ function setup_all_libs ()
 		"fmt",
 		"libxml2",
 		"tracy", -- for Profile.h/Profiler2.h consistency (TRACY_ENABLE must match everywhere it's included).
+		"superluminal",
 		"entt", -- simulation2/system/ComponentManager.h (EnTT coexistence layer) is transitively included.
 	}
 	if not _OPTIONS["without-audio"] then
@@ -1092,6 +1105,8 @@ function setup_all_libs ()
 		table.insert(source_dirs, "lib/sysdep/rtl/gcc");
 	end
 
+	table.insert(extern_libs, "superluminal")
+
 	setup_static_lib_project("lowlevel", source_dirs, extern_libs, extra_params)
 
 
@@ -1116,7 +1131,7 @@ function setup_all_libs ()
 	-- compile to no-ops unless built with --enable-tracy, so it's always safe to
 	-- include this in the build. Upstream's real layout puts the client source and
 	-- headers under public/ (not include/), see extern_lib_defs["tracy"].
-	extern_libs = { "tracy" }
+	extern_libs = { "tracy", "superluminal" }
 	setup_static_lib_project("tracywrapper", {}, extern_libs, { no_pch = 1 })
 	files { third_party_source_dir.."tracy/public/TracyClient.cpp" }
 end
@@ -1148,6 +1163,7 @@ used_extern_libs = {
 	"fmt",
 	"freetype",
 	"tracy",
+	"superluminal",
 	"entt",
 
 	"valgrind",
@@ -1389,6 +1405,7 @@ function setup_atlas_projects()
 		"wxwidgets",
 		"zlib",
 		"tracy", -- links against the "atlas" static lib, which includes Profile.h/Profiler2.h; must agree on TRACY_ENABLE.
+		"superluminal",
 	}
 
 	setup_atlas_project("AtlasUI", "SharedLib", atlas_src,

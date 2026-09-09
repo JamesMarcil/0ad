@@ -85,6 +85,7 @@
 #include "ps/ThreadUtil.h"
 
 #include <tracy/Tracy.hpp>
+#include "ps/Superluminal.h"
 
 #include <atomic>
 #include <cstdarg>
@@ -459,17 +460,20 @@ private:
 // objects immediately instead of at the end of the enclosing block.
 // "region" must be a compile-time string literal (this is required by
 // ZoneScopedN, and is true for every current call site).
-#define PROFILE2(region) CProfile2Region profile2__(region); ZoneScopedN(region)
+#define PROFILE2(region) CProfile2Region profile2__(region); ZoneScopedN(region); Superluminal::ScopedEvent profile2sl__(region)
 
-// NOTE: deliberately NOT adding a Tracy zone here. PROFILE2_GPU is combined
-// with PROFILE2 in PROFILE3_GPU (see Profile.h), and ZoneScoped always uses a
+// NOTE: deliberately NOT adding a Tracy zone or Superluminal event here.
+// PROFILE2_GPU is combined with PROFILE2 in PROFILE3_GPU (see Profile.h), and ZoneScoped always uses a
 // fixed internal variable name, so a second ZoneScoped in the same statement
 // sequence would fail to compile (variable redefinition). GPU regions timed
 // via PROFILE3_GPU are still covered by the CPU-side Tracy zone from PROFILE2.
+// Superluminal is a CPU profiler and does not support GPU instrumentation.
 #define PROFILE2_GPU(deviceCommandContext, region) CProfile2GPURegion profile2gpu__(deviceCommandContext, region)
 
 /**
  * Record the named event at the current time.
+ * NOTE: Superluminal is not instrumented here because it only supports Begin/End event pairs,
+ * not instantaneous events. Use PROFILE2 for region-based instrumentation instead.
  */
 #define PROFILE2_EVENT(name) g_Profiler2.RecordEvent(name)
 
@@ -478,6 +482,9 @@ private:
  * region or event.
  * (If the last profiler call was PROFILE2_EVENT, it associates with that
  * event; otherwise it associates with the currently-active region.)
+ * NOTE: Superluminal is not instrumented here because the attribute data
+ * arrives after BeginEvent has already been called. Use BeginEvent(id, data)
+ * directly in the Superluminal namespace if per-invocation data is needed.
  */
 #define PROFILE2_ATTR g_Profiler2.RecordAttribute
 

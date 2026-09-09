@@ -79,6 +79,8 @@ void CProfiler2::Initialise()
 	ENSURE(!m_Initialised);
 	m_Initialised = true;
 
+	Superluminal::Initialise();
+
 	RegisterCurrentThread("main");
 }
 
@@ -202,6 +204,8 @@ void CProfiler2::Shutdown()
 	// we have to call it manually to avoid memory leaks
 	ENSURE(Threading::IsMainThread());
 	m_Initialised = false;
+
+	Superluminal::Shutdown();
 }
 
 void CProfiler2::RecordGPUFrameStart(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
@@ -237,6 +241,8 @@ void CProfiler2::RegisterCurrentThread(const std::string& name)
 
 	m_CurrentStorage = new ThreadStorage(*this, name);
 	AddThreadStorage(m_CurrentStorage);
+
+	Superluminal::SetCurrentThreadName(name.c_str());
 
 	RecordSyncMarker();
 	RecordEvent("thread start");
