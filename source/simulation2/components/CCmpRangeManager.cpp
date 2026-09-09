@@ -259,7 +259,7 @@ struct EntityData
 	EntityData() :
 		visibilities(0), size(0), visionSharing(0),
 		owner(-1), flags(FlagMasks::Normal), y(entity_pos_t::Zero()),
-		componentCache(nullptr)
+		componentCache(nullptr), ownerMask(CalcOwnerMask(-1))
 		{ }
 	entity_pos_t x, z, y;
 	entity_pos_t visionRange;
@@ -268,6 +268,7 @@ struct EntityData
 	u16 visionSharing; // 1-bit per player
 	i8 owner;
 	u8 flags; // See the FlagMasks enum
+	u32 ownerMask; // Cached owner mask for fast range query filtering
 	SEntityComponentCache* componentCache; // non-owning; valid for entity lifetime
 
 	template<int mask>
@@ -586,6 +587,9 @@ public:
 			m_Deserializing = true;
 			RecomputeAllCachedHeights();
 			RepopulateComponentCaches();
+			// Recompute ownerMask for all entities since it's not serialized
+			for (EntityMap<EntityData>::iterator it = m_EntityData.begin(); it != m_EntityData.end(); ++it)
+				it->second.ownerMask = CalcOwnerMask(it->second.owner);
 			ResetDerivedData();
 			m_Deserializing = false;
 			break;
@@ -737,6 +741,7 @@ public:
 
 			ENSURE(-128 <= msgData.to && msgData.to <= 127);
 			it->second.owner = (i8)msgData.to;
+			it->second.ownerMask = CalcOwnerMask(msgData.to);
 
 			break;
 		}
@@ -1333,7 +1338,7 @@ public:
 	bool TestEntityQuery(const Query& q, entity_id_t id, const EntityData& entity) const
 	{
 		// Quick filter to ignore entities with the wrong owner
-		if (!(CalcOwnerMask(entity.owner) & q.ownersMask))
+		if (!(entity.ownerMask & q.ownersMask))
 			return false;
 
 		// Ignore entities not present in the world
