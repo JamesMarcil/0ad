@@ -103,6 +103,19 @@ u32 CalcOwnerMask(player_id_t owner)
 }
 
 /**
+ * Compute bitmask of which interfaces are present in a component cache.
+ * The mask covers interface IDs 0-127 (two u64 words).
+ */
+static void CalcInterfaceMask(const SEntityComponentCache* cache, u64 (&out)[2])
+{
+	out[0] = 0; out[1] = 0;
+	if (!cache) return;
+	for (size_t i = 1; i < cache->numInterfaces && i < 128; ++i)
+		if (cache->interfaces[i])
+			out[i >> 6] |= (1ull << (i & 63));
+}
+
+/**
  * Returns LOS mask for given player.
  */
 u32 CalcPlayerLosMask(player_id_t player)
@@ -260,7 +273,7 @@ struct EntityData
 		visibilities(0), size(0), visionSharing(0),
 		owner(-1), flags(FlagMasks::Normal), y(entity_pos_t::Zero()),
 		componentCache(nullptr), ownerMask(CalcOwnerMask(-1))
-		{ }
+		{ interfaceMask[0] = 0; interfaceMask[1] = 0; }
 	entity_pos_t x, z, y;
 	entity_pos_t visionRange;
 	u32 visibilities; // 2-bit visibility, per player
@@ -269,6 +282,7 @@ struct EntityData
 	i8 owner;
 	u8 flags; // See the FlagMasks enum
 	u32 ownerMask; // Cached owner mask for fast range query filtering
+	u64 interfaceMask[2]; // Cached bitmask of which interfaces are present (128 bits total for IID 0-127)
 	SEntityComponentCache* componentCache; // non-owning; valid for entity lifetime
 
 	template<int mask>
@@ -280,7 +294,7 @@ struct EntityData
 	inline void SetFlag(u8 mask, bool val) { flags = val ? (flags | mask) : (flags & ~mask); }
 };
 
-static_assert(sizeof(EntityData) == 40);
+static_assert(sizeof(EntityData) == 56);
 
 // Convert world-space circle to tile-space bounds
 struct TileCircle
@@ -635,6 +649,7 @@ public:
 
 			// Cache the component cache for fast QueryInterface lookups
 			entdata.componentCache = GetSimContext().GetComponentManager().LookupEntityHandle(ent).GetComponentCache();
+			CalcInterfaceMask(entdata.componentCache, entdata.interfaceMask);
 
 			// Remember this entity
 			m_EntityData.insert(ent, entdata);
@@ -1031,6 +1046,7 @@ public:
 		for (EntityMap<EntityData>::iterator it = m_EntityData.begin(); it != m_EntityData.end(); ++it)
 		{
 			it->second.componentCache = GetSimContext().GetComponentManager().LookupEntityHandle(it->first).GetComponentCache();
+			CalcInterfaceMask(it->second.componentCache, it->second.interfaceMask);
 		}
 	}
 
@@ -1363,9 +1379,18 @@ public:
 		// If it's not a mirage, check interface normally
 		if (!isMirage && q.interface)
 		{
-			const SEntityComponentCache* cache = entity.componentCache;
-			if (!cache || static_cast<size_t>(q.interface) >= cache->numInterfaces || !cache->interfaces[q.interface])
-				return false;
+			if (q.interface < 128)
+			{
+				if (!(entity.interfaceMask[q.interface >> 6] & (1ull << (q.interface & 63))))
+					return false;
+			}
+			else
+			{
+				// Fallback for interface IDs >= 128: still use the pointer chase
+				const SEntityComponentCache* cache = entity.componentCache;
+				if (!cache || static_cast<size_t>(q.interface) >= cache->numInterfaces || !cache->interfaces[q.interface])
+					return false;
+			}
 		}
 
 		// Filter hidden entities when we want mirages (i.e., we care about visibility)

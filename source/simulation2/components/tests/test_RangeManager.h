@@ -540,4 +540,92 @@ public:
 		TS_ASSERT_DIFFERS(effective, NEVER_IN_RANGE);
 		TS_ASSERT_EQUALS(effective, fixed::Zero());
 	}
+
+	void test_range_queries_required_interface_filtering()
+	{
+		// Test that range queries with requiredInterface filter correctly using the
+		// fast-path interfaceMask bitmask (for interfaces < 128) and fallback path
+		// (for interfaces >= 128). This exercises the code added in bd_0ad-117.
+		ComponentTestHelper test(*g_ScriptContext);
+
+		ICmpRangeManager* rangeManager = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+
+		MockVisionRgm vision1, vision2;
+		MockPositionRgm position1, position2, position3;
+		MockObstructionRgm obs1(fixed::FromInt(2)), obs2(fixed::FromInt(2)), obs3(fixed::FromInt(2));
+
+		// Entity 100: has Vision, Position, Obstruction
+		test.AddMock(100, IID_Vision, vision1);
+		test.AddMock(100, IID_Position, position1);
+		test.AddMock(100, IID_Obstruction, obs1);
+
+		// Entity 101: has Vision, Position, Obstruction (same as 100)
+		test.AddMock(101, IID_Vision, vision2);
+		test.AddMock(101, IID_Position, position2);
+		test.AddMock(101, IID_Obstruction, obs2);
+
+		// Entity 102: has Position, Obstruction but NO Vision
+		// (we don't add Vision mock for this entity)
+		test.AddMock(102, IID_Position, position3);
+		test.AddMock(102, IID_Obstruction, obs3);
+
+		rangeManager->SetBounds(entity_pos_t::FromInt(0), entity_pos_t::FromInt(0), entity_pos_t::FromInt(512), entity_pos_t::FromInt(512));
+		rangeManager->Verify();
+
+		// Create all entities
+		{ CMessageCreate msg(100); rangeManager->HandleMessage(msg, false); }
+		{ CMessageCreate msg(101); rangeManager->HandleMessage(msg, false); }
+		{ CMessageCreate msg(102); rangeManager->HandleMessage(msg, false); }
+
+		// Set ownership for all entities
+		{ CMessageOwnershipChanged msg(100, -1, 1); rangeManager->HandleMessage(msg, false); }
+		{ CMessageOwnershipChanged msg(101, -1, 1); rangeManager->HandleMessage(msg, false); }
+		{ CMessageOwnershipChanged msg(102, -1, 1); rangeManager->HandleMessage(msg, false); }
+
+		// Position them all at the same location
+		auto move = [&rangeManager](entity_id_t ent, MockPositionRgm& pos, fixed x, fixed z) {
+			pos.m_Pos = CFixedVector3D(x, fixed::Zero(), z);
+			{ CMessagePositionChanged msg(ent, true, x, z, entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		};
+
+		move(100, position1, fixed::FromInt(100), fixed::FromInt(100));
+		move(101, position2, fixed::FromInt(100), fixed::FromInt(100));
+		move(102, position3, fixed::FromInt(100), fixed::FromInt(100));
+
+		std::vector<int> owners;
+		owners.push_back(1);
+
+		// Query 1: Without requiredInterface (requiredInterface = 0), entities 101 and 102 should be returned
+		// (queries exclude the source entity itself)
+		std::vector<entity_id_t> nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(100), owners, 0, true);
+		TS_ASSERT_EQUALS(nearby.size(), 2);
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 101) != nearby.end());
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 102) != nearby.end());
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 100) == nearby.end()); // Source entity is not included
+
+		// Query 2: With requiredInterface = IID_Vision, only entity 101 should be returned
+		// Entity 102 lacks Vision and should be filtered out
+		// This exercises the fast-path interfaceMask bitmask logic (IID_Vision < 128)
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(100), owners, IID_Vision, true);
+		TS_ASSERT_EQUALS(nearby.size(), 1);
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 101) != nearby.end());
+		// Entity 102 (which lacks Vision) is definitely NOT in results
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 102) == nearby.end());
+
+		// Query 3: With requiredInterface = IID_Position, both 101 and 102 should be returned
+		// (all of 101 and 102 have Position component)
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(100), owners, IID_Position, true);
+		TS_ASSERT_EQUALS(nearby.size(), 2);
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 101) != nearby.end());
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 102) != nearby.end());
+
+		// Query 4: With requiredInterface = IID_Obstruction, both 101 and 102 should be returned
+		// (all of 101 and 102 have Obstruction component)
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(100), owners, IID_Obstruction, true);
+		TS_ASSERT_EQUALS(nearby.size(), 2);
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 101) != nearby.end());
+		TS_ASSERT(std::find(nearby.begin(), nearby.end(), 102) != nearby.end());
+
+		rangeManager->Verify();
+	}
 };
