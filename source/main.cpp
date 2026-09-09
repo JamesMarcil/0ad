@@ -621,12 +621,38 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 		// normally what registers this hook — register it explicitly here so
 		// an assertion during headless replay playback doesn't pop a modal
 		// dialog and hang forever (see bd_0ad-5zm).
-		app_hooks_update({ .display_error = psDisplayError });
-
+		// Also set up log directory and VFS mounts to ensure log output works
+		// and required game data directories are accessible.
 		Paths paths(args);
+
+		OsPath logs(paths.Logs());
+		CreateDirectories(logs, 0700);
+		psSetLogDir(logs);
+
+		// Update AppHooks with log directory callbacks and error display
+		app_hooks_update({
+			.get_log_dir = psLogDir,
+			.bundle_logs = psBundleLogs,
+			.display_error = psDisplayError
+		});
+
 		g_VFS = CreateVfs();
-		// Mount with highest priority, we don't want mods overwriting this.
+
+		// Mount these dirs with highest priority so that mods can't overwrite them.
 		g_VFS->Mount(L"cache/", paths.Cache(), VFS_MOUNT_ARCHIVABLE, VFS_MAX_PRIORITY);
+
+		const OsPath readonlyConfig = paths.RData()/"config"/"";
+		if (readonlyConfig != paths.Config())
+			g_VFS->Mount(L"config/", readonlyConfig, 0, VFS_MAX_PRIORITY-1);
+		g_VFS->Mount(L"config/", paths.Config(), 0, VFS_MAX_PRIORITY);
+
+		g_VFS->Mount(L"screenshots/", paths.UserData()/"screenshots"/"", 0, VFS_MAX_PRIORITY);
+		g_VFS->Mount(L"saves/", paths.UserData()/"saves"/"", VFS_MOUNT_WATCH, VFS_MAX_PRIORITY);
+
+		// Engine localization files (regular priority, these can be overwritten).
+		g_VFS->Mount(L"l10n/", paths.RData()/"l10n"/"");
+
+		FileLogger logger;
 
 		{
 			CReplayPlayer replay;
