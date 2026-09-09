@@ -48,7 +48,6 @@
 #include <limits>
 #include <string>
 #include <type_traits>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -386,6 +385,9 @@ void CCmpUnitMotionManager::ResetSubdivisions()
 	size_t size = cmpTerrain->GetMapSize();
 	u16 gridSquareSize = static_cast<u16>(size / PUSHING_GRID_SIZE + 1);
 	m_MovingUnits.resize(gridSquareSize, gridSquareSize);
+	m_CellStamp.assign(static_cast<size_t>(gridSquareSize) * gridSquareSize, 0u);
+	m_CellEpoch = 0;
+	m_TouchedCells.clear();
 }
 
 void CCmpUnitMotionManager::Register(CCmpUnitMotion* component, entity_id_t ent, bool formationController)
@@ -442,7 +444,12 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 #endif
 
 	PROFILE2("MotionMgr_Move");
-	std::unordered_set<std::vector<EntityMap<MotionState>::iterator>*> assigned;
+	if (++m_CellEpoch == 0)
+	{
+		std::fill(m_CellStamp.begin(), m_CellStamp.end(), 0u);
+		m_CellEpoch = 1;
+	}
+	m_TouchedCells.clear();
 	for (EntityMap<MotionState>::iterator it = ents.begin(); it != ents.end(); ++it)
 	{
 		if (!it->second.cmpPosition->IsInWorld())
@@ -459,40 +466,50 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		it->second.angle = it->second.initialAngle;
 		ENSURE(it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE < m_MovingUnits.width() &&
 			   it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE < m_MovingUnits.height());
-		std::vector<EntityMap<MotionState>::iterator>& subdiv = m_MovingUnits.get(
-			it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE,
-			it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE
-		);
+		int cx = it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE;
+		int cz = it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE;
+		std::vector<EntityMap<MotionState>::iterator>& subdiv = m_MovingUnits.get(cx, cz);
 		subdiv.emplace_back(it);
-		assigned.emplace(&subdiv);
+		const u32 cellIndex = static_cast<u32>(cz) * m_MovingUnits.width() + static_cast<u32>(cx);
+		if (m_CellStamp[cellIndex] != m_CellEpoch)
+		{
+			m_CellStamp[cellIndex] = m_CellEpoch;
+			m_TouchedCells.push_back(cellIndex);
+		}
 	}
 
-	for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
+	for (u32 cellIndex : m_TouchedCells)
 	{
+		u32 x = cellIndex % m_MovingUnits.width();
+		u32 z = cellIndex / m_MovingUnits.width();
+		std::vector<EntityMap<MotionState>::iterator>& vec = m_MovingUnits.get(x, z);
 #if DEBUG_RENDER
 		{
 			SOverlayLine gridL;
-			auto it = (*vec)[0];
-			gridL.PushCoords(CVector3D(it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE,
-									   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
-									   it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE));
-			gridL.PushCoords(CVector3D(it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE + PUSHING_GRID_SIZE,
-									   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
-									   it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE));
-			gridL.PushCoords(CVector3D(it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE + PUSHING_GRID_SIZE,
-									   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
-									   it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE + PUSHING_GRID_SIZE));
-			gridL.PushCoords(CVector3D(it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE,
-									   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
-									   it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE + PUSHING_GRID_SIZE));
-			gridL.PushCoords(CVector3D(it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE,
-									   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
-									   it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE * PUSHING_GRID_SIZE));
-			gridL.m_Color = CColor(1, 1, 0, 1);
-			debugDataMotionMgr.m_Lines.push_back(gridL);
+			if (!vec.empty())
+			{
+				auto it = vec[0];
+				gridL.PushCoords(CVector3D(x * PUSHING_GRID_SIZE,
+										   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
+										   z * PUSHING_GRID_SIZE));
+				gridL.PushCoords(CVector3D(x * PUSHING_GRID_SIZE + PUSHING_GRID_SIZE,
+										   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
+										   z * PUSHING_GRID_SIZE));
+				gridL.PushCoords(CVector3D(x * PUSHING_GRID_SIZE + PUSHING_GRID_SIZE,
+										   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
+										   z * PUSHING_GRID_SIZE + PUSHING_GRID_SIZE));
+				gridL.PushCoords(CVector3D(x * PUSHING_GRID_SIZE,
+										   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
+										   z * PUSHING_GRID_SIZE + PUSHING_GRID_SIZE));
+				gridL.PushCoords(CVector3D(x * PUSHING_GRID_SIZE,
+										   it->second.cmpPosition->GetHeightFixed().ToDouble() + 2.f,
+										   z * PUSHING_GRID_SIZE));
+				gridL.m_Color = CColor(1, 1, 0, 1);
+				debugDataMotionMgr.m_Lines.push_back(gridL);
+			}
 		}
 #endif
-		for (EntityMap<MotionState>::iterator& it : *vec)
+		for (EntityMap<MotionState>::iterator& it : vec)
 		{
 			if (it->second.needUpdate)
 				it->second.cmpUnitMotion->Move(it->second, dt);
@@ -505,13 +522,15 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	if (&ents == &m_Units && IsPushingActivated())
 	{
 		PROFILE2("MotionMgr_Pushing");
-		for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
+		for (u32 cellIndex : m_TouchedCells)
 		{
-			ENSURE(!vec->empty());
-			std::vector< std::vector<EntityMap<MotionState>::iterator>* > consider = { vec };
+			u32 x = cellIndex % m_MovingUnits.width();
+			u32 z = cellIndex / m_MovingUnits.width();
+			std::vector<EntityMap<MotionState>::iterator>& vec = m_MovingUnits.get(x, z);
+			ENSURE(!vec.empty());
+			std::vector< std::vector<EntityMap<MotionState>::iterator>* > consider = { &vec };
 
-			int x = (*vec)[0]->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE;
-			int z = (*vec)[0]->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE;
+			// x and z are already computed above, using direct row-major indices
 			if (x + 1 < m_MovingUnits.width())
 				consider.push_back(&m_MovingUnits.get(x + 1, z));
 			if (x > 0)
@@ -521,7 +540,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			if (z > 0)
 				consider.push_back(&m_MovingUnits.get(x, z - 1));
 
-			for (EntityMap<MotionState>::iterator& it : *vec)
+			for (EntityMap<MotionState>::iterator& it : vec)
 			{
 				if (it->second.ignore)
 					continue;
@@ -573,9 +592,12 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	{
 		PROFILE2("MotionMgr_PushAdjust");
 		CmpPtr<ICmpPathfinder> cmpPathfinder(GetSystemEntity());
-		for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
+		for (u32 cellIndex : m_TouchedCells)
 		{
-			for (EntityMap<MotionState>::iterator& it : *vec)
+			u32 x = cellIndex % m_MovingUnits.width();
+			u32 z = cellIndex / m_MovingUnits.width();
+			std::vector<EntityMap<MotionState>::iterator>& vec = m_MovingUnits.get(x, z);
+			for (EntityMap<MotionState>::iterator& it : vec)
 			{
 
 				if (!it->second.needUpdate || it->second.ignore)
@@ -657,14 +679,22 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	}
 #if DEBUG_STATS
 	int size = 0;
-	for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
-		size += vec->size();
+	for (u32 cellIndex : m_TouchedCells)
+	{
+		u32 x = cellIndex % m_MovingUnits.width();
+		u32 z = cellIndex / m_MovingUnits.width();
+		size += m_MovingUnits.get(x, z).size();
+	}
 	double time = timer_Time() - start;
 	if (comparisons > 0)
-		printf(">> %i comparisons over %li grids, %f units per grid in %f secs\n", comparisons, assigned.size(), size / (float)(assigned.size()), time);
+		printf(">> %i comparisons over %li grids, %f units per grid in %f secs\n", comparisons, m_TouchedCells.size(), size / (float)(m_TouchedCells.size()), time);
 #endif
-	for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
-		vec->clear();
+	for (u32 cellIndex : m_TouchedCells)
+	{
+		u32 x = cellIndex % m_MovingUnits.width();
+		u32 z = cellIndex / m_MovingUnits.width();
+		m_MovingUnits.get(x, z).clear();
+	}
 }
 
 // TODO: ought to better simulate in-flight pushing, e.g. if units would cross in-between turns.

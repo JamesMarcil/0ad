@@ -126,6 +126,12 @@ public:
 	Grid<std::vector<EntityMap<MotionState>::iterator>> m_MovingUnits;
 	bool m_ComputingMotion;
 
+	// Turn-local scratch (NOT serialized): deterministic replacement for the old
+	// unordered_set<vector*> -- that order depended on heap addresses.
+	std::vector<u32> m_TouchedCells;  // row-major cell indices (z * m_MovingUnits.width() + x) touched this Move() call, first-touch order
+	std::vector<u32> m_CellStamp;     // per-cell: last epoch that touched it, one entry per cell
+	u32 m_CellEpoch = 0;              // incremented once per Move() call (Move() runs twice/turn: formations then units)
+
 	static std::string GetSchema()
 	{
 		return "<a:component type='system'/><empty/>";

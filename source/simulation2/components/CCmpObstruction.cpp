@@ -705,6 +705,8 @@ public:
 
 	void SetMovingFlag(bool enabled) override
 	{
+		if (m_Moving == enabled)
+			return;
 		m_Moving = enabled;
 
 		if (m_Tag.valid() && m_Type == UNIT)
