@@ -20,7 +20,6 @@
 #include "TaskManager.h"
 
 #include "lib/debug.h"
-#include "lib/sysdep/cpu.h"
 #include "maths/MathUtil.h"
 #include "ps/Profiler2.h"
 #include "ps/Threading.h"
@@ -28,7 +27,6 @@
 #include <tracy/Tracy.hpp>
 
 #include <atomic>
-#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -310,6 +308,7 @@ WorkerThread::~WorkerThread()
 		m_Thread.join();
 }
 
+
 void WorkerThread::RunUntilDeath()
 {
 	// The profiler does better if the names are unique.
@@ -323,38 +322,13 @@ void WorkerThread::RunUntilDeath()
 	bool hasTask = false;
 	std::unique_lock<std::mutex> lock(m_TaskManager.m_Mutex, std::defer_lock);
 
-	// Adaptive spin budget in microseconds. Reduces CPU usage in idle scenarios
-	// by decaying the spin window when no work is found, and restoring it when
-	// tasks are successfully processed.
-	double spinBudgetUs = 30.0;
-	const double MIN_SPIN_BUDGET_US = 1.0;
-	const double MAX_SPIN_BUDGET_US = 30.0;
-	const double DECAY_FACTOR = 0.5;  // Multiply when spin expires without work
-	const double RESTORE_FACTOR = 1.5; // Multiply when task successfully popped
-
 	while (!m_Kill)
 	{
-		// Spin phase: poll work flags without acquiring lock
-		auto spinStart = std::chrono::high_resolution_clock::now();
-		bool spinFoundWork = false;
-
-		while (true)
-		{
-			if (m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork || m_Kill)
-			{
-				spinFoundWork = true;
-				break;
-			}
-
-			// Check if spin budget exhausted
-			auto now = std::chrono::high_resolution_clock::now();
-			auto elapsedUs = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(
-				now - spinStart).count();
-			if (elapsedUs > spinBudgetUs)
-				break;
-
-			cpu_Pause();
-		}
+		lock.lock();
+		m_TaskManager.m_ConditionVariable.wait(lock, [this](){
+			return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
+		});
+		lock.unlock();
 
 		if (m_Kill)
 			break;
@@ -363,25 +337,8 @@ void WorkerThread::RunUntilDeath()
 		hasTask = m_TaskManager.PopTask<TaskPriority::NORMAL>(task);
 		if (!hasTask)
 			hasTask = m_TaskManager.PopTask<TaskPriority::LOW>(task);
-
 		if (hasTask)
-		{
-			// Restore spin budget on successful pop to prepare for next busy period
-			spinBudgetUs = std::min(MAX_SPIN_BUDGET_US, spinBudgetUs * RESTORE_FACTOR);
 			task.fn(task.ctx);
-			continue;
-		}
-
-		// No task found - decay spin budget if we waited full spin window
-		if (!spinFoundWork)
-			spinBudgetUs = std::max(MIN_SPIN_BUDGET_US, spinBudgetUs * DECAY_FACTOR);
-
-		// Fall back to blocking wait for new work
-		lock.lock();
-		m_TaskManager.m_ConditionVariable.wait(lock, [this](){
-			return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
-		});
-		lock.unlock();
 	}
 }
 
