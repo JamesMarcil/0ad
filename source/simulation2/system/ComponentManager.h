@@ -277,6 +277,13 @@ public:
 	 * (Declared out-of-line, and the registry held by pointer, so that this header - included
 	 * by most of the engine - does not need to drag in the full <entt/entity/registry.hpp>
 	 * and its include path; only code that actually touches the registry needs that.)
+	 *
+	 * INVARIANT (ADR-001 Appendix A): Do NOT call registry::reset(id) directly on a live
+	 * EnTT-backed component's storage. Reset() erases the pool outright, invalidating cached
+	 * pool pointers in active EnTTComponent proxies. ResetState() safely handles registry
+	 * lifecycle by destroying all component proxies (via Deinit() + dealloc()) before replacing
+	 * the registry object. All registry mutation must go through ResetState(), InitSystemEntity(),
+	 * AllocateEntityHandle(), or the component's AttachStorage()/DetachStorage().
 	 */
 	entt::registry& GetRegistry();
 	const entt::registry& GetRegistry() const;

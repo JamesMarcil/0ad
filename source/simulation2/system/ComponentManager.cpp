@@ -539,6 +539,12 @@ void CComponentManager::ResetState()
 	// observably identical to a freshly constructed registry, and a fresh-vs-reset divergence
 	// here would silently desync SerializeState/ComputeStateHash after "reset then load" vs.
 	// "fresh load". Replacing the object side-steps the question entirely.
+	//
+	// ADR-001 Appendix A hard invariant: all component proxies (EnTT-backed and legacy alike)
+	// must be destroyed before the registry object is replaced. The Deinit() + dealloc() loop
+	// above accomplishes this for all components in m_ComponentsByTypeId. Verify the invariant:
+	ENSURE(m_ComponentsByTypeId.empty());  // No live component proxies remain
+
 	m_Registry = std::make_unique<entt::registry>();
 	m_EntityMap.clear();
 
