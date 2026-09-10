@@ -20,6 +20,7 @@
 #include "TaskManager.h"
 
 #include "lib/debug.h"
+#include "lib/sysdep/cpu.h"
 #include "maths/MathUtil.h"
 #include "ps/Profiler2.h"
 #include "ps/Threading.h"
@@ -27,9 +28,11 @@
 #include <tracy/Tracy.hpp>
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -50,15 +53,45 @@ constexpr size_t MIN_WORKERS = 3;
  */
 constexpr size_t MAX_WORKERS = 32;
 
+/**
+ * Override for worker count, used for testing specific parallel widths.
+ * If set (not -1), this value will be used instead of computing from hardware_concurrency.
+ */
+static size_t g_WorkerCountOverride = std::numeric_limits<size_t>::max();
+
 size_t GetDefaultNumberOfWorkers()
 {
+	// If an override has been set, use it (allowing 1 worker for determinism testing)
+	if (g_WorkerCountOverride != std::numeric_limits<size_t>::max())
+	{
+		return Clamp<size_t>(g_WorkerCountOverride, 1, MAX_WORKERS);
+	}
+
 	const size_t hardware_concurrency = std::thread::hardware_concurrency();
 	return hardware_concurrency ? Clamp(hardware_concurrency - 1, MIN_WORKERS, MAX_WORKERS) : MIN_WORKERS;
 }
 
 } // anonymous namespace
 
-using QueueItem = std::function<void()>;
+/**
+ * Trivially-copyable task descriptor: function pointer and context.
+ */
+struct TaskRef
+{
+	void (*fn)(void*);
+	void* ctx;
+};
+
+/**
+ * Helper invoked by workers to call and delete a heap-allocated std::function.
+ * Used to adapt std::function<void()> into the TaskRef POD queue.
+ */
+inline void InvokeAndDeleteStdFunction(void* ctx)
+{
+	auto* func = static_cast<std::function<void()>*>(ctx);
+	(*func)();
+	delete func;
+}
 
 /**
  * Light wrapper around std::thread. Ensures Join has been called.
@@ -145,14 +178,14 @@ protected:
 	void ClearQueue();
 
 	template<TaskPriority Priority>
-	bool PopTask(std::function<void()>& taskOut);
+	bool PopTask(TaskRef& taskOut);
 
 	std::atomic<bool> m_HasWork = false;
 	std::atomic<bool> m_HasLowPriorityWork = false;
 	std::mutex m_Mutex;
 	std::condition_variable m_ConditionVariable;
-	std::deque<QueueItem> m_GlobalQueue;
-	std::deque<QueueItem> m_GlobalLowPriorityQueue;
+	std::deque<TaskRef> m_GlobalQueue;
+	std::deque<TaskRef> m_GlobalLowPriorityQueue;
 
 	// Ideally this would be a vector, since it does get iterated, but that requires movable types.
 	std::deque<WorkerThread> m_Workers;
@@ -165,11 +198,25 @@ TaskManager::TaskManager() : TaskManager(GetDefaultNumberOfWorkers())
 TaskManager::TaskManager(size_t numberOfWorkers)
 	: m{std::make_unique<Impl>()}
 {
-	numberOfWorkers = Clamp<size_t>(numberOfWorkers, MIN_WORKERS, MAX_WORKERS);
+	// If an override is set, only clamp to MAX_WORKERS (allowing 1 for testing).
+	// Otherwise, enforce the full [MIN_WORKERS, MAX_WORKERS] range.
+	if (g_WorkerCountOverride != std::numeric_limits<size_t>::max())
+	{
+		numberOfWorkers = Clamp<size_t>(numberOfWorkers, 1, MAX_WORKERS);
+	}
+	else
+	{
+		numberOfWorkers = Clamp<size_t>(numberOfWorkers, MIN_WORKERS, MAX_WORKERS);
+	}
 	m->SetupWorkers(numberOfWorkers);
 }
 
 TaskManager::~TaskManager() = default;
+
+void TaskManager::SetWorkerCountOverride(size_t count)
+{
+	g_WorkerCountOverride = count;
+}
 
 void TaskManager::Impl::SetupWorkers(size_t numberOfWorkers)
 {
@@ -194,11 +241,12 @@ void TaskManager::PushTasks(std::vector<std::function<void()>> tasks, TaskPriori
 
 void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority priority)
 {
-	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
+	std::deque<TaskRef>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 	std::atomic<bool>& hasWork = priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 	{
 		std::lock_guard<std::mutex> lock(m_Mutex);
-		queue.emplace_back(std::move(task));
+		auto* heapFunc = new std::function<void()>(std::move(task));
+		queue.emplace_back(TaskRef{&InvokeAndDeleteStdFunction, heapFunc});
 		hasWork = true;
 	}
 	m_ConditionVariable.notify_one();
@@ -209,35 +257,33 @@ void TaskManager::Impl::PushTasks(std::vector<std::function<void()>>&& tasks, Ta
 	if (tasks.empty())
 		return;
 
-	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
+	std::deque<TaskRef>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 	std::atomic<bool>& hasWork = priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 
-	size_t numTasks = tasks.size();
 	{
 		std::lock_guard<std::mutex> lock(m_Mutex);
 		for (auto& task : tasks)
-			queue.emplace_back(std::move(task));
+		{
+			auto* heapFunc = new std::function<void()>(std::move(task));
+			queue.emplace_back(TaskRef{&InvokeAndDeleteStdFunction, heapFunc});
+		}
 		hasWork = true;
 	}
 
-	if (numTasks >= m_Workers.size())
-		m_ConditionVariable.notify_all();
-	else
-		for (size_t i = 0; i < numTasks; ++i)
-			m_ConditionVariable.notify_one();
+	m_ConditionVariable.notify_all();
 }
 
 template<TaskPriority Priority>
-bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
+bool TaskManager::Impl::PopTask(TaskRef& taskOut)
 {
-	std::deque<QueueItem>& queue = Priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
+	std::deque<TaskRef>& queue = Priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 	std::atomic<bool>& hasWork = Priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 
 	// Particularly critical section since we're locking the global queue.
 	std::lock_guard<std::mutex> lock(m_Mutex);
 	if (!queue.empty())
 	{
-		taskOut = std::move(queue.front());
+		taskOut = queue.front();
 		queue.pop_front();
 		hasWork = !queue.empty();
 		return true;
@@ -273,17 +319,42 @@ void WorkerThread::RunUntilDeath()
 	tracy::SetThreadName(name.c_str());
 	g_Profiler2.RegisterCurrentThread(name);
 
-
-	std::function<void()> task;
+	TaskRef task;
 	bool hasTask = false;
 	std::unique_lock<std::mutex> lock(m_TaskManager.m_Mutex, std::defer_lock);
+
+	// Adaptive spin budget in microseconds. Reduces CPU usage in idle scenarios
+	// by decaying the spin window when no work is found, and restoring it when
+	// tasks are successfully processed.
+	double spinBudgetUs = 30.0;
+	const double MIN_SPIN_BUDGET_US = 1.0;
+	const double MAX_SPIN_BUDGET_US = 30.0;
+	const double DECAY_FACTOR = 0.5;  // Multiply when spin expires without work
+	const double RESTORE_FACTOR = 1.5; // Multiply when task successfully popped
+
 	while (!m_Kill)
 	{
-		lock.lock();
-		m_TaskManager.m_ConditionVariable.wait(lock, [this](){
-			return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
-		});
-		lock.unlock();
+		// Spin phase: poll work flags without acquiring lock
+		auto spinStart = std::chrono::high_resolution_clock::now();
+		bool spinFoundWork = false;
+
+		while (true)
+		{
+			if (m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork || m_Kill)
+			{
+				spinFoundWork = true;
+				break;
+			}
+
+			// Check if spin budget exhausted
+			auto now = std::chrono::high_resolution_clock::now();
+			auto elapsedUs = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(
+				now - spinStart).count();
+			if (elapsedUs > spinBudgetUs)
+				break;
+
+			cpu_Pause();
+		}
 
 		if (m_Kill)
 			break;
@@ -292,8 +363,25 @@ void WorkerThread::RunUntilDeath()
 		hasTask = m_TaskManager.PopTask<TaskPriority::NORMAL>(task);
 		if (!hasTask)
 			hasTask = m_TaskManager.PopTask<TaskPriority::LOW>(task);
+
 		if (hasTask)
-			task();
+		{
+			// Restore spin budget on successful pop to prepare for next busy period
+			spinBudgetUs = std::min(MAX_SPIN_BUDGET_US, spinBudgetUs * RESTORE_FACTOR);
+			task.fn(task.ctx);
+			continue;
+		}
+
+		// No task found - decay spin budget if we waited full spin window
+		if (!spinFoundWork)
+			spinBudgetUs = std::max(MIN_SPIN_BUDGET_US, spinBudgetUs * DECAY_FACTOR);
+
+		// Fall back to blocking wait for new work
+		lock.lock();
+		m_TaskManager.m_ConditionVariable.wait(lock, [this](){
+			return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
+		});
+		lock.unlock();
 	}
 }
 

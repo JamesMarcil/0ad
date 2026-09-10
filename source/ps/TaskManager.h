@@ -83,6 +83,13 @@ public:
 	TaskManager& operator=(TaskManager&&) = delete;
 
 	/**
+	 * Set an override for the number of workers. This must be called before the
+	 * TaskManager is instantiated. Used for testing with specific worker thread counts.
+	 * @param count the number of workers to use (1 to MAX_WORKERS); bypasses MIN_WORKERS floor
+	 */
+	static void SetWorkerCountOverride(size_t count);
+
+	/**
 	 * @return the number of threaded workers.
 	 */
 	size_t GetNumberOfWorkers() const;

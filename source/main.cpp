@@ -609,6 +609,20 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 	Script::Engine scriptEngine;
 	CXeromycesEngine xeromycesEngine;
 
+	// Handle CLI override for TaskManager worker count (for testing specific parallel widths)
+	if (args.Has("taskmanager-workers"))
+	{
+		CStr workerCountStr = args.Get("taskmanager-workers");
+		if (!workerCountStr.empty())
+		{
+			int workerCount = workerCountStr.ToInt();
+			if (workerCount > 0)
+			{
+				Threading::TaskManager::SetWorkerCountOverride(static_cast<size_t>(workerCount));
+			}
+		}
+	}
+
 	// Initialise the global task manager at this point (JS & Profiler2 are set up).
 	Threading::TaskManager taskManager;
 
