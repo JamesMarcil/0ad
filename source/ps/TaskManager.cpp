@@ -51,6 +51,8 @@ constexpr size_t MIN_WORKERS = 3;
  */
 constexpr size_t MAX_WORKERS = 32;
 
+static_assert(MAX_WORKERS + 1 == TaskManager::MAX_PARALLEL_PARTICIPANTS);
+
 /**
  * Override for worker count, used for testing specific parallel widths.
  * If set (not -1), this value will be used instead of computing from hardware_concurrency.
@@ -72,12 +74,46 @@ size_t GetDefaultNumberOfWorkers()
 } // anonymous namespace
 
 /**
+ * Thread-local worker index for current thread.
+ * 0 for non-worker threads, 1..MAX_WORKERS for worker threads, during ParallelFor.
+ */
+thread_local size_t t_WorkerIndex = 0;
+
+#ifndef NDEBUG
+/**
+ * Debug guard to detect nested ParallelFor calls.
+ */
+thread_local bool t_InParallelRegion = false;
+#endif
+
+/**
  * Trivially-copyable task descriptor: function pointer and context.
  */
 struct TaskRef
 {
 	void (*fn)(void*);
 	void* ctx;
+};
+
+/**
+ * Parallel region descriptor for ParallelFor.
+ * Laid out across multiple cache lines to avoid false sharing of hot atomics.
+ */
+struct alignas(64) ParallelRegion
+{
+	// cache line 0: hot, contended
+	std::atomic<size_t> m_Cursor;
+	char m_Pad0[64 - sizeof(std::atomic<size_t>)];
+
+	// cache line 1: hot, contended (separate line from cursor)
+	std::atomic<size_t> m_Remaining;
+	char m_Pad1[64 - sizeof(std::atomic<size_t>)];
+
+	// cache line 2+: read-only after publish
+	const std::function<void(size_t, size_t, size_t)>* m_Body;
+	size_t m_Count;
+	size_t m_Grain;
+	char m_Pad2[64 - (sizeof(void*) + 2 * sizeof(size_t))];
 };
 
 /**
@@ -89,6 +125,24 @@ inline void InvokeAndDeleteStdFunction(void* ctx)
 	auto* func = static_cast<std::function<void()>*>(ctx);
 	(*func)();
 	delete func;
+}
+
+/**
+ * Trampoline for ParallelFor worker threads and main thread.
+ * Processes work from the ParallelRegion until completion.
+ */
+void RunRegion(void* ctx)
+{
+	ParallelRegion& r = *static_cast<ParallelRegion*>(ctx);
+	const size_t workerIndex = t_WorkerIndex;
+	for (;;)
+	{
+		const size_t begin = r.m_Cursor.fetch_add(r.m_Grain, std::memory_order_relaxed);
+		if (begin >= r.m_Count)
+			break;
+		(*r.m_Body)(begin, std::min(begin + r.m_Grain, r.m_Count), workerIndex);
+	}
+	r.m_Remaining.fetch_sub(1, std::memory_order_release);
 }
 
 /**
@@ -125,13 +179,14 @@ protected:
 class WorkerThread : public Thread
 {
 public:
-	WorkerThread(TaskManager::Impl& taskManager);
+	WorkerThread(TaskManager::Impl& taskManager, size_t workerIndex);
 	~WorkerThread();
 
 protected:
 	void RunUntilDeath();
 
 	TaskManager::Impl& m_TaskManager;
+	const size_t m_WorkerIndex;
 };
 
 /**
@@ -171,6 +226,13 @@ public:
 	 * May be called from any thread.
 	 */
 	void PushTasks(std::vector<std::function<void()>>&& tasks, TaskPriority priority);
+
+	/**
+	 * Publish a ParallelRegion to workers.
+	 * Enqueues RunRegion tasks for 'count' workers, sets m_HasWork, and notifies all workers.
+	 * Called by ParallelFor to distribute the region to idle workers.
+	 */
+	void PublishRegion(ParallelRegion& region, size_t count);
 
 protected:
 	void ClearQueue();
@@ -219,7 +281,7 @@ void TaskManager::SetWorkerCountOverride(size_t count)
 void TaskManager::Impl::SetupWorkers(size_t numberOfWorkers)
 {
 	for (size_t i = 0; i < numberOfWorkers; ++i)
-		m_Workers.emplace_back(*this);
+		m_Workers.emplace_back(*this, i + 1);
 }
 
 size_t TaskManager::GetNumberOfWorkers() const
@@ -235,6 +297,62 @@ void TaskManager::PushTask(std::function<void()> task, TaskPriority priority)
 void TaskManager::PushTasks(std::vector<std::function<void()>> tasks, TaskPriority priority)
 {
 	m->PushTasks(std::move(tasks), priority);
+}
+
+void TaskManager::ParallelFor(size_t n, const std::function<void(size_t, size_t, size_t)>& body)
+{
+	ParallelFor(n, DefaultGrain(), body);
+}
+
+void TaskManager::ParallelFor(size_t n, size_t grainSize, const std::function<void(size_t, size_t, size_t)>& body)
+{
+	if (n == 0)
+		return;
+	if (grainSize == 0)
+		grainSize = 1;
+
+	// Short region: run inline, zero queue traffic, zero atomics, zero wakes.
+	if (n <= grainSize)
+	{
+		body(0, n, 0);
+		return;
+	}
+
+	const size_t chunks = (n + grainSize - 1) / grainSize;
+	const size_t helpers = std::min(m->m_Workers.size(), chunks - 1);
+	if (helpers == 0)
+	{
+		body(0, n, 0);
+		return;
+	}
+
+#ifndef NDEBUG
+	ENSURE(!t_InParallelRegion);
+	t_InParallelRegion = true;
+#endif
+
+	ParallelRegion region;
+	region.m_Cursor.store(0, std::memory_order_relaxed);
+	region.m_Remaining.store(helpers + 1, std::memory_order_relaxed);
+	region.m_Body = &body;
+	region.m_Count = n;
+	region.m_Grain = grainSize;
+
+	m->PublishRegion(region, helpers);   // Enqueues tasks, wakes workers
+
+	RunRegion(&region);                  // Main thread participates
+
+	while (region.m_Remaining.load(std::memory_order_acquire) != 0)
+		std::this_thread::yield();
+
+#ifndef NDEBUG
+	t_InParallelRegion = false;
+#endif
+}
+
+size_t TaskManager::GetCurrentWorkerIndex()
+{
+	return t_WorkerIndex;
 }
 
 void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority priority)
@@ -271,6 +389,17 @@ void TaskManager::Impl::PushTasks(std::vector<std::function<void()>>&& tasks, Ta
 	m_ConditionVariable.notify_all();
 }
 
+void TaskManager::Impl::PublishRegion(ParallelRegion& region, size_t count)
+{
+	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		for (size_t i = 0; i < count; ++i)
+			m_GlobalQueue.emplace_back(TaskRef{&RunRegion, &region});
+		m_HasWork = true;
+	}
+	m_ConditionVariable.notify_all();
+}
+
 template<TaskPriority Priority>
 bool TaskManager::Impl::PopTask(TaskRef& taskOut)
 {
@@ -291,8 +420,8 @@ bool TaskManager::Impl::PopTask(TaskRef& taskOut)
 
 // Thread definition
 
-WorkerThread::WorkerThread(TaskManager::Impl& taskManager)
-	: m_TaskManager(taskManager)
+WorkerThread::WorkerThread(TaskManager::Impl& taskManager, size_t workerIndex)
+	: m_TaskManager(taskManager), m_WorkerIndex(workerIndex)
 {
 	Start<WorkerThread, &WorkerThread::RunUntilDeath>(this);
 }
@@ -311,6 +440,8 @@ WorkerThread::~WorkerThread()
 
 void WorkerThread::RunUntilDeath()
 {
+	t_WorkerIndex = m_WorkerIndex;
+
 	// The profiler does better if the names are unique.
 	static std::atomic<int> n = 0;
 	std::string name = "Task Mgr #" + std::to_string(n++);

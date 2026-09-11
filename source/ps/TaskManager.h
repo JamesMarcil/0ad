@@ -105,6 +105,61 @@ public:
 	 */
 	void PushTasks(std::vector<std::function<void()>> tasks, TaskPriority priority = TaskPriority::NORMAL);
 
+	/**
+	 * Maximum number of parallel participants in a ParallelFor region.
+	 * Equals MAX_WORKERS + 1 (main thread + worker threads).
+	 */
+	static constexpr size_t MAX_PARALLEL_PARTICIPANTS = 33;
+
+	/**
+	 * Default grain size for ParallelFor if not specified.
+	 */
+	static constexpr size_t DefaultGrain() { return 16; }
+
+	/**
+	 * Execute a parallel loop with optional explicit grain size.
+	 *
+	 * The body function is invoked concurrently by the main thread and worker threads,
+	 * each processing a disjoint range of [begin, end) indices. The loop partitions
+	 * the range [0, n) into chunks of size grainSize (with the last chunk possibly smaller).
+	 *
+	 * Contract:
+	 * - Each index in [0, n) is processed exactly once by exactly one thread.
+	 * - Ranges are disjoint; no synchronization needed within the body.
+	 * - Results must be order-independent (determinism is caller's responsibility).
+	 * - No nesting of ParallelFor is allowed.
+	 * - May only be called from the thread that owns the TaskManager (typically main thread).
+	 * - workerIndex is stable and can be used as an index into per-worker scratch arrays.
+	 *   workerIndex == 0 is always the calling thread; workerIndex in [1, GetNumberOfWorkers()]
+	 *   are the worker threads. This matches the convention in CCmpPathfinder::m_VertexPathfinders.
+	 * - Safe to call inside a component's methods on the main thread.
+	 *
+	 * @param n Number of iterations (0 to process none).
+	 * @param grainSize Minimum size of each work chunk; smaller is more fine-grained parallelism
+	 *                  but more overhead. If <= 0, treated as 1.
+	 * @param body Callable that takes (size_t begin, size_t end, size_t workerIndex).
+	 *             Must not perform blocking I/O or acquire locks held by the main thread.
+	 */
+	void ParallelFor(size_t n, size_t grainSize,
+	                  const std::function<void(size_t begin, size_t end, size_t workerIndex)>& body);
+
+	/**
+	 * Execute a parallel loop with default grain size.
+	 * Equivalent to ParallelFor(n, DefaultGrain(), body).
+	 */
+	void ParallelFor(size_t n,
+	                  const std::function<void(size_t begin, size_t end, size_t workerIndex)>& body);
+
+	/**
+	 * Get the index of the current worker, for use inside a ParallelFor body.
+	 *
+	 * Returns 0 for the calling (main) thread, and [1, GetNumberOfWorkers()] for worker threads.
+	 * Returns 0 for any other thread not participating in the ParallelFor.
+	 * Safe to use as an index into per-worker scratch arrays of size GetNumberOfWorkers() + 1.
+	 * Only meaningful and safe within a ParallelFor body.
+	 */
+	static size_t GetCurrentWorkerIndex();
+
 private:
 	TaskManager(size_t numberOfWorkers);
 

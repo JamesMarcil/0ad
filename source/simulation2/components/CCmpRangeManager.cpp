@@ -31,7 +31,6 @@
 #include "maths/MathUtil.h"
 #include "maths/Sqrt.h"
 #include "ps/CLogger.h"
-#include "ps/Future.h"
 #include "ps/Profile.h"
 #include "ps/TaskManager.h"
 #include "renderer/Scene.h"
@@ -470,6 +469,17 @@ public:
 	EntityMap<EntityData> m_EntityData;
 
 	using RangeUpdateMessage = std::pair<entity_id_t, CMessageRangeUpdate>;
+
+	// Per-worker scratch for ExecuteActiveQueries, indexed by ParallelFor's workerIndex
+	// (0 == main thread, as with CCmpPathfinder::m_VertexPathfinders).
+	// Persistent across turns so the vectors keep their capacity; NOT serialized (pure scratch, cleared before every use).
+	struct alignas(64) QueryScratch
+	{
+		std::vector<entity_id_t> results;
+		std::vector<entity_id_t> added;
+		std::vector<entity_id_t> removed;
+	};
+	std::vector<QueryScratch> m_QueryScratch;
 
 	FastSpatialSubdivision m_Subdivision; // spatial index of m_EntityData
 
@@ -1253,94 +1263,64 @@ public:
 		}
 		const size_t n = activeQueries.size();
 
+		// Size scratch vectors for ParallelFor participation
+		if (m_QueryScratch.size() < g_TaskManager.GetNumberOfWorkers() + 1)
+			m_QueryScratch.resize(g_TaskManager.GetNumberOfWorkers() + 1);
+
 		// Store a queue of all range update messages before sending any, since they modify the state of the simulation
 		// (including this component), which would interfere with the asynchronous tasks.
 		// Important: The order of messages must be fully deterministic.
 		// Index i in messages[] corresponds to index i in activeQueries[] (and m_Queries rank i).
 		std::vector<std::optional<RangeUpdateMessage>> messages(n);
 
-		// Padded atomic cursor to avoid false sharing with other captured locals.
-		// Workers batch-process queries to amortize the cost of synchronization.
-		struct alignas(64) BatchCursor { std::atomic<size_t> value{0}; char pad[64 - sizeof(std::atomic<size_t>)]; } cursor;
+		g_TaskManager.ParallelFor(n, 16, [&](size_t begin, size_t end, size_t workerIndex)
+		{
+			PROFILE2("Async range query execution");
 
-		size_t numFutures = std::min(g_TaskManager.GetNumberOfWorkers(), n);
+			QueryScratch& scratch = m_QueryScratch[workerIndex];
+			std::vector<entity_id_t>& results = scratch.results;
+			std::vector<entity_id_t>& added   = scratch.added;
+			std::vector<entity_id_t>& removed = scratch.removed;
 
-		// Compute batch size to balance task granularity and synchronization overhead.
-		const size_t batchSize = std::clamp<size_t>(n / ((numFutures + 1) * 4), size_t(1), size_t(16));
+			for (size_t idx = begin; idx < end; ++idx)
+			{
+				const tag_t tag = activeQueries[idx].first;
+				Query& query = *activeQueries[idx].second;
 
-		const auto ProcessQueriesAsync = [&]() {
-				PROFILE2("Async range query execution");
+				if (!query.enabled)
+					continue;
 
-				std::vector<entity_id_t> results;
-				std::vector<entity_id_t> added;
-				std::vector<entity_id_t> removed;
-
-				while (true)
+				results.clear();
+				CmpPtr<ICmpPosition> cmpSourcePosition(query.source);
+				if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
 				{
-					// Claim a batch of queries without holding any lock.
-					const size_t begin = cursor.value.fetch_add(batchSize, std::memory_order_relaxed);
-					if (begin >= n)
-						break;
-
-					const size_t end = std::min(begin + batchSize, n);
-					for (size_t idx = begin; idx < end; ++idx)
-					{
-						const tag_t tag = activeQueries[idx].first;
-						Query& query = *activeQueries[idx].second;
-
-						if (!query.enabled)
-							continue;
-
-						results.clear();
-						CmpPtr<ICmpPosition> cmpSourcePosition(query.source);
-						if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
-						{
-							results.reserve(query.lastMatch.size());
-							PerformQuery(query, results, cmpSourcePosition->GetPosition2D());
-						}
-
-						// Compute the changes vs the last match
-						added.clear();
-						removed.clear();
-						// Return the 'added' list sorted by distance from the entity
-						// (Don't bother sorting 'removed' because they might not even have positions or exist any more)
-						std::set_difference(results.begin(), results.end(), query.lastMatch.begin(), query.lastMatch.end(),
-							std::back_inserter(added));
-						std::set_difference(query.lastMatch.begin(), query.lastMatch.end(), results.begin(), results.end(),
-							std::back_inserter(removed));
-						if (added.empty() && removed.empty())
-							continue;
-
-						if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
-							std::stable_sort(added.begin(), added.end(), EntityDistanceOrdering(m_EntityData, cmpSourcePosition->GetPosition2D()));
-
-						// Safe because it's guaranteed that no two threads can write to the same index anyway.
-						messages[idx].emplace(
-							query.source.GetId(),
-							CMessageRangeUpdate(tag, std::move(added), std::move(removed))
-						);
-						query.lastMatch.swap(results);
-					}
+					results.reserve(query.lastMatch.size());
+					PerformQuery(query, results, cmpSourcePosition->GetPosition2D());
 				}
-			};
 
-		Threading::TaskBatch batch{g_TaskManager, numFutures};
-		std::vector<Future<void>> futures;
-		futures.reserve(numFutures);
-		for (size_t i = 0; i < numFutures; i++)
-			futures.push_back({batch,
-				[&ProcessQueriesAsync]() {
-					ProcessQueriesAsync();
-				}
-			});
+				// Compute the changes vs the last match
+				added.clear();
+				removed.clear();
+				// Return the 'added' list sorted by distance from the entity
+				// (Don't bother sorting 'removed' because they might not even have positions or exist any more)
+				std::set_difference(results.begin(), results.end(), query.lastMatch.begin(), query.lastMatch.end(),
+					std::back_inserter(added));
+				std::set_difference(query.lastMatch.begin(), query.lastMatch.end(), results.begin(), results.end(),
+					std::back_inserter(removed));
+				if (added.empty() && removed.empty())
+					continue;
 
-		batch.Flush();
+				if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
+					std::stable_sort(added.begin(), added.end(), EntityDistanceOrdering(m_EntityData, cmpSourcePosition->GetPosition2D()));
 
-		// Start working in the main thread as well.
-		ProcessQueriesAsync();
-
-		for (Future<void>& future : futures)
-			future.Get();
+				// Safe because it's guaranteed that no two threads can write to the same index anyway.
+				messages[idx].emplace(
+					query.source.GetId(),
+					CMessageRangeUpdate(tag, std::move(added), std::move(removed))
+				);
+				query.lastMatch.swap(results);
+			}
+		});
 
 		CComponentManager& cmpMgr = GetSimContext().GetComponentManager();
 		for (const auto& msg : messages)
