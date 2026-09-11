@@ -59,6 +59,13 @@ static_assert(MAX_WORKERS + 1 == TaskManager::MAX_PARALLEL_PARTICIPANTS);
  */
 static size_t g_WorkerCountOverride = std::numeric_limits<size_t>::max();
 
+/**
+ * Force ParallelFor to run fully serially for determinism testing.
+ * When enabled, ParallelFor executes the entire range inline on the calling thread.
+ * Plain non-atomic bool with no synchronization — safe only when toggled from single-threaded test-setup context, not concurrent with in-flight ParallelFor.
+ */
+static bool g_ForceSerialForTesting = false;
+
 size_t GetDefaultNumberOfWorkers()
 {
 	// If an override has been set, use it (allowing 1 worker for determinism testing)
@@ -278,6 +285,11 @@ void TaskManager::SetWorkerCountOverride(size_t count)
 	g_WorkerCountOverride = count;
 }
 
+void TaskManager::SetForceSerialForTesting(bool force)
+{
+	g_ForceSerialForTesting = force;
+}
+
 void TaskManager::Impl::SetupWorkers(size_t numberOfWorkers)
 {
 	for (size_t i = 0; i < numberOfWorkers; ++i)
@@ -310,6 +322,13 @@ void TaskManager::ParallelFor(size_t n, size_t grainSize, const std::function<vo
 		return;
 	if (grainSize == 0)
 		grainSize = 1;
+
+	// Force serial execution for determinism testing: run inline on calling thread only.
+	if (g_ForceSerialForTesting)
+	{
+		body(0, n, 0);
+		return;
+	}
 
 	// Short region: run inline, zero queue traffic, zero atomics, zero wakes.
 	if (n <= grainSize)

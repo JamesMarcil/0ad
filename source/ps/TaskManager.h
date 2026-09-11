@@ -90,6 +90,17 @@ public:
 	static void SetWorkerCountOverride(size_t count);
 
 	/**
+	 * Force ParallelFor to run fully serially (single-threaded, no worker participation).
+	 * Can be called at any time; takes effect on subsequent ParallelFor calls.
+	 * Intended for test/debug use only. Safe only when toggled from single-threaded test-setup context,
+	 * not concurrently with in-flight ParallelFor calls.
+	 * When enabled, ParallelFor executes the entire range [0, n) as a single call body(0, n, 0)
+	 * on the calling thread, with zero queue traffic and no worker participation.
+	 * @param force true to enable serial execution, false to disable (default)
+	 */
+	static void SetForceSerialForTesting(bool force);
+
+	/**
 	 * @return the number of threaded workers.
 	 */
 	size_t GetNumberOfWorkers() const;

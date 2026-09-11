@@ -245,4 +245,118 @@ public:
 		// returns 0 when called synchronously from the main thread, which is the
 		// guaranteed invariant.
 	}
+
+	void test_ForceSerialForTesting_BasicExecution()
+	{
+		// Verify that SetForceSerialForTesting(true) runs ParallelFor fully serially.
+		Threading::TaskManager::SetForceSerialForTesting(true);
+
+		// Body should be called exactly once with the full range [0, n)
+		std::atomic<size_t> invocationCount = 0;
+		std::atomic<size_t> totalIndices = 0;
+
+		g_TaskManager.ParallelFor(100, 16, [&](size_t begin, size_t end, size_t workerIndex) {
+			invocationCount++;
+			for (size_t i = begin; i < end; ++i)
+				totalIndices++;
+		});
+
+		TS_ASSERT_EQUALS(invocationCount.load(), 1);
+		TS_ASSERT_EQUALS(totalIndices.load(), 100);
+
+		// Clean up: disable the flag for other tests
+		Threading::TaskManager::SetForceSerialForTesting(false);
+	}
+
+	void test_ForceSerialForTesting_WorkerIndexAlwaysZero()
+	{
+		// Verify that with SetForceSerialForTesting(true), workerIndex is always 0
+		Threading::TaskManager::SetForceSerialForTesting(true);
+
+		std::atomic<size_t> maxWorkerIndex = 0;
+		g_TaskManager.ParallelFor(50, 5, [&](size_t begin, size_t end, size_t workerIndex) {
+			TS_ASSERT_EQUALS(workerIndex, 0);
+			maxWorkerIndex = std::max(maxWorkerIndex.load(), workerIndex);
+		});
+
+		TS_ASSERT_EQUALS(maxWorkerIndex.load(), 0);
+
+		// Clean up
+		Threading::TaskManager::SetForceSerialForTesting(false);
+	}
+
+	void test_ForceSerialForTesting_GetCurrentWorkerIndexIsZero()
+	{
+		// Verify that GetCurrentWorkerIndex() returns 0 within forced serial ParallelFor
+		Threading::TaskManager::SetForceSerialForTesting(true);
+
+		std::atomic<size_t> observedWorkerIndex = std::numeric_limits<size_t>::max();
+		g_TaskManager.ParallelFor(30, 10, [&](size_t, size_t, size_t workerIndex) {
+			size_t currentIndex = Threading::TaskManager::GetCurrentWorkerIndex();
+			TS_ASSERT_EQUALS(currentIndex, 0);
+			TS_ASSERT_EQUALS(currentIndex, workerIndex);
+			observedWorkerIndex.store(currentIndex);
+		});
+
+		TS_ASSERT_EQUALS(observedWorkerIndex.load(), 0);
+
+		// Clean up
+		Threading::TaskManager::SetForceSerialForTesting(false);
+	}
+
+	void test_ForceSerialForTesting_NoWorkerParticipation()
+	{
+		// Verify that workers do not participate when serial testing is enabled
+		// by running with grain size 1 (maximal parallelism) but still seeing
+		// only one invocation with the full range
+		Threading::TaskManager::SetForceSerialForTesting(true);
+
+		std::atomic<size_t> invocationCount = 0;
+		const size_t testSize = 1000;
+
+		g_TaskManager.ParallelFor(testSize, 1, [&](size_t begin, size_t end, size_t workerIndex) {
+			invocationCount++;
+			TS_ASSERT_EQUALS(begin, 0);
+			TS_ASSERT_EQUALS(end, testSize);
+			TS_ASSERT_EQUALS(workerIndex, 0);
+		});
+
+		TS_ASSERT_EQUALS(invocationCount.load(), 1);
+
+		// Clean up
+		Threading::TaskManager::SetForceSerialForTesting(false);
+	}
+
+	void test_ForceSerialForTesting_ToggleWithoutLeaks()
+	{
+		// Verify that toggling the flag doesn't leak state to other tests
+		const size_t testSize = 50;
+
+		// Run with flag disabled (normal parallel mode)
+		std::atomic<size_t> normalInvocationCount = 0;
+		g_TaskManager.ParallelFor(testSize, 16, [&](size_t begin, size_t end, size_t) {
+			normalInvocationCount++;
+		});
+		size_t normalCount = normalInvocationCount.load();
+		// With 50 items and grain 16: chunks = (50+15)/16 = 4
+		// We should see at least 1 invocation (could be 1-5 depending on work stealing)
+		TS_ASSERT_LESS_THAN(0, normalCount);
+
+		// Now enable serial mode
+		Threading::TaskManager::SetForceSerialForTesting(true);
+		std::atomic<size_t> serialInvocationCount = 0;
+		g_TaskManager.ParallelFor(testSize, 16, [&](size_t begin, size_t end, size_t) {
+			serialInvocationCount++;
+		});
+		TS_ASSERT_EQUALS(serialInvocationCount.load(), 1);
+
+		// Disable serial mode again
+		Threading::TaskManager::SetForceSerialForTesting(false);
+		std::atomic<size_t> normalAgainInvocationCount = 0;
+		g_TaskManager.ParallelFor(testSize, 16, [&](size_t begin, size_t end, size_t) {
+			normalAgainInvocationCount++;
+		});
+		size_t normalAgainCount = normalAgainInvocationCount.load();
+		TS_ASSERT_LESS_THAN(0, normalAgainCount);
+	}
 };
